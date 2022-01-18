@@ -1,23 +1,16 @@
-# Unicorn Says Hello World
+# Netlify internal helpers for OneGraph
 
-Have you ever wished that a unicorn was saying hello world to you ?
 
 ## Install
 
 ```
-npm install unicorn-says-hello-world -S
+npm install netlify-onegraph-internal
 ```
 
 ## Example
 
 ```ts
-import { Unicorn } from "unicorn-says-hello-world";
-// OR in nodeJS ( commonJS module )
-const { Unicorn } = require("unicorn-says-hello-world");
+import { OneGraphClient } from "netlify-onegraph-internal";
 
-const myUnicorn = new Unicorn();
-
-console.log(myUnicorn.sayHelloTo("jason"));
+console.log(OneGraphClient);
 ```
-
-Enjoy !
