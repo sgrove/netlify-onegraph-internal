@@ -1,7 +1,7 @@
 {
-  "name": "unicorn-says-hello-world",
-  "version": "3.0.0",
-  "description": "A unicorn that says hello world",
+  "name": "netlify-onegraph-internal",
+  "version": "0.0.10",
+  "description": "Internal tools for use by Netlify",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -11,11 +11,16 @@
     "build": "tsc",
     "prepare": "npm run build"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Jaze23/unicorn-says-hello-world.git"
-  },
   "keywords": [],
-  "author": "Jaze23",
-  "license": "ISC"
+  "author": "sgrove",
+  "license": "MIT",
+  "dependencies": {
+    "graphql": "16.0.0",
+    "node-fetch": "^2.6.0",
+    "uuid": "^8.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^17.0.8",
+    "typescript": "4.4.4"
+  }
 }
