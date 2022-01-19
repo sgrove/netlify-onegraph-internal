@@ -87,7 +87,7 @@ export const munge = (name) => {
 
 export type NamedExportedFile = {
   kind: "NamedExportedFile";
-  name: string;
+  name: string[];
   content: string;
 };
 

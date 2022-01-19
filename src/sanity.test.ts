@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
+import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
 
@@ -54,7 +55,10 @@ const test = () => {
 
   exportedFiles?.forEach((exportedFile) => {
     const filename =
-      exportedFile.kind === "NamedExportedFile" ? exportedFile.name : "default";
+      exportedFile.kind === "NamedExportedFile"
+        ? path.join(...exportedFile.name)
+        : "default";
+
     console.log(
       `${filename}:
 `,

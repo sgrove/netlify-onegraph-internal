@@ -66,7 +66,7 @@ const generatePage = (opts: {
 
   return {
     kind: "NamedExportedFile",
-    name: "page.tsx",
+    name: ["pages", `${opts.operationData.displayName}Form.tsx`],
     content: `import Head from "next/head";
 import React, { useState } from "react";
 import OneGraphAuth from "onegraph-auth";
@@ -599,8 +599,6 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
       netlifyGraphConfig,
       ": NextApiRequest"
     )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
-  let secrets = await getSecrets(event);
-
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event(event);
 
   if (!payload) {
@@ -736,18 +734,21 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
       options.postHttpMethod === true ? "post" : "get"
     );
 
-    const passThroughResults = operationDataList
-      .filter((operationData) =>
-        ["query", "mutation", "subscription"].includes(operationData.type)
-      )
-      .map(
-        (
-          operationData
-        ) => `${operationData.name}Errors: ${operationData.name}Errors,
+    const passThroughResults =
+      operationDataList.length === 1
+        ? `errors: ${operationDataList[0].name}Errors,
+data: ${operationDataList[0].name}Data`
+        : operationDataList
+            .filter((operationData) =>
+              ["query", "mutation", "subscription"].includes(operationData.type)
+            )
+            .map(
+              (
+                operationData
+              ) => `${operationData.name}Errors: ${operationData.name}Errors,
 ${operationData.name}Data: ${operationData.name}Data`
-      )
-      .join(",\n");
-
+            )
+            .join(",\n");
     const clientSideCalls = clientSideInvocations(
       operationDataList,
       options.postHttpMethod === true ? "post" : "get",
