@@ -25,7 +25,11 @@ import {
 } from "./codegen/genericExporter";
 
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
-import { PersistedQuery } from "./oneGraphClient";
+import {
+  ExportedFile,
+  ExporterResult,
+  FrameworkGenerator,
+} from "./codegen/codegenHelpers";
 
 export type State = {
   set: (key: string, value?: any) => any;
@@ -55,6 +59,7 @@ export type NetlifyGraphConfig = {
   framework: string;
   extension: string;
   moduleType: "commonjs" | "esm";
+  language: "javascript" | "typescript";
 };
 
 export type ExtractedFunction = {
@@ -115,9 +120,10 @@ export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
   netlifyGraphRequirePath: ["./netlifyGraph"],
   framework: "custom",
   moduleType: "commonjs",
+  language: "javascript",
 };
 
-export const defaultExampleOperationsDoc = `query ExampleQuery @netlifyGraph(doc: "An example query to start with.") {
+export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An example query to start with.") {
   __typename
 }`;
 
@@ -776,8 +782,9 @@ export const extractFunctionsFromOperationDoc = (
   return Object.fromEntries(functionEntries);
 };
 
-const frameworkGeneratorMap = {
+const frameworkGeneratorMap: Record<string, FrameworkGenerator> = {
   "Next.js": nextjsFunctionSnippet.generate,
+  default: genericNetlifyFunctionSnippet.generate,
 };
 
 const defaultGenerator = genericNetlifyFunctionSnippet.generate;
@@ -799,7 +806,7 @@ export const generateHandlerSource = ({
   schema: GraphQLSchema;
 }):
   | {
-      source: string;
+      exportedFiles: ExportedFile[];
       operation: OperationDefinitionNode;
     }
   | undefined => {
@@ -823,12 +830,12 @@ export const generateHandlerSource = ({
   const generate =
     frameworkGeneratorMap[netlifyGraphConfig.framework] || defaultGenerator;
 
-  const source = generate({
+  const { exportedFiles } = generate({
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
     schema,
     options: handlerOptions,
   });
 
-  return { source, operation: fn.parsedOperation };
+  return { exportedFiles, operation: fn.parsedOperation };
 };

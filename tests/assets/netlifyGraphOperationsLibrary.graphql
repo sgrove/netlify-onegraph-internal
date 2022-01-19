@@ -1,4 +1,4 @@
-query ExampleQuery($package: String!) @netlifyGraph(id: "d86699fb-ddfc-4833-9d9a-f3497cb7c992", doc: "A test query to snapshot") {
+query ExampleQuery($package: String!) @netlify(id: "d86699fb-ddfc-4833-9d9a-f3497cb7c992", doc: "A test query to snapshot") {
   npm {
     package(name: $package) {
       id
@@ -10,7 +10,7 @@ query ExampleQuery($package: String!) @netlifyGraph(id: "d86699fb-ddfc-4833-9d9a
   }
 }
 
-query GitHubViewer($size: Int!) @netlifyGraph(id: "2b0c3674-06b0-4a84-b296-afa92c10dc6b", doc: "An example query to start with.") {
+query GitHubViewer($size: Int!) @netlify(id: "2b0c3674-06b0-4a84-b296-afa92c10dc6b", doc: "An example query to start with.") {
   gitHub {
     viewer {
       bio

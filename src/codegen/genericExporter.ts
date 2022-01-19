@@ -6,7 +6,12 @@ import {
   print,
 } from "graphql";
 
-import { munge } from "./codegenHelpers";
+import {
+  ExportedFile,
+  ExporterResult,
+  munge,
+  UnnamedExportedFile,
+} from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 
 let operationNodesMemo = [null, null];
@@ -437,11 +442,13 @@ ${variables}
   return invocations;
 };
 
-const subscriptionHandler = ({ netlifyGraphConfig, operationData }) => `${imp(
+const subscriptionHandler = ({
   netlifyGraphConfig,
-  "{ getSecrets }",
-  "@netlify/functions"
-)}
+  operationData,
+}): UnnamedExportedFile => {
+  return {
+    kind: "UnnamedExportedFile",
+    content: `${imp(netlifyGraphConfig, "{ getSecrets }", "@netlify/functions")}
 ${imp(
   netlifyGraphConfig,
   "NetlifyGraph",
@@ -463,8 +470,8 @@ ${exp(netlifyGraphConfig, "handler")} = async (event, context) => {
     };
   }
   const { errors: ${operationData.name}Errors, data: ${
-  operationData.name
-}Data } = payload;
+      operationData.name
+    }Data } = payload;
 
   if (${operationData.name}Errors) {
     console.error(${operationData.name}Errors);
@@ -496,7 +503,9 @@ ${exp(netlifyGraphConfig, "handler")} = async (event, context) => {
     },
   };
 };
-`;
+`,
+  };
+};
 
 const imp = (netlifyGraphConfig, name, packageName) => {
   if (netlifyGraphConfig.moduleType === "commonjs") {
@@ -520,7 +529,7 @@ export const netlifyFunctionSnippet = {
   codeMirrorMode: "javascript",
   name: "Netlify Function",
   options: snippetOptions,
-  generate: (opts) => {
+  generate: (opts): ExporterResult => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
@@ -552,7 +561,15 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
     );
 
     if (!firstOperation) {
-      return "// No operation found";
+      return {
+        language: "javascript",
+        exportedFiles: [
+          {
+            kind: "UnnamedExportedFile",
+            content: "// No operation found",
+          },
+        ],
+      };
     }
 
     const filename = `${firstOperation.name}.${netlifyGraphConfig.extension}`;
@@ -565,7 +582,10 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
         operationData: firstOperation,
       });
 
-      return result;
+      return {
+        language: "javascript",
+        exportedFiles: [result],
+      };
     }
 
     const fetcherInvocation = asyncFetcherInvocation(
@@ -635,9 +655,18 @@ ${addLeftWhitespace(passThroughResults, whitespace)}
 /**
 ${clientSideCalls}
 */
-
 `;
 
-    return collapseExtraNewlines(snippet);
+    const content = collapseExtraNewlines(snippet);
+
+    return {
+      language: "javascript",
+      exportedFiles: [
+        {
+          kind: "UnnamedExportedFile",
+          content: content,
+        },
+      ],
+    };
   },
 };

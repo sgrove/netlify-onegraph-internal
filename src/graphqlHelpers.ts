@@ -6,6 +6,7 @@ import {
   isListType,
   isNonNullType,
   isObjectType,
+  isScalarType,
   isUnionType,
   isWrappingType,
   parseType,
@@ -22,6 +23,8 @@ import {
   VariableDefinitionNode,
   GraphQLType,
 } from "graphql";
+
+import { OperationData } from "./codegen/codegenHelpers";
 
 export default function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -640,3 +643,177 @@ export function patchSubscriptionWebhookSecretField({
     selectionSet: { ...definition.selectionSet, selections: newSelections },
   };
 }
+
+const addLeftWhitespace = (string, padding) => {
+  const paddingString = " ".repeat(padding);
+
+  return string
+    .split("\n")
+    .map((line) => paddingString + line)
+    .join("\n");
+};
+
+export const formInput = (schema, def, path = []) => {
+  const name = def.variable.name.value;
+
+  function helper(path, type, subfield) {
+    const isList = isListType(type);
+
+    const namedType = getNamedType(type);
+    const isEnum = isEnumType(namedType);
+    const isObject = isInputObjectType(namedType);
+    const isScalar = isScalarType(namedType);
+
+    const subfieldName = subfield && subfield.name;
+    let subDataEl;
+
+    if (isList) {
+      return helper([...path, 0], namedType, undefined);
+    } else if (isObject) {
+      // $FlowFixMe: we check this with `isObject` already
+      const subFields = namedType.getFields();
+
+      if (!subFields) {
+        return "MISSING_SUBFIELDS";
+      }
+
+      const subFieldEls = Object.keys(subFields)
+        .map((fieldName) => {
+          const currentField = subFields[fieldName];
+
+          const subPath = [...path, fieldName];
+          const currentFieldInput = helper(
+            subPath,
+            currentField.type,
+            currentField
+          );
+
+          return currentFieldInput;
+        })
+        .join("\n");
+
+      return `<label>${def.variable.name.value}</label>
+  <fieldset>
+  ${addLeftWhitespace(subFieldEls, 2)}
+  </fieldset>`;
+    } else if (isScalar) {
+      let coerceFn;
+      let inputAttrs;
+
+      // $FlowFixMe: we check this with `isScalar` already
+      switch (namedType.name) {
+        case "String":
+          coerceFn = "(value) => value";
+          inputAttrs = [["type", "text"]];
+          break;
+        case "Float":
+          coerceFn =
+            "(value) => try {return parseFloat(value)} catch (e) { return 0.0 }";
+          inputAttrs = [
+            ["type", "number"],
+            ["step", "0.1"],
+          ];
+          break;
+        case "Int":
+          coerceFn =
+            "(value) => {try {return parseInt(value, 10)} catch (e) { return 0 }}";
+          inputAttrs = [["type", "number"]];
+          break;
+        case "Boolean":
+          coerceFn = '(value) => value === "true"';
+          inputAttrs = [["type", "text"]];
+          break;
+        default:
+          coerceFn = "(value) => value";
+          inputAttrs = [["type", "text"]];
+          break;
+      }
+
+      const updateFunction = `updateFormVariables(setFormVariables, ${JSON.stringify(
+        path
+      )}, ${coerceFn})`;
+      subDataEl = `<label htmlFor="${path.join("-")}">${
+        subfieldName || def.variable.name.value
+      }</label><input id="${path.join("-")}" ${inputAttrs
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(" ")} onChange={${updateFunction}} />`;
+    } else if (isEnum) {
+      const updateFunction = `updateFormVariables(setFormVariables, ${JSON.stringify(
+        path
+      )}, (value) => value)`;
+
+      const selectOptions = namedType
+        // $FlowFixMe: we check this with `isEnum` already
+        .getValues()
+        .map((gqlEnum) => {
+          const enumValue = gqlEnum.value;
+          const enumDescription = !!gqlEnum.description
+            ? `: ${gqlEnum.description}`
+            : "";
+          return `<option value="${enumValue}">${gqlEnum.name}${enumDescription}</option>`;
+        })
+        .join(" ");
+
+      subDataEl = `<label htmlFor="${path.join("-")}">${
+        def.variable.name.value
+      }</label><select id="${path.join(
+        "-"
+      )}" onChange={${updateFunction}}> ${selectOptions} </select>`;
+    } else {
+      return "UNKNOWN_GRAPHQL_TYPE_FOR_INPUT";
+    }
+
+    return subDataEl;
+  }
+
+  const hydratedType = typeFromAST(schema, def.type);
+  if (!hydratedType) {
+    console.warn("\tCould not hydrate type for ", def.type);
+    return null;
+  }
+  // const required = isNonNullType(hydratedType);
+
+  const formEl = helper([name], hydratedType, undefined);
+
+  return `${formEl}`;
+};
+
+export const formElComponent = ({
+  operationData,
+  schema,
+  callFn,
+}: {
+  operationData: OperationData;
+  schema: GraphQLSchema;
+  callFn: string;
+}): {
+  formHelpers: string;
+  formEl: string;
+} => {
+  if (!schema) {
+    return {
+      formHelpers:
+        "const [formVariables, setFormVariables] = React.useState({});",
+      formEl:
+        "<pre>You must pass in a schema to generate forms for your GraphQL operation</pre>",
+    };
+  }
+
+  const els = (operationData.operationDefinition.variableDefinitions || []).map(
+    (def) => {
+      const genInput = formInput(schema, def, []);
+
+      const input =
+        genInput || `UNABLE_TO_GENERATE_FORM_INPUT_FOR_GRAPHQL_TYPE(${def})`;
+      return `${input}`;
+    }
+  );
+
+  return {
+    formHelpers: `const [formVariables, setFormVariables] = React.useState({});`,
+    formEl: `<form onSubmit={event => { event.preventDefault(); ${callFn} }}>
+  ${addLeftWhitespace(els.join("\n"), 2)}
+    <input type="submit" />
+  </form>`,
+  };
+};

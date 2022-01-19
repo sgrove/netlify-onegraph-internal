@@ -1,3 +1,10 @@
+import {
+  FragmentDefinitionNode,
+  GraphQLSchema,
+  OperationDefinitionNode,
+} from "graphql";
+import { NetlifyGraphConfig } from "../netlifyGraph";
+
 /**
  * Keywords in both Javascript and TypeScript
  */
@@ -76,4 +83,60 @@ export const munge = (name) => {
     return `_${name}`;
   }
   return name;
+};
+
+export type NamedExportedFile = {
+  kind: "NamedExportedFile";
+  name: string;
+  content: string;
+};
+
+export type UnnamedExportedFile = {
+  kind: "UnnamedExportedFile";
+  content: string;
+};
+
+export type ExportedFile = NamedExportedFile | UnnamedExportedFile;
+
+export type ExporterResult = {
+  exportedFiles: ExportedFile[];
+  language: string;
+};
+
+export type FrameworkGenerator = (opts: {
+  operationDataList: OperationData[];
+  netlifyGraphConfig: NetlifyGraphConfig;
+  options: Record<string, boolean>;
+  schema: GraphQLSchema;
+}) => ExporterResult;
+
+export type SnippetOption = {
+  id: string;
+  label: string;
+  initial: boolean;
+};
+
+export type SnippetGeneratorWithMeta = {
+  language: string;
+  codeMirrorMode: string;
+  name: string;
+  options: SnippetOption[];
+  generate: FrameworkGenerator;
+};
+
+export type OperationDataList = {
+  operationDefinitions: (OperationDefinitionNode | FragmentDefinitionNode)[];
+  fragmentDefinitions: FragmentDefinitionNode[];
+  operationDataList: OperationData[];
+  rawOperationDataList: OperationData[];
+};
+
+export type OperationData = {
+  query: string;
+  name: string;
+  displayName: string;
+  type: string;
+  variables: { [key: string]: string };
+  operationDefinition: OperationDefinitionNode | FragmentDefinitionNode;
+  fragmentDependencies: FragmentDefinitionNode[];
 };

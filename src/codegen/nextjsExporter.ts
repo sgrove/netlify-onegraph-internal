@@ -1,5 +1,6 @@
 import {
   FragmentDefinitionNode,
+  GraphQLSchema,
   Kind,
   OperationDefinitionNode,
   parse,
@@ -7,10 +8,146 @@ import {
 } from "graphql";
 import { NetlifyGraphConfig } from "../netlifyGraph";
 
-import { munge } from "./codegenHelpers";
+import {
+  ExportedFile,
+  munge,
+  NamedExportedFile,
+  OperationData,
+  OperationDataList,
+  SnippetGeneratorWithMeta,
+  UnnamedExportedFile,
+} from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
+import { formElComponent } from "../graphqlHelpers";
 
 let operationNodesMemo = [null, null];
+
+const formUpdateHandler = `const updateFormVariables = (setFormVariables, path, coerce) => {
+  const setIn = (object, path, value) => {
+    if (path.length === 1) {
+      if (value === null) {
+        delete object[path[0]];
+      } else {
+        object[path[0]] = value;
+      }
+    } else {
+      if ([undefined, null].indexOf(object[path[0]]) > -1) {
+        object[path[0]] = typeof path[1] === "number" ?  [] : {};
+      }
+      setIn(object[path[0]], path.slice(1), value);
+    }
+    return object;
+  };
+
+  const formInputHandler = (event) => {
+    // We parse the form input, coerce it to the correct type, and then update the form variables
+    const rawValue = event.target.value;
+    // We take a blank input to mean \`null\`
+    const value = rawValue === "" ? null : rawValue;
+    setFormVariables((oldFormVariables) => {
+      const newValue = setIn(oldFormVariables, path, coerce(value));
+      return { ...newValue };
+    });
+  };
+
+  return formInputHandler;
+};`;
+
+const generatePage = (opts: {
+  operationData: OperationData;
+  schema: GraphQLSchema;
+  route: string;
+}): NamedExportedFile => {
+  const form = formElComponent({
+    operationData: opts.operationData,
+    schema: opts.schema,
+    callFn: "submitForm()",
+  });
+
+  return {
+    kind: "NamedExportedFile",
+    name: "page.tsx",
+    content: `import Head from "next/head";
+import React, { useState } from "react";
+import OneGraphAuth from "onegraph-auth";
+
+export default function Form(props) {
+  const isServer = typeof window === "undefined";
+  ${form.formHelpers}
+  const [result, setResult] = useState(null);
+  const [auth, setAuth] = useState(
+    isServer
+      ? null
+      : new OneGraphAuth({
+          appId: props.siteId,
+        })
+  );
+
+  const submitForm = async () => {
+    const res = await fetch("${opts.route}", {
+      body: JSON.stringify(formVariables),
+      headers: {
+        "Content-Type": "application/json",
+        ...auth?.authHeaders()
+      },
+      method: "POST"
+    });
+
+    const formResult = await res.json();
+    setResult(formResult);
+  };
+
+  const needsLoginService = auth?.findMissingAuthServices(result)[0];
+
+  return (
+    <div className="container">
+      <Head>
+        <title>${opts.operationData.displayName} form</title>
+      </Head>
+      <main>
+        <h1>{props.title}</h1>
+${addLeftWhitespace(form.formEl, 8)}
+        {needsLoginService ? (
+          <button
+          onClick={async () => {
+            await auth.login(needsLoginService);
+            const loginSuccess = await auth.isLoggedIn(needsLoginService);
+            if (loginSuccess) {
+              console.log("Successfully logged into " + needsLoginService);
+              submitForm();
+            } else {
+              console.log("The user did not grant auth to " + needsLoginService);
+            }
+          }}
+        >
+          {\`Log in to \${needsLoginService}\`}
+        </button>) 
+        : null}
+        <pre>{JSON.stringify(formVariables, null, 2)}</pre>
+        <pre>{JSON.stringify(result, null, 2)}</pre>
+      </main>
+    </div>
+  )
+}
+
+export async function getServerSideProps(context) {
+  const siteId = process.env.SITE_ID;
+  if (!siteId) {
+    throw new Error("SITE_ID environment variable is not set. Be sure to run \`netlify link\` before \`netlify dev\`");
+  }
+
+  return {
+    props: {
+      title: "${opts.operationData.displayName} form",
+      siteId: siteId
+    }
+  }
+}
+
+${formUpdateHandler}
+`,
+  };
+};
 
 const getOperationNodes = (query) => {
   if (operationNodesMemo[0] === query && operationNodesMemo[1]) {
@@ -153,28 +290,21 @@ const toposort = (graph) => {
   return result;
 };
 
-type OperationData = {
-  query: string;
-  name: string;
-  displayName: string;
-  type: string;
-  variables: { [key: string]: string };
-  operationDefinition: OperationDefinitionNode;
-  fragmentDependencies: FragmentDefinitionNode[];
-};
-
-export const computeOperationDataList = ({ query, variables }) => {
+export const computeOperationDataList = ({
+  query,
+  variables,
+}): OperationDataList => {
   const operationDefinitions = getOperationNodes(query);
 
   const fragmentDefinitions: FragmentDefinitionNode[] = [];
 
   operationDefinitions.forEach((operationDefinition) => {
-    if (operationDefinition.kind === "FragmentDefinition") {
+    if (operationDefinition.kind === Kind.FRAGMENT_DEFINITION) {
       fragmentDefinitions.push(operationDefinition);
     }
   });
 
-  const rawOperationDataList = operationDefinitions.map(
+  const rawOperationDataList: OperationData[] = operationDefinitions.map(
     (operationDefinition) => ({
       query: print(operationDefinition),
       name: getOperationName(operationDefinition),
@@ -182,7 +312,7 @@ export const computeOperationDataList = ({ query, variables }) => {
       type:
         operationDefinition.kind === Kind.OPERATION_DEFINITION
           ? operationDefinition.operation
-          : "fragment",
+          : Kind.FRAGMENT_DEFINITION,
       variableName: formatVariableName(getOperationName(operationDefinition)),
       variables: getUsedVariables(variables, operationDefinition),
       operationDefinition,
@@ -203,7 +333,7 @@ export const computeOperationDataList = ({ query, variables }) => {
   };
 };
 
-const capitalizeFirstLetter = (string) =>
+const capitalizeFirstLetter = (string: string) =>
   string.charAt(0).toUpperCase() + string.slice(1);
 
 const unnamedSymbols = new Set(["query", "mutation", "subscription"]);
@@ -445,7 +575,7 @@ ${variables}
 };
 
 const ts = (netlifyGraphConfig: NetlifyGraphConfig, string: string) =>
-  netlifyGraphConfig.extension === "ts" ? string : "";
+  netlifyGraphConfig.language === "typescript" ? string : "";
 
 const subscriptionHandler = ({
   netlifyGraphConfig,
@@ -453,20 +583,22 @@ const subscriptionHandler = ({
 }: {
   netlifyGraphConfig: NetlifyGraphConfig;
   operationData: OperationData;
-}) => {
-  `${ts(
-    netlifyGraphConfig,
-    'import type { NextApiRequest, NextApiResponse } from "next";\n'
-  )}${imp(
-    netlifyGraphConfig,
-    "NetlifyGraph",
-    netlifyGraphConfig.netlifyGraphRequirePath
-  )};
+}): ExportedFile => {
+  return {
+    kind: "UnnamedExportedFile",
+    content: `${ts(
+      netlifyGraphConfig,
+      'import type { NextApiRequest, NextApiResponse } from "next";\n'
+    )}${imp(
+      netlifyGraphConfig,
+      "NetlifyGraph",
+      netlifyGraphConfig.netlifyGraphRequirePath
+    )};
 
 ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
-    netlifyGraphConfig,
-    ": NextApiRequest"
-  )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
+      netlifyGraphConfig,
+      ": NextApiRequest"
+    )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
   let secrets = await getSecrets(event);
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event(event);
@@ -479,8 +611,8 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
   }
 
   const { errors: ${operationData.name}Errors, data: ${
-    operationData.name
-  }Data } = payload;
+      operationData.name
+    }Data } = payload;
 
   if (${operationData.name}Errors) {
     console.error(${operationData.name}Errors);
@@ -502,7 +634,8 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
     successfullyProcessedIncomingWebhook: true,
   })
 };
-`;
+`,
+  };
 };
 
 const imp = (
@@ -534,16 +667,12 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const nextjsFunctionSnippet = {
+export const nextjsFunctionSnippet: SnippetGeneratorWithMeta = {
   language: "JavaScript",
   codeMirrorMode: "javascript",
   name: "Next.js Function",
   options: snippetOptions,
-  generate: (opts: {
-    operationDataList: OperationData[];
-    netlifyGraphConfig: NetlifyGraphConfig;
-    options: Record<string, boolean>;
-  }) => {
+  generate: (opts) => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
@@ -575,7 +704,15 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
     );
 
     if (!firstOperation) {
-      return "// No operation found";
+      return {
+        language: "javascript",
+        exportedFiles: [
+          {
+            kind: "UnnamedExportedFile",
+            content: "// No operation found",
+          },
+        ],
+      };
     }
 
     const filename = `${firstOperation.name}.${netlifyGraphConfig.extension}`;
@@ -588,7 +725,10 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
         operationData: firstOperation,
       });
 
-      return result;
+      return {
+        language: netlifyGraphConfig.language,
+        exportedFiles: [result],
+      };
     }
 
     const fetcherInvocation = asyncFetcherInvocation(
@@ -634,7 +774,7 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
   let accessToken = null;
 
   //// If you want to use the client's accessToken when making API calls on the user's behalf:
-  // accessToken = event.headers["authorization"]?.split(" ")[1]
+  // accessToken = req.headers["authorization"]?.split(" ")[1];
 
   //// If you want to use the API with your own access token:
   // accessToken = process.env.ONEGRAPH_AUTHLIFY_TOKEN;
@@ -655,16 +795,27 @@ ${expDefault(netlifyGraphConfig, "handler")};
 
 /** 
  * Client-side invocations:
- * Call your Netlify function from the browser (after saving
- * the code to \`${netlifyGraphConfig.functionsPath.join(
-   "/"
- )}/${filename}\`) with these helpers:
+ * Call your Netlify function from the browser with this helper:
  */
 
 /**
 ${clientSideCalls}
 */`;
 
-    return collapseExtraNewlines(snippet);
+    const page: NamedExportedFile = generatePage({
+      operationData: firstOperation,
+      schema: opts.schema,
+      route: `/api/${firstOperation.displayName}`,
+    });
+
+    const api: UnnamedExportedFile = {
+      kind: "UnnamedExportedFile",
+      content: collapseExtraNewlines(snippet),
+    };
+
+    return {
+      language: "javascript",
+      exportedFiles: [api, page],
+    };
   },
 };

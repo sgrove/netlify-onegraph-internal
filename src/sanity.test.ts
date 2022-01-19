@@ -1,7 +1,7 @@
-import { readFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
 
-import { NetlifyGraph } from "../src/index";
+import { NetlifyGraph } from "./index";
 
 const test = () => {
   const sourceGraphQLFilename =
@@ -32,10 +32,10 @@ const test = () => {
     netlifyGraphRequirePath: ["..", "..", "lib", "netlifyGraph"],
     extension: "ts",
     moduleType: "esm",
-    language: "javascript",
+    language: "typescript",
   };
 
-  const { exportedFiles } = NetlifyGraph.generateHandlerSource({
+  const result = NetlifyGraph.generateHandlerSource({
     handlerOptions: {
       postHttpMethod: true,
       useClientAuth: true,
@@ -46,5 +46,22 @@ const test = () => {
     schema,
   });
 
-  console.log(exportedFiles?.map((file) => file.content));
+  if (!result) {
+    throw new Error("result is undefined");
+  }
+
+  const { exportedFiles } = result;
+
+  exportedFiles?.forEach((exportedFile) => {
+    const filename =
+      exportedFile.kind === "NamedExportedFile" ? exportedFile.name : "default";
+    console.log(
+      `${filename}:
+`,
+      exportedFile.content
+    );
+    writeFileSync(`/tmp/${filename}.ts`, exportedFile.content);
+  });
 };
+
+test();
