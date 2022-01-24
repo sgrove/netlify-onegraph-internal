@@ -368,7 +368,7 @@ const snippetOptions = [
 const operationFunctionName = (operationData) => {
   const { type } = operationData;
 
-  let prefix = "unknow";
+  let prefix = "unknown";
   switch (type) {
     case "query":
       prefix = "fetch";
@@ -481,18 +481,15 @@ const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
 
 ${requiredVariableCount > 0 ? variableValidation : ""}
 
-  const { errors: ${namedOperationData.name}Errors, data: ${
-        namedOperationData.name
-      }Data } =
-    await NetlifyGraph.${operationFunctionName(
-      namedOperationData
-    )}({ ${invocationParams.join(", ")} }, accessToken);
+  const { errors, data } = await NetlifyGraph.${operationFunctionName(
+    namedOperationData
+  )}({ ${invocationParams.join(", ")} }, accessToken);
 
-  if (${namedOperationData.name}Errors) {
-    console.error(JSON.stringify(${namedOperationData.name}Errors, null, 2));
+  if (errors) {
+    console.error(JSON.stringify(errors, null, 2));
   }
 
-  console.log(JSON.stringify(${namedOperationData.name}Data, null, 2));`;
+  console.log(JSON.stringify(data, null, 2));`;
     })
     .join("\n\n");
 
@@ -599,24 +596,27 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
       netlifyGraphConfig,
       ": NextApiRequest"
     )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
-  const payload = NetlifyGraph.parseAndVerify${operationData.name}Event(event);
+  const reqBody = await extractBody(req);
+
+  const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
+    headers: req.headers,
+    body: reqBody,
+  });
 
   if (!payload) {
     return res.status(422).json({
       success: false,
       error: 'Unable to verify payload signature',
-    })
+    });
   }
 
-  const { errors: ${operationData.name}Errors, data: ${
-      operationData.name
-    }Data } = payload;
+  const { errors, data } = payload;
 
-  if (${operationData.name}Errors) {
-    console.error(${operationData.name}Errors);
+  if (errors) {
+    console.error(errors);
   }
 
-  console.log(${operationData.name}Data);
+  console.log(data);
 
   res.setHeader("Content-Type", "application/json");
 
@@ -630,7 +630,39 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
 
   return res.status(200).json({
     successfullyProcessedIncomingWebhook: true,
-  })
+  });
+};
+
+${expDefault(netlifyGraphConfig, "handler")};
+
+export const config = {
+  api: {
+    // We manually parse the body of the request in order to verify
+    // that it's signed by Netlify before processing the event.
+    bodyParser: false,
+  },
+};
+
+const extractBody = (req${ts(netlifyGraphConfig, ": NextApiRequest")})${ts(
+      netlifyGraphConfig,
+      ": Promise<string>"
+    )} => {
+  let body = [];
+  const promise${ts(
+    netlifyGraphConfig,
+    ": Promise<string>"
+  )} = new Promise((resolve, reject) => {
+    req
+      .on("data", (chunk) => {
+        body.push(chunk);
+      })
+      .on("end", () => {
+        const fullBody = Buffer.concat(body).toString();
+        resolve(fullBody);
+      });
+  });
+
+  return promise;
 };
 `,
   };
@@ -736,17 +768,14 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
 
     const passThroughResults =
       operationDataList.length === 1
-        ? `errors: ${operationDataList[0].name}Errors,
-data: ${operationDataList[0].name}Data`
+        ? `errors, data`
         : operationDataList
             .filter((operationData) =>
               ["query", "mutation", "subscription"].includes(operationData.type)
             )
             .map(
-              (
-                operationData
-              ) => `${operationData.name}Errors: ${operationData.name}Errors,
-${operationData.name}Data: ${operationData.name}Data`
+              (_operationData) => `errors,
+data`
             )
             .join(",\n");
     const clientSideCalls = clientSideInvocations(
@@ -787,7 +816,6 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
   res.setHeader("Content-Type", "application/json");
 
   return res.status(200).json({
-    success: true,
 ${addLeftWhitespace(passThroughResults, whitespace)}
   });
 };

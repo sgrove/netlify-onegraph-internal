@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
 
-import { NetlifyGraph } from "../src/index";
+import { NetlifyGraph } from "./index";
 
 const test = () => {
   const sourceGraphQLFilename =
@@ -12,9 +12,6 @@ const test = () => {
   const schemaGraphQLFile = readFileSync(schemaGraphQLFilename, "utf8");
 
   const schema = buildASTSchema(parse(schemaGraphQLFile));
-  const parsedDoc = parse(sourceGraphQLFile);
-
-  const functions = NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
@@ -32,10 +29,12 @@ const test = () => {
     netlifyGraphRequirePath: ["..", "..", "lib", "netlifyGraph"],
     extension: "ts",
     moduleType: "esm",
-    language: "javascript",
+    language: "typescript",
   };
 
-  const { exportedFiles } = NetlifyGraph.generateHandlerSource({
+  console.log("config: ", netlifyGraphConfig);
+
+  const result = NetlifyGraph.generateHandlerSource({
     handlerOptions: {
       postHttpMethod: true,
       useClientAuth: true,
@@ -46,5 +45,18 @@ const test = () => {
     schema,
   });
 
-  console.log(exportedFiles?.map((file) => file.content));
+  if (typeof result === "undefined") {
+    console.error("No generated next.js code");
+  }
+
+  // @ts-ignore
+  const { exportedFiles } = result;
+
+  console.log("exportedFiles", exportedFiles);
+
+  exportedFiles?.forEach((element) => {
+    console.log(element.name?.join("/"), element.content);
+  });
 };
+
+test();

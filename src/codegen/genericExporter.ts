@@ -10,6 +10,7 @@ import {
   ExportedFile,
   ExporterResult,
   munge,
+  SnippetGeneratorWithMeta,
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
@@ -524,7 +525,7 @@ const exp = (netlifyGraphConfig, name) => {
 };
 
 // Snippet generation!
-export const netlifyFunctionSnippet = {
+export const netlifyFunctionSnippet: SnippetGeneratorWithMeta = {
   language: "JavaScript",
   codeMirrorMode: "javascript",
   name: "Netlify Function",
