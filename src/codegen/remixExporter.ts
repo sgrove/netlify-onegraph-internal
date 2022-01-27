@@ -18,7 +18,7 @@ import {
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
-import { formElComponent } from "../graphqlHelpers";
+import { remixFormInput } from "../graphqlHelpers";
 
 let operationNodesMemo = [null, null];
 
@@ -53,7 +53,53 @@ const formUpdateHandler = `const updateFormVariables = (setFormVariables, path, 
   return formInputHandler;
 };`;
 
-const generatePage = (opts: {
+export const formElComponent = ({
+  operationData,
+  schema,
+  callFn,
+}: {
+  operationData: OperationData;
+  schema: GraphQLSchema;
+  callFn: string;
+}): {
+  formHelpers: string;
+  formEl: string;
+} => {
+  if (!schema) {
+    return {
+      formHelpers:
+        "const [formVariables, setFormVariables] = React.useState({});",
+      formEl:
+        "<pre>You must pass in a schema to generate forms for your GraphQL operation</pre>",
+    };
+  }
+
+  const els = (operationData.operationDefinition.variableDefinitions || []).map(
+    (def) => {
+      const genInput = remixFormInput(schema, def, []);
+
+      const input =
+        genInput || `UNABLE_TO_GENERATE_FORM_INPUT_FOR_GRAPHQL_TYPE(${def})`;
+      return `<p>${input}</p>`;
+    }
+  );
+
+  return {
+    formHelpers: `const [formVariables, setFormVariables] = React.useState({});`,
+    formEl: `${addLeftWhitespace(els.join("\n"), 2)}
+  <p>
+    <button type="submit">
+      {transition.submission
+        ? "Submitting..."
+        : "Run ${operationData.displayName}"}
+    </button>
+  </p>
+`,
+  };
+};
+
+const generateRoute = (opts: {
+  netlifyGraphConfig: NetlifyGraphConfig;
   operationData: OperationData;
   schema: GraphQLSchema;
   route: string;
@@ -64,87 +110,67 @@ const generatePage = (opts: {
     callFn: "submitForm()",
   });
 
-  return {
-    kind: "NamedExportedFile",
-    name: ["pages", `${opts.operationData.displayName}Form.tsx`],
-    content: `import Head from "next/head";
-import React, { useState } from "react";
-import OneGraphAuth from "onegraph-auth";
+  const { netlifyGraphConfig } = opts;
 
-export default function Form(props) {
-  const isServer = typeof window === "undefined";
-  ${form.formHelpers}
-  const [result, setResult] = useState(null);
-  const [auth, setAuth] = useState(
-    isServer
-      ? null
-      : new OneGraphAuth({
-          appId: props.siteId,
-        })
+  const fetcherInvocation = asyncFetcherInvocation(
+    opts.netlifyGraphConfig,
+    [opts.operationData],
+    "get"
   );
 
-  const submitForm = async () => {
-    const res = await fetch("${opts.route}", {
-      body: JSON.stringify(formVariables),
-      headers: {
-        "Content-Type": "application/json",
-        ...auth?.authHeaders()
-      },
-      method: "POST"
-    });
+  return {
+    kind: "NamedExportedFile",
+    name: [
+      "app",
+      "routes",
+      `${opts.operationData.displayName}.${
+        opts.netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
+      }`,
+    ],
+    content: `import { json, Form, useActionData, useTransition } from "remix";
+import type { ActionFunction } from "remix";
+import NetlifyGraph from "${netlifyGraphConfig.netlifyGraphRequirePath}";${ts(
+      netlifyGraphConfig,
+      `
+import invariant from "tiny-invariant";`
+    )}
 
-    const formResult = await res.json();
-    setResult(formResult);
-  };
+${exp(netlifyGraphConfig, "action")}${ts(
+      netlifyGraphConfig,
+      ": ActionFunction"
+    )} = async ({ request }) => {
+const formData = await request.formData();
 
-  const needsLoginService = auth?.findMissingAuthServices(result)[0];
+// By default, all API calls use no authentication
+let accessToken;
+
+//// If you want to use the API with your own access token:
+// accessToken = process.env.ONEGRAPH_AUTHLIFY_TOKEN;
+
+${fetcherInvocation}
+
+return json({ data, errors });
+};
+
+export default function handler() {
+  const results = useActionData();
+  const transition = useTransition();
+
+  const errors = results?.errors;
+  const data${ts(
+    netlifyGraphConfig,
+    `: NetlifyGraph.${capitalizeFirstLetter(opts.operationData.name)}["data"]`
+  )} = results?.data;
+
 
   return (
-    <div className="container">
-      <Head>
-        <title>${opts.operationData.displayName} form</title>
-      </Head>
-      <main>
-        <h1>{props.title}</h1>
-${addLeftWhitespace(form.formEl, 8)}
-        {needsLoginService ? (
-          <button
-          onClick={async () => {
-            await auth.login(needsLoginService);
-            const loginSuccess = await auth.isLoggedIn(needsLoginService);
-            if (loginSuccess) {
-              console.log("Successfully logged into " + needsLoginService);
-              submitForm();
-            } else {
-              console.log("The user did not grant auth to " + needsLoginService);
-            }
-          }}
-        >
-          {\`Log in to \${needsLoginService}\`}
-        </button>) 
-        : null}
-        <pre>{JSON.stringify(formVariables, null, 2)}</pre>
-        <pre>{JSON.stringify(result, null, 2)}</pre>
-      </main>
-    </div>
-  )
+    <Form method="post">
+     ${form.formEl}
+     {errors ? (<pre className="error">{JSON.stringify(errors, null, 2)}</pre>) : null}
+     {data ? (<pre>{JSON.stringify(data, null, 2)}</pre>) : null}
+    </Form>
+  );
 }
-
-export async function getServerSideProps(context) {
-  const siteId = process.env.SITE_ID;
-  if (!siteId) {
-    throw new Error("SITE_ID environment variable is not set. Be sure to run \`netlify link\` before \`netlify dev\`");
-  }
-
-  return {
-    props: {
-      title: "${opts.operationData.displayName} form",
-      siteId: siteId
-    }
-  }
-}
-
-${formUpdateHandler}
 `,
   };
 };
@@ -409,7 +435,11 @@ const coercerFor = (type, name) => {
   }
 };
 
-const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
+const asyncFetcherInvocation = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  operationDataList,
+  pluckerStyle
+) => {
   const invocations = operationDataList
     .filter((operationData) =>
       ["query", "mutation", "subscription"].includes(operationData.type)
@@ -428,8 +458,19 @@ const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
           namedOperationData?.operationDefinition?.variableDefinitions
             ?.map((def) => {
               const name = def.variable.name.value;
-              const withCoercer = coercerFor(def.type, `req.query?.${name}`);
-              return `const ${munge(name)} = ${withCoercer};`;
+              const withCoercer = coercerFor(
+                def.type,
+                `${munge(name)}FormValue`
+              );
+              return `const ${munge(
+                name
+              )}FormValue = formData.get("${name}");${ts(
+                netlifyGraphConfig,
+                `
+invariant(typeof ${munge(name)}FormValue === "string");`
+              )}
+const ${munge(name)} = ${withCoercer};
+`;
             })
             .join("\n  ") || "",
         post:
@@ -547,7 +588,7 @@ ${variables}
         useClientAuth ? "oneGraphAuth, " : ""
       }params) {
   const {${params.join(", ")}} = params || {};
-  const resp = await fetch(\`/api/${namedOperationData.name}${
+  const resp = await fetch(\`/${namedOperationData.name}${
         pluckerStyle === "get"
           ? `?${params.map((param) => `${param}=\${${param}}`).join("&")}`
           : ""
@@ -585,32 +626,39 @@ const subscriptionHandler = ({
   operationData: OperationData;
 }): ExportedFile => {
   return {
-    kind: "UnnamedExportedFile",
-    content: `${ts(
+    kind: "NamedExportedFile",
+    name: [
+      "app",
+      "routes",
+      "webhooks",
+      `${operationData.displayName}.${
+        netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
+      }`,
+    ],
+    content: `import { ${ts(
       netlifyGraphConfig,
-      'import type { NextApiRequest, NextApiResponse } from "next";\n'
-    )}${imp(
-      netlifyGraphConfig,
-      "NetlifyGraph",
-      netlifyGraphConfig.netlifyGraphRequirePath
-    )};
+      "ActionFunction, "
+    )}json } from "remix";
+import NetlifyGraph from "../${netlifyGraphConfig.netlifyGraphRequirePath}";
 
-${exp(netlifyGraphConfig, "handler")} = async (req${ts(
+${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
-      ": NextApiRequest"
-    )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
-  const reqBody = await extractBody(req);
+      ": ActionFunction"
+    )} = async ({ request }) => {
+  const reqBody = await request.text();
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
-    headers: req.headers,
     body: reqBody,
+    headers: {
+      'x-onegraph-signature': request.headers.get('x-onegraph-signature')
+    },
   });
 
   if (!payload) {
-    return res.status(422).json({
+    return json({
       success: false,
       error: 'Unable to verify payload signature',
-    });
+    }, { status: 422 });
   }
 
   const { errors, data } = payload;
@@ -621,51 +669,17 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
 
   console.log(data);
 
-  res.setHeader("Content-Type", "application/json");
-
   /**
    * If you want to unsubscribe from this webhook
    * in order to stop receiving new events,
    * simply return status 410, e.g.:
    * 
-   * return res.status(410).json({});
+   * return json({}, { status: 410 });
    */
 
-  return res.status(200).json({
+  return json({
     successfullyProcessedIncomingWebhook: true,
   });
-};
-
-${expDefault(netlifyGraphConfig, "handler")};
-
-export const config = {
-  api: {
-    // We manually parse the body of the request in order to verify
-    // that it's signed by Netlify before processing the event.
-    bodyParser: false,
-  },
-};
-
-const extractBody = (req${ts(netlifyGraphConfig, ": NextApiRequest")})${ts(
-      netlifyGraphConfig,
-      ": Promise<string>"
-    )} => {
-  let body = [];
-  const promise${ts(
-    netlifyGraphConfig,
-    ": Promise<string>"
-  )} = new Promise((resolve, reject) => {
-    req
-      .on("data", (chunk) => {
-        body.push(chunk);
-      })
-      .on("end", () => {
-        const fullBody = Buffer.concat(body).toString();
-        resolve(fullBody);
-      });
-  });
-
-  return promise;
 };
 `,
   };
@@ -700,10 +714,10 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const nextjsFunctionSnippet: SnippetGeneratorWithMeta = {
+export const remixFunctionSnippet: SnippetGeneratorWithMeta = {
   language: "JavaScript",
   codeMirrorMode: "javascript",
-  name: "Next.js Function",
+  name: "Remix Function",
   options: snippetOptions,
   generate: (opts) => {
     const { netlifyGraphConfig, options } = opts;
@@ -764,11 +778,6 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
       };
     }
 
-    const fetcherInvocation = asyncFetcherInvocation(
-      operationDataList,
-      options.postHttpMethod === true ? "post" : "get"
-    );
-
     const passThroughResults =
       operationDataList.length === 1
         ? `errors, data`
@@ -799,32 +808,6 @@ ${imp(
   netlifyGraphConfig.netlifyGraphRequirePath
 )};
 
-${exp(netlifyGraphConfig, "handler")} = async (req${ts(
-      netlifyGraphConfig,
-      ": NextApiRequest"
-    )}, res${ts(netlifyGraphConfig, ": NextApiResponse")}) => {
-  // By default, all API calls use no authentication
-  let accessToken = null;
-
-  //// If you want to use the client's accessToken when making API calls on the user's behalf:
-  // accessToken = req.headers["authorization"]?.split(" ")[1];
-
-  //// If you want to use the API with your own access token:
-  // accessToken = process.env.ONEGRAPH_AUTHLIFY_TOKEN;
-      
-  const eventBodyJson = req.body || {};
-
-  ${fetcherInvocation}
-
-  res.setHeader("Content-Type", "application/json");
-
-  return res.status(200).json({
-${addLeftWhitespace(passThroughResults, whitespace)}
-  });
-};
-
-${expDefault(netlifyGraphConfig, "handler")};
-
 /** 
  * Client-side invocations:
  * Call your Netlify function from the browser with this helper:
@@ -834,20 +817,16 @@ ${expDefault(netlifyGraphConfig, "handler")};
 ${clientSideCalls}
 */`;
 
-    const page: NamedExportedFile = generatePage({
+    const route: NamedExportedFile = generateRoute({
+      netlifyGraphConfig: netlifyGraphConfig,
       operationData: firstOperation,
       schema: opts.schema,
-      route: `/api/${firstOperation.displayName}`,
+      route: `/${firstOperation.displayName}`,
     });
-
-    const api: UnnamedExportedFile = {
-      kind: "UnnamedExportedFile",
-      content: collapseExtraNewlines(snippet),
-    };
 
     return {
       language: "javascript",
-      exportedFiles: [api, page],
+      exportedFiles: [route],
     };
   },
 };

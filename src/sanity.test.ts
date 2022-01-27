@@ -20,6 +20,7 @@ const test = () => {
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
     framework: "Next.js",
+    webhookBasePath: "/api",
     functionsPath: ["pages", "api"],
     graphQLOperationsSourceFilename: [
       "..",

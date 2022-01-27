@@ -443,8 +443,6 @@ export function typeScriptSignatureForOperation(
     fragmentDefinitions
   );
 
-  let name = operationDefinition.name?.value || "unknown";
-
   return `${types}`;
 }
 
@@ -759,6 +757,123 @@ export const formInput = (schema, def, path = []) => {
       }</label><select id="${path.join(
         "-"
       )}" onChange={${updateFunction}}> ${selectOptions} </select>`;
+    } else {
+      return "UNKNOWN_GRAPHQL_TYPE_FOR_INPUT";
+    }
+
+    return subDataEl;
+  }
+
+  const hydratedType = typeFromAST(schema, def.type);
+  if (!hydratedType) {
+    console.warn("\tCould not hydrate type for ", def.type);
+    return null;
+  }
+  // const required = isNonNullType(hydratedType);
+
+  const formEl = helper([name], hydratedType, undefined);
+
+  return `${formEl}`;
+};
+
+export const remixFormInput = (schema, def, path = []) => {
+  const name = def.variable.name.value;
+
+  function helper(path, type, subfield) {
+    const isList = isListType(type);
+
+    const namedType = getNamedType(type);
+    const isEnum = isEnumType(namedType);
+    const isObject = isInputObjectType(namedType);
+    const isScalar = isScalarType(namedType);
+
+    const subfieldName = subfield && subfield.name;
+    let subDataEl;
+
+    if (isList) {
+      return helper([...path, 0], namedType, undefined);
+    } else if (isObject) {
+      // $FlowFixMe: we check this with `isObject` already
+      const subFields = namedType.getFields();
+
+      if (!subFields) {
+        return "MISSING_SUBFIELDS";
+      }
+
+      const subFieldEls = Object.keys(subFields)
+        .map((fieldName) => {
+          const currentField = subFields[fieldName];
+
+          const subPath = [...path, fieldName];
+          const currentFieldInput = helper(
+            subPath,
+            currentField.type,
+            currentField
+          );
+
+          return currentFieldInput;
+        })
+        .join("\n");
+
+      return `<label>${def.variable.name.value}</label>
+  <fieldset>
+  ${addLeftWhitespace(subFieldEls, 2)}
+  </fieldset>`;
+    } else if (isScalar) {
+      let coerceFn;
+      let inputAttrs;
+
+      switch (namedType.name) {
+        case "String":
+          coerceFn = "(value) => value";
+          inputAttrs = [["type", "text"]];
+          break;
+        case "Float":
+          coerceFn =
+            "(value) => try {return parseFloat(value)} catch (e) { return 0.0 }";
+          inputAttrs = [
+            ["type", "number"],
+            ["step", "0.1"],
+          ];
+          break;
+        case "Int":
+          coerceFn =
+            "(value) => {try {return parseInt(value, 10)} catch (e) { return 0 }}";
+          inputAttrs = [["type", "number"]];
+          break;
+        case "Boolean":
+          coerceFn = '(value) => value === "true"';
+          inputAttrs = [["type", "text"]];
+          break;
+        default:
+          coerceFn = "(value) => value";
+          inputAttrs = [["type", "text"]];
+          break;
+      }
+      subDataEl = `<label htmlFor="${path.join("-")}">${
+        subfieldName || def.variable.name.value
+      }</label><input id="${path.join("-")}" name="${path.join(
+        "-"
+      )}" ${inputAttrs
+        .map(([key, value]) => `${key}="${value}"`)
+        .join(" ")} />`;
+    } else if (isEnum) {
+      const selectOptions = namedType
+        .getValues()
+        .map((gqlEnum) => {
+          const enumValue = gqlEnum.value;
+          const enumDescription = !!gqlEnum.description
+            ? `: ${gqlEnum.description}`
+            : "";
+          return `<option value="${enumValue}">${gqlEnum.name}${enumDescription}</option>`;
+        })
+        .join(" ");
+
+      subDataEl = `<label htmlFor="${path.join("-")}">${
+        def.variable.name.value
+      }</label><select id="${path.join("-")}" name="${path.join(
+        "-"
+      )}"> ${selectOptions} </select>`;
     } else {
       return "UNKNOWN_GRAPHQL_TYPE_FOR_INPUT";
     }

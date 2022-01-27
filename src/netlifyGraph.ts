@@ -25,6 +25,7 @@ import {
 } from "./codegen/genericExporter";
 
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
+import { remixFunctionSnippet } from "./codegen/remixExporter";
 import {
   ExportedFile,
   ExporterResult,
@@ -50,6 +51,7 @@ const replaceAll = (target, search, replace) => {
 
 export type NetlifyGraphConfig = {
   functionsPath: string[];
+  webhookBasePath: string;
   netlifyGraphImplementationFilename: string[];
   netlifyGraphTypeDefinitionsFilename: string[];
   graphQLOperationsSourceFilename: string[];
@@ -93,6 +95,7 @@ export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
   extension: "js",
   functionsPath: ["netlify", "functions"],
   netlifyGraphPath: ["netlify", "functions", "netlifyGraph"],
+  webhookBasePath: "/.netlify/functions",
   netlifyGraphImplementationFilename: [
     "netlify",
     "functions",
@@ -235,6 +238,8 @@ const fetchOneGraph = async function fetchOneGraph(
 }
 `;
 
+const subscriptionParserReturnName = (fn) => `${fn.operationName}Event`;
+
 const subscriptionParserName = (fn) => `parseAndVerify${fn.operationName}Event`;
 
 const subscriptionFunctionName = (fn) => `subscribeTo${fn.operationName}`;
@@ -294,6 +299,10 @@ export function ${subscriptionFunctionName(fn)}(
   accessToken?: string | null
   ) : void
 
+export type ${subscriptionParserReturnName(
+    fn
+  )} = ${parsingFunctionReturnSignature}
+
 /**
  * Verify the ${
    fn.operationName
@@ -301,12 +310,19 @@ export function ${subscriptionFunctionName(fn)}(
  */
 export function ${subscriptionParserName(
     fn
-  )} (/** A Netlify Handler Event */ event) : null | ${parsingFunctionReturnSignature}
+  )} (/** A Netlify Handler Event */ event : WebhookEvent) : null | ${subscriptionParserReturnName(
+    fn
+  )}
 `;
 };
 
 // TODO: Handle fragments
-export const generateSubscriptionFunction = (schema, fn, fragments) => {
+export const generateSubscriptionFunction = (
+  schema,
+  fn,
+  fragments,
+  netlifyGraphConfig: NetlifyGraphConfig
+) => {
   const patchedWithWebhookUrl = patchSubscriptionWebhookField({
     schema,
     definition: fn.parsedOperation,
@@ -333,7 +349,9 @@ export const generateSubscriptionFunction = (schema, fn, fragments) => {
   variables,
   accessToken,
   ) => {
-    const netlifyGraphWebhookUrl = \`\${process.env.DEPLOY_URL}/.netlify/functions/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`
+    const netlifyGraphWebhookUrl = \`\${process.env.DEPLOY_URL}${
+      netlifyGraphConfig.webhookBasePath
+    }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`
     const secret = process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
     const fullVariables = {...variables, netlifyGraphWebhookUrl: netlifyGraphWebhookUrl, netlifyGraphWebhookSecret: { hmacSha256Key: secret }}
 
@@ -370,7 +388,7 @@ const makeFunctionName = (kind, operationName) => {
     return `execute${capitalizeFirstLetter(operationName)} `;
   }
 
-  return capitalizeFirstLetter(operationName);
+  return capitalizeFirstLetter(operationName).trim();
 };
 
 export const queryToFunctionDefinition = (
@@ -476,7 +494,12 @@ export const generateJavaScriptClient = (
   const functionDecls = enabledFunctions.map((fn) => {
     if (fn.kind === "subscription") {
       const fragments = [];
-      return generateSubscriptionFunction(schema, fn, fragments);
+      return generateSubscriptionFunction(
+        schema,
+        fn,
+        fragments,
+        netlifyGraphConfig
+      );
     }
 
     const dynamicFunction = `${exp(netlifyGraphConfig, fn.fnName)} = (
@@ -660,18 +683,26 @@ export const generateTypeScriptDefinitions = (
       .split("\n")
       .join("\n* ");
 
-    return `/**
+    const returnSignatureName = capitalizeFirstLetter(fn.operationName);
+
+    return `export type ${returnSignatureName} = ${fn.returnSignature};
+
+/**
  * ${jsDoc}
  */
 export function ${fn.fnName}(
   variables: ${fn.variableSignature},
   accessToken?: string
-): Promise<
-  ${fn.returnSignature}
->;`;
+): Promise<${returnSignatureName}>;`;
   });
 
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+
+export type WebhookEvent = {
+  body: string;
+  headers: Record<string, string | null | undefined>;
+};
+
 ${functionDecls.join("\n\n")}
 `;
 
@@ -784,6 +815,7 @@ export const extractFunctionsFromOperationDoc = (
 
 const frameworkGeneratorMap: Record<string, FrameworkGenerator> = {
   "Next.js": nextjsFunctionSnippet.generate,
+  Remix: remixFunctionSnippet.generate,
   default: genericNetlifyFunctionSnippet.generate,
 };
 
