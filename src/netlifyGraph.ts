@@ -633,7 +633,7 @@ ${generatedOneGraphClient()}
 ${exp(netlifyGraphConfig, "verifyRequestSignature")} = (request) => {
   const event = request.event
   const secret = process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
-  const signature = event.headers['x-onegraph-signature']
+  const signature = event.headers['x-netlify-graph-signature']
   const body = event.body
 
   if (!secret) {

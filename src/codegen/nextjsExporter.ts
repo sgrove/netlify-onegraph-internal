@@ -69,7 +69,7 @@ const generatePage = (opts: {
     name: ["pages", `${opts.operationData.displayName}Form.tsx`],
     content: `import Head from "next/head";
 import React, { useState } from "react";
-import OneGraphAuth from "onegraph-auth";
+import NetlifyGraphAuth from "netlify-graph-auth";
 
 export default function Form(props) {
   const isServer = typeof window === "undefined";
@@ -78,7 +78,7 @@ export default function Form(props) {
   const [auth, setAuth] = useState(
     isServer
       ? null
-      : new OneGraphAuth({
+      : new NetlifyGraphAuth({
           appId: props.siteId,
         })
   );
@@ -536,7 +536,7 @@ ${variables}
 
       const clientAuth = useClientAuth
         ? `,
-    ...oneGraphAuth?.authHeaders()`
+    ...netlifyGraphAuth?.authHeaders()`
         : "";
 
       const headers = `headers: {
@@ -544,7 +544,7 @@ ${variables}
     },`;
 
       return `async function ${operationFunctionName(namedOperationData)}(${
-        useClientAuth ? "oneGraphAuth, " : ""
+        useClientAuth ? "netlifyGraphAuth, " : ""
       }params) {
   const {${params.join(", ")}} = params || {};
   const resp = await fetch(\`/api/${namedOperationData.name}${

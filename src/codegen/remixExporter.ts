@@ -650,7 +650,7 @@ ${exp(netlifyGraphConfig, "action")}${ts(
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
     body: reqBody,
     headers: {
-      'x-onegraph-signature': request.headers.get('x-onegraph-signature')
+      'x-netlify-graph-signature': request.headers.get('x-netlify-graph-signature')
     },
   });
 
