@@ -408,12 +408,12 @@ ${variables}
       const clientAuth = useClientAuth
         ? `,
       headers: {
-        ...oneGraphAuth?.authHeaders()
+        ...netlifyGraphAuth?.authHeaders()
       }`
         : "";
 
       return `async function ${operationFunctionName(namedOperationData)}(${
-        useClientAuth ? "oneGraphAuth, " : ""
+        useClientAuth ? "netlifyGraphAuth, " : ""
       }params) {
   const {${params.join(", ")}} = params || {};
   const resp = await fetch(\`/.netlify/functions/${namedOperationData.name}${
@@ -629,7 +629,7 @@ ${exp(netlifyGraphConfig, "handler")} = async (event, context) => {
   // accessToken = event.headers["authorization"]?.split(" ")[1]
 
   //// If you want to use the API with your own access token:
-  // accessToken = (await getSecrets(event))?.oneGraph?.bearerToken;
+  // accessToken = event.authlifyToken
       
   const eventBodyJson = JSON.parse(event.body || "{}");
 

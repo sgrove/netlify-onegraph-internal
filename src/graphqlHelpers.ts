@@ -1,5 +1,10 @@
 import {
   getNamedType,
+  GraphQLInterfaceType,
+  GraphQLList,
+  GraphQLObjectType,
+  GraphQLScalarType,
+  GraphQLUnionType,
   isEnumType,
   isInputObjectType,
   isInterfaceType,
@@ -7,10 +12,11 @@ import {
   isNonNullType,
   isObjectType,
   isScalarType,
-  isUnionType,
   isWrappingType,
+  Kind,
   parseType,
   print,
+  SelectionSetNode,
   typeFromAST,
   TypeInfo,
   visit,
@@ -23,12 +29,67 @@ import {
   VariableDefinitionNode,
   GraphQLType,
 } from "graphql";
+import { Maybe } from "graphql/jsutils/Maybe";
 
 import { OperationData } from "./codegen/codegenHelpers";
 
 export default function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
+
+type OutEnum = {
+  kind: "enum";
+  description?: Maybe<string>;
+  values: string[];
+};
+
+type OutSelection = Record<string, OutSelectionFieldValue>;
+
+type OutSelectionFieldValue = {
+  kind: "selection_field";
+  name: string;
+  type: OutType;
+  description?: Maybe<string>;
+};
+
+type OutInlineFragment = {
+  kind: "inlineFragment";
+  typeCondition: string;
+  selections: OutSelection;
+};
+
+type OutObject = {
+  kind: "object";
+  description?: Maybe<string>;
+  namedFragments: string[];
+  inlineFragments: OutInlineFragment[];
+  selections: OutSelection;
+};
+
+type OutArray = {
+  kind: "array";
+  description?: Maybe<string>;
+  type: OutType;
+};
+
+type OutScalar = {
+  kind: "scalar";
+  description?: Maybe<string>;
+  type: string;
+};
+
+type OutType = OutEnum | OutObject | OutArray | OutScalar;
+
+const scalarMap: Record<string, OutType> = {
+  String: { kind: "scalar", type: "string" },
+  ID: { kind: "scalar", type: "string" },
+  Int: { kind: "scalar", type: "number" },
+  Float: { kind: "scalar", type: "number" },
+  Boolean: { kind: "scalar", type: "boolean" },
+  GitHubGitObjectID: { kind: "scalar", type: "string" },
+  GitHubURI: { kind: "scalar", type: "string" },
+  // JSON: "JSON",
+};
 
 export function gatherAllReferencedTypes(
   schema: GraphQLSchema,
@@ -51,6 +112,14 @@ export function gatherAllReferencedTypes(
 
   const result = Array.from(types);
   return result;
+}
+
+function unwrapOutputType(outputType: GraphQLType): GraphQLType {
+  let unwrappedType = outputType;
+  while (isWrappingType(unwrappedType)) {
+    unwrappedType = unwrappedType.ofType;
+  }
+  return unwrappedType;
 }
 
 export function gatherVariableDefinitions(
@@ -76,6 +145,8 @@ export function typeScriptForGraphQLType(
     Int: "number",
     Float: "number",
     Boolean: "boolean",
+    GitHubURI: "string",
+    GitHubTimestamp: "string",
   };
 
   if (isListType(gqlType)) {
@@ -95,7 +166,11 @@ export function typeScriptForGraphQLType(
       return `${description}"${field.name}"${nullable ? "?" : ""}: ${type}`;
     });
 
-    return `{${fields.join(", ")}}`;
+    if (fields.length > 0) {
+      return `{${fields.join("; ")}}`;
+    } else {
+      return "Record<string, unknown> /* typeScriptForGraphQLType */";
+    }
   } else if (isWrappingType(gqlType)) {
     return typeScriptForGraphQLType(schema, gqlType.ofType);
   } else if (isEnumType(gqlType)) {
@@ -106,8 +181,7 @@ export function typeScriptForGraphQLType(
     return enums.join(" | ");
   } else {
     let namedType = getNamedType(gqlType);
-    // @ts-ignore metaprogramming
-    let basicType = scalarMap[namedType?.name] || "any";
+    let basicType = scalarMap[namedType?.name] || "unknown";
 
     return basicType;
   }
@@ -153,7 +227,7 @@ export function typeScriptSignatureForOperationVariables(
 
   let typeFields = typesObject
     .map(([name, tsType]) => `"${name}": ${tsType}`)
-    .join(", ");
+    .join("; ");
 
   let types = `{${typeFields}}`;
 
@@ -185,146 +259,268 @@ export function listCount(gqlType) {
   return listCount;
 }
 
+const unknownScalar: OutScalar = { kind: "scalar", type: "unknown" };
+
 export function typeScriptDefinitionObjectForOperation(
   schema: GraphQLSchema,
-  operationDefinition: OperationDefinitionNode,
-  fragmentDefinitions: Array<FragmentDefinitionNode>,
+  operationDefinition: OperationDefinitionNode | FragmentDefinitionNode,
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>,
   shouldLog = true
-) {
-  let scalarMap = {
-    String: "string",
-    ID: "string",
-    Int: "number",
-    Float: "number",
-    Boolean: "boolean",
-    GitHubGitObjectID: "string",
-    // JSON: "JSON",
+): OutObject {
+  const dummyOut: OutObject = {
+    kind: "object",
+    namedFragments: [],
+    inlineFragments: [],
+    selections: {
+      data: {
+        kind: "selection_field",
+        name: "data",
+        description:
+          "Any data retrieved by the function will be returned here [Placeholder]",
+        type: {
+          kind: "scalar",
+          type: "Record<string, unknown>",
+        },
+      },
+      errors: {
+        kind: "selection_field",
+        name: "errors",
+        description:
+          "Any errors in the function will be returned here [Placeholder]",
+        type: {
+          kind: "array",
+          type: {
+            kind: "scalar",
+            type: "GraphQLError",
+          },
+        },
+      },
+    },
   };
 
-  //@ts-ignore
-  let helper = (parentGqlType, selection) => {
-    if (!parentGqlType) {
+  const objectHelper = (
+    type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
+    selectionSet: SelectionSetNode
+  ): OutObject | undefined => {
+    let inlineFragments: OutInlineFragment[] = [];
+    let namedFragments: string[] = [];
+    let selections: OutSelection = {};
+
+    selectionSet.selections.forEach((selection) => {
+      if (selection.kind === Kind.FRAGMENT_SPREAD) {
+        const fragmentName = selection.name.value;
+        const definedFragment = fragmentDefinitions[fragmentName];
+
+        if (definedFragment) {
+          namedFragments.push(fragmentName);
+        }
+      } else if (selection.kind === Kind.INLINE_FRAGMENT) {
+        const typeCondition = selection.typeCondition;
+        if (!typeCondition) {
+          return;
+        }
+
+        const typeConditionName = typeCondition.name.value;
+
+        const fragmentGqlType = typeFromAST(schema, typeCondition);
+
+        if (!fragmentGqlType || !isObjectType(fragmentGqlType)) {
+          return;
+        }
+
+        const fragmentSelectionAsObject: OutObject | undefined = objectHelper(
+          fragmentGqlType,
+          selection.selectionSet
+        );
+
+        if (!fragmentSelectionAsObject) {
+          return;
+        }
+
+        const fragmentSelections = fragmentSelectionAsObject.selections;
+
+        const inlineFragment: OutInlineFragment = {
+          kind: "inlineFragment",
+          typeCondition: typeConditionName,
+          selections: fragmentSelections,
+        };
+
+        inlineFragments.push(inlineFragment);
+      } else if (selection.kind === Kind.FIELD) {
+        let parentNamedType = getNamedType(type);
+
+        let alias = selection.alias?.value;
+        let name = selection.name.value;
+        let displayedName = alias || name;
+
+        if (name.startsWith("__")) {
+          return {
+            kind: "object",
+            namedFragments: [],
+            inlineFragments: [],
+            selections: {
+              displayedName: {
+                kind: "scalar",
+                description: "Internal GraphQL field",
+                type: "unknown",
+              },
+            },
+          };
+        }
+
+        let field =
+          (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
+          parentNamedType.getFields()[name];
+
+        if (!field) {
+          console.warn(
+            "Could not find field",
+            name,
+            "in",
+            // @ts-ignore
+            Object.keys(parentNamedType.getFields())
+          );
+          return;
+        }
+
+        let gqlType = field.type;
+        let namedType = getNamedType(gqlType);
+
+        const subSelectionSet = selection.selectionSet;
+
+        if (isWrappingType(gqlType)) {
+          const value = helper(
+            gqlType,
+            subSelectionSet || {
+              kind: Kind.SELECTION_SET,
+              selections: [],
+            }
+          );
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              description: field.description,
+              type: value,
+            };
+          }
+        } else if (isScalarType(namedType)) {
+          const scalar = scalarHelper(namedType);
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            description: field.description,
+            type: scalar,
+          };
+        } else if (isEnumType(namedType)) {
+          const dummySelectionSet: SelectionSetNode = {
+            kind: Kind.SELECTION_SET,
+            selections: [],
+          };
+
+          const value = helper(gqlType, dummySelectionSet);
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              description: field.description,
+              type: value,
+            };
+          }
+        } else if (subSelectionSet) {
+          const value = helper(gqlType, selection.selectionSet);
+
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              description: field.description,
+              type: value,
+            };
+          }
+        }
+      } else {
+        console.warn("objectHelper got a non-field selection", selection);
+      }
+    });
+
+    const final: OutObject = {
+      kind: "object",
+      namedFragments,
+      inlineFragments,
+      selections,
+    };
+
+    return final;
+  };
+
+  const arrayHelper = (
+    type: GraphQLList<any>,
+    selectionSet: SelectionSetNode
+  ): OutArray | undefined => {
+    const parentType = isListType(type) && type.ofType;
+
+    if (!parentType) {
       return;
     }
 
-    let parentNamedType =
-      //@ts-ignore
-      getNamedType(parentGqlType) || getNamedType(parentGqlType.type);
+    const subType = helper(parentType, selectionSet);
 
-    let alias = selection.alias?.value;
-
-    let name = selection?.name?.value;
-    let displayedName = alias || name;
-
-    //@ts-ignore
-    let field = parentNamedType.getFields()[name];
-    let gqlType = field?.type;
-    if (name.startsWith("__")) {
-      return [
-        displayedName,
-        { type: "any", description: "Internal GraphQL field" },
-      ];
+    if (!subType) {
+      return;
     }
 
-    let namedType = getNamedType(gqlType);
-    let isNullable = !isNonNullType(gqlType);
+    const final: OutArray = {
+      kind: "array",
+      type: subType,
+    };
 
-    let isList =
-      isListType(gqlType) || (!isNullable && isListType(gqlType.ofType));
-
-    let isObjectLike =
-      isObjectType(namedType) ||
-      isUnionType(namedType) ||
-      isInterfaceType(namedType);
-
-    let sub = selection.selectionSet?.selections
-      //@ts-ignore
-      .map(function innerHelper(selection) {
-        if (selection.kind === "Field") {
-          return helper(namedType, selection);
-        } else if (selection.kind === "InlineFragment") {
-          const fragmentGqlType = typeFromAST(schema, selection.typeCondition);
-
-          if (!fragmentGqlType) {
-            return null;
-          }
-
-          const fragmentSelections = selection.selectionSet.selections.map(
-            //@ts-ignore
-            (subSelection) => {
-              let subSel = helper(fragmentGqlType, subSelection);
-              return subSel;
-            }
-          );
-
-          return fragmentSelections;
-        } else if (selection.kind === "FragmentSpread") {
-          const fragmentName = [selection.name.value];
-          //@ts-ignore
-          const fragment = fragmentDefinitions[fragmentName];
-
-          if (fragment) {
-            const fragmentGqlType = typeFromAST(schema, fragment.typeCondition);
-            if (!fragmentGqlType) {
-              return null;
-            }
-
-            const fragmentSelections =
-              fragment.selectionSet.selections.map(innerHelper);
-
-            return fragmentSelections;
-          }
-        }
-
-        return null;
-      })
-      .filter(Boolean)
-      //@ts-ignore
-      .reduce((acc, next) => {
-        if (Array.isArray(next[0])) {
-          return acc.concat(next);
-        } else {
-          return [...acc, next];
-        }
-      }, []);
-
-    let nestingLevel = isList ? listCount(gqlType) : 0;
-
-    let isEnum = isEnumType(namedType);
-
-    let basicType = isEnum
-      ? //@ts-ignore
-        new Set(namedType.getValues().map((gqlEnum) => gqlEnum.value))
-      : //@ts-ignore
-        scalarMap[namedType?.name || "any"];
-
-    let returnType;
-    if (isObjectLike) {
-      returnType = !!sub ? Object.fromEntries(sub) : null;
-    } else if (basicType) {
-      returnType = basicType;
-    } else {
-      returnType = "any";
-    }
-
-    if (returnType) {
-      let finalType = returnType;
-      for (var i = 0; i < nestingLevel; i++) {
-        finalType = [finalType];
-      }
-      const entry = [
-        displayedName,
-        { type: finalType, description: field?.description },
-      ];
-      return entry;
-    }
-
-    //@ts-ignore
-    console.warn("No returnType!", basicType, namedType.name, selection);
+    return final;
   };
 
-  let baseGqlType =
-    operationDefinition.kind === "OperationDefinition"
+  const scalarHelper = (parentGqlType: GraphQLScalarType) => {
+    let scalarType = parentGqlType;
+    let scalarName = scalarType.name;
+    let scalar = scalarMap[scalarName];
+    if (!scalar) {
+      scalar = unknownScalar;
+    }
+
+    return scalar;
+  };
+
+  let helper = (
+    parentGqlType: GraphQLType,
+    selectionSet: SelectionSetNode
+  ): OutType | undefined => {
+    if (isListType(parentGqlType)) {
+      return arrayHelper(parentGqlType, selectionSet);
+    } else if (isWrappingType(parentGqlType) && isNonNullType(parentGqlType)) {
+      return helper(parentGqlType.ofType, selectionSet);
+    } else if (isObjectType(parentGqlType)) {
+      return objectHelper(parentGqlType, selectionSet);
+    } else if (isInterfaceType(parentGqlType)) {
+      return objectHelper(parentGqlType, selectionSet);
+    } else if (isScalarType(parentGqlType)) {
+      return scalarHelper(parentGqlType);
+    } else if (isEnumType(parentGqlType)) {
+      let values = parentGqlType
+        .getValues()
+        .map((enumValue) => `"${enumValue.value}"`);
+
+      const outEnum: OutEnum = {
+        kind: "enum",
+        values: values,
+      };
+
+      return outEnum;
+    } else {
+      console.warn("Unrecognized type in operation", parentGqlType);
+    }
+  };
+
+  let baseGqlType = (
+    operationDefinition.kind === Kind.OPERATION_DEFINITION
       ? operationDefinition.operation === "query"
         ? schema.getQueryType()
         : operationDefinition.operation === "mutation"
@@ -332,50 +528,130 @@ export function typeScriptDefinitionObjectForOperation(
         : operationDefinition.operation === "subscription"
         ? schema.getSubscriptionType()
         : null
-      : operationDefinition.kind === "FragmentDefinition"
-      ? //@ts-ignore
-        schema.getType(operationDefinition.typeCondition.name.value)
-      : null;
+      : operationDefinition.kind === Kind.FRAGMENT_DEFINITION
+      ? schema.getType(operationDefinition.typeCondition.name.value)
+      : null
+  ) as GraphQLType | null;
 
-  let selections = operationDefinition.selectionSet?.selections;
+  let selections = operationDefinition.selectionSet;
 
-  let sub = selections?.map((selection) => {
-    return helper(baseGqlType, selection);
-  });
+  let sub: OutType | undefined;
 
-  if (!!sub) {
-    //@ts-ignore
-    const object = Object.fromEntries(sub);
-    const result = {
-      data: {
-        type: object,
-        description: "Any data retrieved by the function will be returned here",
-      },
-      errors: {
-        type: ["any"],
-        description: "Any errors in the function will be returned here",
+  if (baseGqlType) {
+    sub = helper(baseGqlType, selections);
+  } else {
+    return dummyOut;
+  }
+
+  if (sub && sub.kind === "object") {
+    const result: OutObject = {
+      kind: "object",
+      namedFragments: [],
+      inlineFragments: [],
+      selections: {
+        data: {
+          kind: "selection_field",
+          name: "data",
+          description: "Any data from the function will be returned here",
+          type: sub,
+        },
+        errors: {
+          kind: "selection_field",
+          name: "errors",
+          description: "Any errors from the function will be returned here",
+          type: {
+            kind: "array",
+            type: {
+              kind: "scalar",
+              type: "GraphQLError",
+            },
+          },
+        },
       },
     };
+
     return result;
   } else {
-    return {
-      data: {
-        //@ts-ignore
-        type: "any",
-        description: "Any data retrieved by the function will be returned here",
-      },
-      errors: {
-        type: ["any"],
-        description: "Any errors in the function will be returned here",
-      },
-    };
+    return dummyOut;
   }
 }
 
-export function typeScriptForOperation(
+const printObject = (obj: OutObject): string => {
+  const fieldSelections = obj.selections;
+
+  const fieldSelectionCount = Object.keys(obj.selections).length;
+
+  const fields = Object.values(fieldSelections)
+    .map((fieldSelection) => {
+      const fields = printOut(fieldSelection.type);
+      const value = fields;
+      const description = !!fieldSelection.description
+        ? `/**
+  * ${fieldSelection.description}
+  */
+`
+        : "";
+
+      return `${description}${fieldSelection.name}: ${value};`;
+    })
+    .join("\n  ");
+
+  let value;
+
+  if (
+    fieldSelectionCount === 0 &&
+    obj.namedFragments.length === 0 &&
+    obj.inlineFragments.length === 0
+  ) {
+    value =
+      "/** No fields, named fragments, or inline fragments found */ Record<string, unknown>";
+  } else if (
+    obj.namedFragments.length === 0 &&
+    obj.inlineFragments.length === 0
+  ) {
+    value = `{
+  ${fields}
+}`;
+  } else if (fieldSelectionCount === 0) {
+    console.debug("No fields, joining named fragments", obj);
+    value = obj.namedFragments.join(" & ");
+  } else {
+    console.debug("Fields and named fragments", obj);
+    const subFields =
+      fieldSelectionCount > 0
+        ? `& {
+  ${fields}
+}`
+        : "";
+    value = `${obj.namedFragments.join(" & ")} ${subFields}`;
+  }
+
+  return value;
+};
+
+const printArray = (out: OutArray): string => {
+  const value = printOut(out.type);
+  return `Array<${value}>`;
+};
+
+const printOut = (out: OutType): string => {
+  if (out.kind === "scalar") {
+    return out.type;
+  } else if (out.kind === "object") {
+    return printObject(out);
+  } else if (out.kind === "array") {
+    return printArray(out);
+  } else if (out.kind === "enum") {
+    return out.values.join(" | ");
+  }
+
+  return "whoops";
+};
+
+export function typeScriptSignatureForOperation(
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode,
-  fragmentDefinitions: Array<FragmentDefinitionNode>
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>
 ) {
   let typeMap = typeScriptDefinitionObjectForOperation(
     schema,
@@ -383,67 +659,283 @@ export function typeScriptForOperation(
     fragmentDefinitions
   );
 
-  let valueHelper = (
-    value: { type: string } | { type: Array<string> } | { type: Set<string> }
-  ): string | Array<string> | undefined => {
-    if (value?.type && typeof value.type === "string") {
-      return value.type;
-    } else if (Array.isArray(value.type)) {
-      let subType = valueHelper({ type: value.type[0] });
-      return `Array<${subType}>`;
-    } else if (value.type instanceof Set) {
-      //@ts-ignore
-      const enums = Array.from(value.type.values())
-        .map((value) => `"${value}"`)
-        .join(" | ");
+  const typeScript = printObject(typeMap);
 
-      return enums;
-    } else if (typeof value.type === "object") {
-      let fields = objectHelper(value.type);
-      return `{
-        ${fields.join(", ")}
-    }`;
+  return typeScript;
+}
+
+export function typeScriptDefinitionObjectForFragment(
+  schema: GraphQLSchema,
+  fragmentDefinition: FragmentDefinitionNode,
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>,
+  shouldLog = true
+) {
+  const dummyOut: OutScalar = {
+    kind: "scalar",
+    type: "Record<string, unknown>",
+    description: "Fragment data unavailable when generating types",
+  };
+
+  const objectHelper = (
+    type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
+    selectionSet: SelectionSetNode
+  ): OutObject | undefined => {
+    let inlineFragments: OutInlineFragment[] = [];
+    let namedFragments: string[] = [];
+    let selections: OutSelection = {};
+
+    selectionSet.selections.forEach((selection) => {
+      if (selection.kind === Kind.FRAGMENT_SPREAD) {
+        const fragmentName = selection.name.value;
+        const definedFragment = fragmentDefinitions[fragmentName];
+
+        if (definedFragment) {
+          namedFragments.push(fragmentName);
+        }
+      } else if (selection.kind === Kind.INLINE_FRAGMENT) {
+        const typeCondition = selection.typeCondition;
+        if (!typeCondition) {
+          return;
+        }
+
+        const typeConditionName = typeCondition.name.value;
+
+        const fragmentGqlType = typeFromAST(schema, typeCondition);
+
+        if (!fragmentGqlType || !isObjectType(fragmentGqlType)) {
+          return;
+        }
+
+        const fragmentSelectionAsObject: OutObject | undefined = objectHelper(
+          fragmentGqlType,
+          selection.selectionSet
+        );
+
+        if (!fragmentSelectionAsObject) {
+          return;
+        }
+
+        const fragmentSelections = fragmentSelectionAsObject.selections;
+
+        const inlineFragment: OutInlineFragment = {
+          kind: "inlineFragment",
+          typeCondition: typeConditionName,
+          selections: fragmentSelections,
+        };
+
+        inlineFragments.push(inlineFragment);
+      } else if (selection.kind === Kind.FIELD) {
+        let parentNamedType = getNamedType(type);
+
+        let alias = selection.alias?.value;
+        let name = selection.name.value;
+        let displayedName = alias || name;
+
+        let field =
+          (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
+          parentNamedType.getFields()[name];
+
+        if (!field) {
+          console.warn(
+            "Could not find field",
+            name,
+            "in",
+            // @ts-ignore
+            Object.keys(parentNamedType.getFields())
+          );
+          return;
+        }
+
+        if (name.startsWith("__")) {
+          return {
+            kind: "object",
+            namedFragments: [],
+            inlineFragments: [],
+            selections: {
+              displayedName: {
+                kind: "scalar",
+                description: "Internal GraphQL field",
+                type: "unknown",
+              },
+            },
+          };
+        }
+
+        let gqlType = field.type;
+        let namedType = getNamedType(gqlType);
+
+        const subSelectionSet = selection.selectionSet;
+
+        if (isWrappingType(gqlType)) {
+          const value = helper(
+            gqlType,
+            subSelectionSet || {
+              kind: Kind.SELECTION_SET,
+              selections: [],
+            }
+          );
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              description: field.description,
+            };
+          }
+        } else if (isScalarType(namedType)) {
+          const scalar = scalarHelper(namedType);
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            type: scalar,
+            description: field.description,
+          };
+        } else if (isEnumType(namedType)) {
+          const dummySelectionSet: SelectionSetNode = {
+            kind: Kind.SELECTION_SET,
+            selections: [],
+          };
+
+          const value = helper(gqlType, dummySelectionSet);
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              description: field.description,
+            };
+          }
+        } else if (subSelectionSet) {
+          const value = helper(gqlType, selection.selectionSet);
+
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              description: field.description,
+            };
+          }
+        }
+      } else {
+        console.warn("objectHelper got a non-field selection", selection);
+      }
+    });
+
+    const final: OutObject = {
+      kind: "object",
+      namedFragments,
+      inlineFragments,
+      selections,
+    };
+
+    return final;
+  };
+
+  const arrayHelper = (
+    type: GraphQLList<any>,
+    selectionSet: SelectionSetNode
+  ): OutArray | undefined => {
+    const parentType = isListType(type) && type.ofType;
+
+    if (!parentType) {
+      return;
+    }
+
+    const subType = helper(parentType, selectionSet);
+
+    if (!subType) {
+      return;
+    }
+
+    const final: OutArray = {
+      kind: "array",
+      type: subType,
+    };
+
+    return final;
+  };
+
+  const scalarHelper = (parentGqlType: GraphQLScalarType) => {
+    let scalarType = parentGqlType;
+    let scalarName = scalarType.name;
+    let scalar = scalarMap[scalarName];
+    if (!scalar) {
+      scalar = unknownScalar;
+    }
+
+    return scalar;
+  };
+
+  let helper = (
+    parentGqlType: GraphQLType,
+    selectionSet: SelectionSetNode
+  ): OutType | undefined => {
+    if (isListType(parentGqlType)) {
+      return arrayHelper(parentGqlType, selectionSet);
+    } else if (isWrappingType(parentGqlType) && isNonNullType(parentGqlType)) {
+      return helper(parentGqlType.ofType, selectionSet);
+    } else if (isObjectType(parentGqlType)) {
+      return objectHelper(parentGqlType, selectionSet);
+    } else if (isInterfaceType(parentGqlType)) {
+      return objectHelper(parentGqlType, selectionSet);
+    } else if (isScalarType(parentGqlType)) {
+      return scalarHelper(parentGqlType);
+    } else if (isEnumType(parentGqlType)) {
+      let values = parentGqlType
+        .getValues()
+        .map((enumValue) => `"${enumValue.value}"`);
+
+      const outEnum: OutEnum = {
+        kind: "enum",
+        values: values,
+      };
+
+      return outEnum;
+    } else {
+      console.warn("Unrecognized type in fragment", parentGqlType);
     }
   };
 
-  //@ts-ignore
-  function objectHelper(obj) {
-    return Object.entries(obj).map(([name, value]) => {
-      //@ts-ignore
-      const { type, description } = value;
-      //@ts-ignore
-      let tsType = valueHelper(value);
-      let doc = description
-        ? `/**
-  * ${description}
-  */
-  `
-        : "";
-      return `${doc}"${name}": ${tsType}`;
-    });
+  let baseGqlType = schema.getType(fragmentDefinition.typeCondition.name.value);
+
+  let selections = fragmentDefinition.selectionSet;
+
+  let sub: OutType | undefined;
+
+  if (baseGqlType) {
+    sub = helper(baseGqlType, selections);
+  } else {
+    return dummyOut;
   }
 
-  let fields = objectHelper(typeMap).join(", ");
+  if (sub && sub.kind === "object") {
+    const result: OutObject = sub;
 
-  return `{${fields}}`;
+    return result;
+  } else {
+    return dummyOut;
+  }
+}
+
+export function typeScriptSignatureForFragment(
+  schema: GraphQLSchema,
+  fragmentDefinition: FragmentDefinitionNode,
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>
+) {
+  let typeMap = typeScriptDefinitionObjectForFragment(
+    schema,
+    fragmentDefinition,
+    fragmentDefinitions
+  );
+
+  const typeScript = printOut(typeMap);
+
+  return typeScript;
 }
 
 export function typeScriptTypeNameForOperation(name: string) {
   return `${capitalizeFirstLetter(name)}Payload`;
-}
-
-export function typeScriptSignatureForOperation(
-  schema: GraphQLSchema,
-  operationDefinition: OperationDefinitionNode,
-  fragmentDefinitions: Array<FragmentDefinitionNode>
-) {
-  let types = typeScriptForOperation(
-    schema,
-    operationDefinition,
-    fragmentDefinitions
-  );
-
-  return `${types}`;
 }
 
 /**

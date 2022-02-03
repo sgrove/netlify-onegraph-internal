@@ -79,7 +79,7 @@ export default function Form(props) {
     isServer
       ? null
       : new NetlifyGraphAuth({
-          appId: props.siteId,
+          siteId: props.siteId,
         })
   );
 

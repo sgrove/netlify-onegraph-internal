@@ -577,7 +577,7 @@ ${variables}
 
       const clientAuth = useClientAuth
         ? `,
-    ...oneGraphAuth?.authHeaders()`
+    ...netlifyGraphAuth?.authHeaders()`
         : "";
 
       const headers = `headers: {
@@ -585,7 +585,7 @@ ${variables}
     },`;
 
       return `async function ${operationFunctionName(namedOperationData)}(${
-        useClientAuth ? "oneGraphAuth, " : ""
+        useClientAuth ? "netlifyGraphAuth, " : ""
       }params) {
   const {${params.join(", ")}} = params || {};
   const resp = await fetch(\`/${namedOperationData.name}${

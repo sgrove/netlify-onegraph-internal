@@ -82,6 +82,7 @@ const test = () => {
     framework: "Remix",
     moduleType: "esm",
     language: "typescript",
+    runtimeTargetEnv: "node",
   };
 
   console.log("config: ", netlifyGraphConfig);

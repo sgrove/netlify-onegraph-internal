@@ -35,6 +35,7 @@ const test = () => {
     extension: "ts",
     moduleType: "esm",
     language: "typescript",
+    runtimeTargetEnv: "node",
   };
 
   const result = NetlifyGraph.generateHandlerSource({

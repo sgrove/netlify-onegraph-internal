@@ -1,5 +1,6 @@
-import { readFileSync } from "fs";
+import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
+import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
 
@@ -12,11 +13,15 @@ const test = () => {
   const schemaGraphQLFile = readFileSync(schemaGraphQLFilename, "utf8");
 
   const schema = buildASTSchema(parse(schemaGraphQLFile));
+  const parsedDoc = parse(sourceGraphQLFile);
+
+  const { functions, fragments } =
+    NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
-    webhookBasePath: "/api",
     framework: "Next.js",
+    webhookBasePath: "/api",
     functionsPath: ["pages", "api"],
     graphQLOperationsSourceFilename: [
       "..",
@@ -34,31 +39,21 @@ const test = () => {
     runtimeTargetEnv: "node",
   };
 
-  console.log("config: ", netlifyGraphConfig);
-
-  const result = NetlifyGraph.generateHandlerSource({
-    handlerOptions: {
-      postHttpMethod: true,
-      useClientAuth: true,
-    },
+  const result = NetlifyGraph.generateFunctionsSource(
     netlifyGraphConfig,
-    operationId: "12b5bdea-9bab-4164-a731-5e697b1552be",
-    operationsDoc: sourceGraphQLFile,
     schema,
-  });
+    sourceGraphQLFile,
+    functions,
+    fragments
+  );
 
-  if (typeof result === "undefined") {
-    console.error("No generated next.js code");
+  if (!result) {
+    throw new Error("result is undefined");
   }
 
-  // @ts-ignore
-  const { exportedFiles } = result;
+  const { clientSource, typeDefinitionsSource } = result;
 
-  console.log("exportedFiles", exportedFiles);
-
-  exportedFiles?.forEach((element) => {
-    console.log(element.name?.join("/"), element.content);
-  });
+  console.log(typeDefinitionsSource);
 };
 
 test();

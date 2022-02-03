@@ -15,6 +15,7 @@ import { internalConsole } from "./internalConsole";
 import {
   patchSubscriptionWebhookField,
   patchSubscriptionWebhookSecretField,
+  typeScriptSignatureForFragment,
   typeScriptSignatureForOperation,
   typeScriptSignatureForOperationVariables,
 } from "./graphqlHelpers";
@@ -62,6 +63,7 @@ export type NetlifyGraphConfig = {
   extension: string;
   moduleType: "commonjs" | "esm";
   language: "javascript" | "typescript";
+  runtimeTargetEnv: "node" | "browser";
 };
 
 export type ExtractedFunction = {
@@ -74,17 +76,26 @@ export type ExtractedFunction = {
   operationStringWithoutNetlifyDirective: string;
 };
 
-export type ParsedFunction = ExtractedFunction & {
+export type ExtractedFragment = {
   id: string;
-  operationString: string;
+  fragmentName: string;
   description: string;
+  kind: "fragment";
+  parsedOperation: FragmentDefinitionNode;
+  operationString: string;
+  operationStringWithoutNetlifyDirective: string;
+};
+
+export type ParsedFunction = ExtractedFunction & {
   fnName: string;
   safeBody: string;
-  kind: OperationTypeNode;
-  variableSignature: string;
   returnSignature: string;
-  operationName: string;
-  parsedOperation: OperationDefinitionNode;
+  variableSignature: string;
+};
+
+export type ParsedFragment = ExtractedFragment & {
+  safeBody: string;
+  returnSignature: string;
 };
 
 export const defaultSourceOperationsFilename =
@@ -124,36 +135,39 @@ export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
   framework: "custom",
   moduleType: "commonjs",
   language: "javascript",
+  runtimeTargetEnv: "node",
 };
 
 export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An example query to start with.") {
   __typename
 }`;
 
-const generatedOneGraphClient = () =>
-  `
-const fetch = (appId, options) => {
-  var reqBody = options.body || null
-  const userHeaders = options.headers || {}
-  const headers = {
-    ...userHeaders,
-    'Content-Type': 'application/json',
-    'Content-Length': reqBody.length,
-  }
-
-  var reqOptions = {
-    method: 'POST',
-    headers: headers,
-    timeout: 30000,
-  }
-
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + appId
+const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
+  `${out(
+    netlifyGraphConfig,
+    ["node"],
+    `const httpFetch = (siteId, options) => {
+      var reqBody = options.body || null
+      const userHeaders = options.headers || {}
+      const headers = {
+        ...userHeaders,
+        'Content-Type': 'application/json',
+        'Content-Length': reqBody.length,
+      }
+   
+      var reqOptions = {
+        method: 'POST',
+        headers: headers,
+        timeout: 30000,
+      }
+      
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
 
   const respBody = []
 
   return new Promise((resolve, reject) => {
     var req = https.request(url, reqOptions, (res) => {
-      if (res.statusCode < 200 || res.statusCode > 299) {
+      if (res.statusCoce && (res.statusCode < 200 || res.statusCode > 299)) {
         return reject(
           new Error(
             "Netlify OneGraph return non - OK HTTP status code" + res.statusCode,
@@ -181,49 +195,50 @@ const fetch = (appId, options) => {
     req.write(reqBody)
     req.end()
   })
-}
-
-const fetchOneGraphPersisted = async function fetchOneGraphPersisted(
-  accessToken,
-  docId,
-  operationName,
-  variables,
-) {
-  const payload = {
-    doc_id: docId,
-    variables: variables,
-    operationName: operationName,
+}}
+`
+  )}
+${out(
+  netlifyGraphConfig,
+  ["browser"],
+  `const httpFetch = (siteId, options) => {
+  var reqBody = options.body || null
+  const userHeaders = options.headers || {}
+  const headers = {
+    ...userHeaders,
+    'Content-Type': 'application/json',
   }
 
-  const result = await fetch(
-    process.env.SITE_ID,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: accessToken ? "Bearer " + accessToken : '',
-      },
-      body: JSON.stringify(payload),
-    },
-  )
+  var reqOptions = {
+    method: 'POST',
+    headers: headers,
+    timeout: 30000,
+    body: reqBody
+  }
 
-  // @ts-ignore
-  return JSON.parse(result)
-}
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
 
-const fetchOneGraph = async function fetchOneGraph(
-  accessToken,
-  query,
-  operationName,
-  variables,
-) {
+  return fetch(url, reqOptions).then(response => response.text());
+}`
+)}
+
+const fetchOneGraph = async function fetchOneGraph(input) {
+  const accessToken = input.accessToken 
+  const query = input.query
+  const operationName = input.operationName
+  const variables = input.variables
+  const options = input.options || {}
+
+  const siteId = options.siteId || process.env.SITE_ID
+
   const payload = {
     query: query,
     variables: variables,
     operationName: operationName,
   }
 
-  const result = await fetch(
-    process.env.SITE_ID,
+  const result = await httpFetch(
+    siteId,
     {
       method: 'POST',
       headers: {
@@ -233,7 +248,6 @@ const fetchOneGraph = async function fetchOneGraph(
     },
   )
 
-  // @ts-ignore
   return JSON.parse(result)
 }
 `;
@@ -244,15 +258,45 @@ const subscriptionParserName = (fn) => `parseAndVerify${fn.operationName}Event`;
 
 const subscriptionFunctionName = (fn) => `subscribeTo${fn.operationName}`;
 
-const exp = (netlifyGraphConfig, name) => {
-  if (netlifyGraphConfig.moduleType === "commonjs") {
-    return `exports.${name}`;
+const out = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  envs: ("browser" | "node")[],
+  value: string
+) => {
+  if (!envs.includes(netlifyGraphConfig.runtimeTargetEnv)) {
+    return "";
   }
 
-  return `export const ${name}`;
+  return value;
 };
 
-const imp = (netlifyGraphConfig, name, packageName) => {
+const exp = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  envs: ("browser" | "node")[],
+  name: string,
+  value: string
+) => {
+  if (!envs.includes(netlifyGraphConfig.runtimeTargetEnv)) {
+    return "";
+  }
+
+  if (netlifyGraphConfig.moduleType === "commonjs") {
+    return `exports.${name} = ${value}`;
+  }
+
+  return `export const ${name} = ${value}`;
+};
+
+const imp = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  envs: ("browser" | "node")[],
+  name: string,
+  packageName: string
+) => {
+  if (!envs.includes(netlifyGraphConfig.runtimeTargetEnv)) {
+    return "";
+  }
+
   if (netlifyGraphConfig.moduleType === "commonjs") {
     return `const ${name} = require("${packageName}")`;
   }
@@ -263,12 +307,17 @@ const imp = (netlifyGraphConfig, name, packageName) => {
 export const generateSubscriptionFunctionTypeDefinition = (
   schema: GraphQLSchema,
   fn: ParsedFunction,
-  fragments: FragmentDefinitionNode[]
+  fragments: Record<string, ParsedFragment>
 ) => {
+  const fragmentDefinitions: Record<string, FragmentDefinitionNode> =
+    Object.entries(fragments).reduce((acc, [fragmentName, fragment]) => {
+      return { ...acc, [fragmentName]: fragment.parsedOperation };
+    }, {});
+
   const parsingFunctionReturnSignature = typeScriptSignatureForOperation(
     schema,
     fn.parsedOperation,
-    fragments
+    fragmentDefinitions
   );
 
   const variableNames = (fn.parsedOperation.variableDefinitions || []).map(
@@ -295,8 +344,10 @@ export function ${subscriptionFunctionName(fn)}(
    * events for.
    */
   netlifyGraphWebhookId: string,
-  variables: ${variableSignature},
-  accessToken?: string | null
+  variables: ${
+    variableSignature === "{}" ? "Record<string, never>" : variableSignature
+  },
+  accessToken?: string | null | undefined
   ) : void
 
 export type ${subscriptionParserReturnName(
@@ -347,27 +398,23 @@ export const generateSubscriptionFunction = (
    */
   netlifyGraphWebhookId,
   variables,
-  accessToken,
+  rawOptions
   ) => {
+    const options = rawOptions || {}
     const netlifyGraphWebhookUrl = \`\${process.env.DEPLOY_URL}${
       netlifyGraphConfig.webhookBasePath
     }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`
-    const secret = process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
+    const secret = options.secret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
     const fullVariables = {...variables, netlifyGraphWebhookUrl: netlifyGraphWebhookUrl, netlifyGraphWebhookSecret: { hmacSha256Key: secret }}
-
-    const persistedInput = {
-      doc_id: "${fn.id}",
-      oeprationName: "${fn.operationName}",
-      variables: fullVariables,
-      accessToken: accessToken
-    }
 
     const subscriptionOperationDoc = \`${safeBody}\`;
 
-    // const result = await fetchOneGraphPersisted(persistedInput)
-    const result = await fetchOneGraph(accessToken, subscriptionOperationDoc, "${
-      fn.operationName
-    }", fullVariables)
+    const result = await fetchOneGraph({
+      query: subscriptionOperationDoc,
+      operationName: "${fn.operationName}",
+      variables: fullVariables,
+      options: Object.assign({accessToken: accessToken}, options || {}),
+  })
 }
 
 const ${subscriptionParserName(fn)} = (event) => {
@@ -393,7 +440,8 @@ const makeFunctionName = (kind, operationName) => {
 
 export const queryToFunctionDefinition = (
   fullSchema: GraphQLSchema,
-  persistedQuery: ExtractedFunction
+  persistedQuery: ExtractedFunction,
+  enabledFragments: Record<string, ParsedFragment>
 ): ParsedFunction | undefined => {
   const basicFn = {
     id: persistedQuery.id,
@@ -408,9 +456,14 @@ export const queryToFunctionDefinition = (
   const operations = parsed.definitions.filter(
     (def) => def.kind === Kind.OPERATION_DEFINITION
   );
-  const fragments = parsed.definitions.filter(
+  const fragmentDefinitions = parsed.definitions.filter(
     (def) => def.kind === Kind.FRAGMENT_DEFINITION
   ) as FragmentDefinitionNode[];
+
+  const fragments = Object.values(enabledFragments).reduce(
+    (acc, def) => ({ ...acc, [def.fragmentName]: def.parsedOperation }),
+    {}
+  );
 
   if (!operations) {
     internalConsole.error(`Operation definition is required in ${basicFn.id}`);
@@ -475,6 +528,94 @@ export const queryToFunctionDefinition = (
   return fn;
 };
 
+export const fragmentToParsedFragmentDefinition = (
+  fullSchema: GraphQLSchema,
+  persistedQuery: ExtractedFragment
+): ParsedFragment | undefined => {
+  const basicFn = {
+    id: persistedQuery.id,
+    operationString: persistedQuery.operationString,
+    description: persistedQuery.description || "",
+  };
+
+  const body = basicFn.operationString;
+  const safeBody = replaceAll(body, "${", "\\${");
+
+  const parsed = parse(body);
+  const operations = parsed.definitions.filter(
+    (def) => def.kind === Kind.OPERATION_DEFINITION
+  );
+  const fragmentDefinitions = parsed.definitions.filter(
+    (def) => def.kind === Kind.FRAGMENT_DEFINITION
+  ) as FragmentDefinitionNode[];
+
+  const fragments = fragmentDefinitions.reduce(
+    (acc, def) => ({ ...acc, [def.name.value]: def }),
+    {}
+  );
+
+  if (!operations) {
+    internalConsole.error(`Operation definition is required in ${basicFn.id}`);
+    return;
+  }
+
+  const [operation] = fragmentDefinitions;
+
+  if (operation.kind !== Kind.FRAGMENT_DEFINITION) {
+    internalConsole.error(`Definition is not an operation in ${basicFn.id}`);
+    return;
+  }
+
+  const returnSignature = typeScriptSignatureForFragment(
+    fullSchema,
+    operation,
+    fragments
+  );
+
+  const variableNames = (operation.variableDefinitions || []).map(
+    (varDef) => varDef.variable.name.value
+  );
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    variableNames,
+    fullSchema,
+    // @ts-ignore TODO: FIX THIS!
+    operation
+  );
+
+  const operationName = operation.name && operation.name.value;
+
+  if (!operationName) {
+    internalConsole.error(
+      `Operation name is required in ${
+        basicFn.operationString
+      }\n\tfound: ${JSON.stringify(operation.name)}`
+    );
+    return;
+  }
+
+  const operationWithoutNetlifyDirective = {
+    ...operation,
+    directives: (operation.directives || []).filter(
+      (directive) => directive.name.value !== "netlify"
+    ),
+  };
+
+  const fn: ParsedFragment = {
+    ...basicFn,
+    safeBody,
+    kind: "fragment",
+    returnSignature,
+    fragmentName: operationName,
+    parsedOperation: operation,
+    operationStringWithoutNetlifyDirective: print(
+      operationWithoutNetlifyDirective
+    ),
+  };
+
+  return fn;
+};
+
 export const generateJavaScriptClient = (
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
@@ -502,45 +643,60 @@ export const generateJavaScriptClient = (
       );
     }
 
-    const dynamicFunction = `${exp(netlifyGraphConfig, fn.fnName)} = (
-  variables,
-  accessToken,
-  ) => {
-  return fetchOneGraph({
-    query: \`${fn.safeBody}\`,
-    variables: variables,
-    accessToken: accessToken
-  })
-}
-
-  `;
-
-    const staticFunction = `${exp(netlifyGraphConfig, fn.fnName)} = (
-  variables,
-  accessToken,
-) => {
-  return fetchOneGraph(accessToken, operationsDoc, "${
-    fn.operationName
-  }", variables)
-}
-
+    const dynamicFunction = `${exp(
+      netlifyGraphConfig,
+      ["browser", "node"],
+      fn.fnName,
+      `(
+      variables,
+      options
+      ) => {
+      return fetchOneGraph({
+        query: \`${fn.safeBody}\`,
+        variables: variables,
+        options: options || {},
+      })
+    }`
+    )}
 `;
+
+    const staticFunction = `${exp(
+      netlifyGraphConfig,
+      ["browser", "node"],
+      fn.fnName,
+      `(
+      variables,
+      options
+    ) => {
+      return fetchOneGraph({
+        query: operationsDoc,
+        operationName: "${fn.operationName}",
+        variables: variables,
+        options: options || {},
+      });
+    }
+`
+    )}`;
     return fn.id ? staticFunction : dynamicFunction;
   });
 
   const exportedFunctionsObjectProperties = enabledFunctions
+    .sort((a, b) => {
+      return a.fnName.localeCompare(b.fnName);
+    })
     .map((fn) => {
       const isSubscription = fn.kind === "subscription";
 
       if (isSubscription) {
-        const subscriptionFnName = subscriptionFunctionName(fn);
-        const parserFnName = subscriptionParserName(fn);
+        if (netlifyGraphConfig.runtimeTargetEnv === "node") {
+          const subscriptionFnName = subscriptionFunctionName(fn);
+          const parserFnName = subscriptionParserName(fn);
 
-        const jsDoc = replaceAll(fn.description || "", "*/", "")
-          .split("\n")
-          .join("\n* ");
+          const jsDoc = replaceAll(fn.description || "", "*/", "")
+            .split("\n")
+            .join("\n* ");
 
-        return `/**
+          return `/**
   * ${jsDoc}
   */
   ${subscriptionFnName}:${subscriptionFnName},
@@ -548,6 +704,9 @@ export const generateJavaScriptClient = (
    * Verify the event body is signed securely, and then parse the result.
    */
   ${parserFnName}: ${parserFnName}`;
+        } else {
+          return;
+        }
       }
 
       const jsDoc = replaceAll(fn.description || "", "*/", "")
@@ -561,26 +720,33 @@ export const generateJavaScriptClient = (
         netlifyGraphConfig.moduleType === "commonjs" ? "exports." : ""
       }${fn.fnName}`;
     })
+    .filter(Boolean)
     .join(",\n  ");
 
-  const dummyHandler = `${exp(
+  const dummyHandler = exp(
     netlifyGraphConfig,
-    "handler"
-  )} = async (event, context) => {
-  // return a 401 json response
-  return {
-    statusCode: 401,
-    body: JSON.stringify({
-      message: 'Unauthorized',
-    }),
-  }
-}`;
+    ["node"],
+    "handler",
+    `async (event, context) => {
+      // return a 401 json response
+      return {
+        statusCode: 401,
+        body: JSON.stringify({
+          message: 'Unauthorized',
+        }),
+      }
+    }`
+  );
 
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-${imp(netlifyGraphConfig, "https", "https")}
-${imp(netlifyGraphConfig, "crypto", "crypto")}
+${imp(netlifyGraphConfig, ["node"], "https", "https")}
+${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
 
-${exp(netlifyGraphConfig, "verifySignature")} = (input) => {
+${exp(
+  netlifyGraphConfig,
+  ["node"],
+  "verifySignature",
+  `(input) => {
   const secret = input.secret
   const body = input.body
   const signature = input.signature
@@ -624,13 +790,18 @@ ${exp(netlifyGraphConfig, "verifySignature")} = (input) => {
   }
 
   return true
-}
+}`
+)}
 
 const operationsDoc = \`${safeOperationsDoc}\`
 
-${generatedOneGraphClient()}
+${generatedOneGraphClient(netlifyGraphConfig)}
 
-${exp(netlifyGraphConfig, "verifyRequestSignature")} = (request) => {
+${exp(
+  netlifyGraphConfig,
+  ["node"],
+  "verifyRequestSignature",
+  `(request) => {
   const event = request.event
   const secret = process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
   const signature = event.headers['x-netlify-graph-signature']
@@ -644,7 +815,8 @@ ${exp(netlifyGraphConfig, "verifyRequestSignature")} = (request) => {
   }
 
   return verifySignature({ secret, signature, body: body || '' })
-}
+}`
+)}
 
 ${functionDecls.join("\n\n")}
   
@@ -666,42 +838,99 @@ ${dummyHandler}`;
   return source;
 };
 
+export const generateFragmentTypeScriptDefinition = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  schema: GraphQLSchema,
+  fragment: ParsedFragment
+) => {
+  const jsDoc = replaceAll(fragment.description || ``, "*/", "")
+    .split("\n")
+    .join("\n* ");
+
+  const baseName = fragment.fragmentName;
+
+  const returnSignatureName = capitalizeFirstLetter(baseName);
+  const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
+
+  return `/**
+* ${jsDoc}
+*/
+export type ${returnSignatureName} = ${fragment.returnSignature};
+`;
+};
+
 export const generateTypeScriptDefinitions = (
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
-  enabledFunctions: ParsedFunction[]
+  enabledFunctions: ParsedFunction[],
+  enabledFragments: Record<string, ParsedFragment>
 ) => {
+  const fragmentDecls = Object.values(enabledFragments).map((fragment) => {
+    return generateFragmentTypeScriptDefinition(
+      netlifyGraphConfig,
+      schema,
+      fragment
+    );
+  });
+
   const functionDecls = enabledFunctions.map((fn) => {
     const isSubscription = fn.kind === "subscription";
 
     if (isSubscription) {
-      const fragments = [];
-      return generateSubscriptionFunctionTypeDefinition(schema, fn, fragments);
+      return generateSubscriptionFunctionTypeDefinition(
+        schema,
+        fn,
+        enabledFragments
+      );
     }
 
     const jsDoc = replaceAll(fn.description || ``, "*/", "")
       .split("\n")
       .join("\n* ");
 
-    const returnSignatureName = capitalizeFirstLetter(fn.operationName);
+    const baseName = fn.operationName;
 
-    return `export type ${returnSignatureName} = ${fn.returnSignature};
+    const returnSignatureName = capitalizeFirstLetter(baseName);
+    const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
+    const shouldExportInputSignature = fn.variableSignature !== "{}";
+    const inputSignatureExport = shouldExportInputSignature
+      ? `export type ${inputSignatureName} = ${fn.variableSignature};
+`
+      : "";
+
+    return `${inputSignatureExport}
+export type ${returnSignatureName} = ${fn.returnSignature};
 
 /**
  * ${jsDoc}
  */
 export function ${fn.fnName}(
-  variables: ${fn.variableSignature},
-  accessToken?: string
+  variables: ${
+    shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
+  },
+  options?: NetlifyGraphFunctionOptions
 ): Promise<${returnSignatureName}>;`;
   });
 
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
+export type NetlifyGraphFunctionOptions = {
+  accessToken?: string;
+  siteId?: string; 
+}
+
 export type WebhookEvent = {
   body: string;
   headers: Record<string, string | null | undefined>;
 };
+
+export type GraphQLError = {
+  "path": Array<string | number>,
+  "message": string,
+  "extensions": Record<string, unknown>
+};
+
+${fragmentDecls.join("\n\n")}
 
 ${functionDecls.join("\n\n")}
 `;
@@ -713,10 +942,24 @@ export const generateFunctionsSource = (
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
-  queries: ExtractedFunction[]
+  queries: Record<string, ExtractedFunction>,
+  fragments: Record<string, ExtractedFragment>
 ) => {
+  const fragmentDefinitions: Record<string, ParsedFragment> = Object.entries(
+    fragments
+  ).reduce((acc, [fragmentName, fragment]) => {
+    const parsed = fragmentToParsedFragmentDefinition(schema, fragment);
+    if (parsed) {
+      return { ...acc, [fragmentName]: parsed };
+    } else {
+      return acc;
+    }
+  }, {});
+
   const functionDefinitions: ParsedFunction[] = Object.values(queries)
-    .map((query) => queryToFunctionDefinition(schema, query))
+    .map((query) =>
+      queryToFunctionDefinition(schema, query, fragmentDefinitions)
+    )
     .filter(Boolean) as ParsedFunction[];
 
   const clientSource = generateJavaScriptClient(
@@ -729,7 +972,8 @@ export const generateFunctionsSource = (
   const typeDefinitionsSource = generateTypeScriptDefinitions(
     netlifyGraphConfig,
     schema,
-    functionDefinitions
+    functionDefinitions,
+    fragmentDefinitions
   );
 
   return {
@@ -758,40 +1002,66 @@ const pluckDirectiveArgValue = (directive, argName) => {
 /**
  * Extracts basic functions from a parsed GraphQL operations document
  * @param {DocumentNode} parsedDoc The parsed GraphQL document with @netlify directives
- * @returns Record<string, ExtractedFunction>
+ * @returns {functions: Record<string, ExtractedFunction>, fragments: Record<string, ExtractedFragment>}
  */
 export const extractFunctionsFromOperationDoc = (
   parsedDoc: DocumentNode
-): Record<string, ExtractedFunction> => {
-  const functionEntries = parsedDoc.definitions
-    .map((next) => {
-      if (next.kind !== Kind.OPERATION_DEFINITION) {
-        return null;
-      }
+): {
+  functions: Record<string, ExtractedFunction>;
+  fragments: Record<string, ExtractedFragment>;
+} => {
+  const functions: Record<string, ExtractedFunction> = {};
+  const fragments: Record<string, ExtractedFragment> = {};
 
-      const key = next.name?.value || "unknown";
+  parsedDoc.definitions.forEach((next) => {
+    if (
+      next.kind !== Kind.OPERATION_DEFINITION &&
+      next.kind !== Kind.FRAGMENT_DEFINITION
+    ) {
+      return null;
+    }
 
-      const directive = next.directives?.find(
-        (localDirective) => localDirective.name.value === "netlify"
-      );
+    const key = next.name?.value || "unknown";
 
-      if (!directive) {
-        return null;
-      }
+    const directive = next.directives?.find(
+      (localDirective) => localDirective.name.value === "netlify"
+    );
 
-      const docString = pluckDirectiveArgValue(directive, "doc") || "";
-      let id = pluckDirectiveArgValue(directive, "id");
+    if (!directive) {
+      return null;
+    }
 
-      if (!id) {
-        id = uuidv4();
-      }
+    const docString = pluckDirectiveArgValue(directive, "doc") || "";
+    let id = pluckDirectiveArgValue(directive, "id");
 
-      const nextWithoutNetlifyDirective = {
-        ...next,
-        directives: (next.directives || []).filter(
-          (directive) => directive.name.value !== "netlify"
+    if (!id) {
+      id = uuidv4();
+    }
+
+    const nextWithoutNetlifyDirective = {
+      ...next,
+      directives: (next.directives || []).filter(
+        (directive) => directive.name.value !== "netlify"
+      ),
+    };
+
+    if (next.kind === Kind.FRAGMENT_DEFINITION) {
+      next.name?.value;
+      const operation: ExtractedFragment = {
+        id,
+        fragmentName: key,
+        description: docString,
+        parsedOperation: next,
+        kind: "fragment",
+        operationString: print(next),
+        operationStringWithoutNetlifyDirective: print(
+          nextWithoutNetlifyDirective
         ),
       };
+
+      fragments[id] = operation;
+    } else if (next.kind === Kind.OPERATION_DEFINITION) {
+      const fnName = makeFunctionName(next.operation, key);
 
       const operation: ExtractedFunction = {
         id,
@@ -805,12 +1075,12 @@ export const extractFunctionsFromOperationDoc = (
         ),
       };
 
-      return [id, operation];
-    })
-    .filter(Boolean);
+      functions[id] = operation;
+    }
+  });
 
   //@ts-ignore
-  return Object.fromEntries(functionEntries);
+  return { functions, fragments };
 };
 
 const frameworkGeneratorMap: Record<string, FrameworkGenerator> = {
@@ -861,6 +1131,56 @@ export const generateHandlerSource = ({
 
   const generate =
     frameworkGeneratorMap[netlifyGraphConfig.framework] || defaultGenerator;
+
+  const { exportedFiles } = generate({
+    netlifyGraphConfig,
+    operationDataList: odl.operationDataList,
+    schema,
+    options: handlerOptions,
+  });
+
+  return { exportedFiles, operation: fn.parsedOperation };
+};
+
+/**
+ * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
+ */
+export const generateCustomHandlerSource = ({
+  handlerOptions,
+  netlifyGraphConfig,
+  operationId,
+  operationsDoc,
+  schema,
+  generate,
+}: {
+  handlerOptions: Record<string, boolean>;
+  netlifyGraphConfig: NetlifyGraphConfig;
+  operationId: string;
+  operationsDoc: string;
+  schema: GraphQLSchema;
+  generate: FrameworkGenerator;
+}):
+  | {
+      exportedFiles: ExportedFile[];
+      operation: OperationDefinitionNode;
+    }
+  | undefined => {
+  const parsedDoc = parse(operationsDoc);
+  const operations = extractFunctionsFromOperationDoc(parsedDoc);
+  const fn = operations[operationId];
+
+  if (!fn) {
+    internalConsole.warn(
+      `Operation ${operationId} not found in graphql.`,
+      Object.keys(operations)
+    );
+    return;
+  }
+
+  const odl = computeOperationDataList({
+    query: fn.operationString,
+    variables: [],
+  });
 
   const { exportedFiles } = generate({
     netlifyGraphConfig,
