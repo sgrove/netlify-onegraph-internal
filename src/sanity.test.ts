@@ -19,9 +19,9 @@ const test = () => {
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
-    framework: "Next.js",
+    framework: "custom",
     webhookBasePath: "/api",
-    functionsPath: ["pages", "api"],
+    functionsPath: [],
     graphQLOperationsSourceFilename: [
       "..",
       "..",
@@ -44,7 +44,7 @@ const test = () => {
       useClientAuth: true,
     },
     netlifyGraphConfig,
-    operationId: "2b0c3674-06b0-4a84-b296-afa92c10dc6b",
+    operationId: "c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f",
     operationsDoc: sourceGraphQLFile,
     schema,
   });
@@ -61,12 +61,15 @@ const test = () => {
         ? path.join(...exportedFile.name)
         : "default";
 
+    const contentPath = `/Users/s/code/gravity/gravity/netlify/functions/${filename}.ts`;
+
     console.log(
-      `${filename}:
+      `${contentPath}:
 `,
       exportedFile.content
     );
-    writeFileSync(`/tmp/${filename}.ts`, exportedFile.content);
+
+    writeFileSync(contentPath, exportedFile.content);
   });
 };
 

@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
 
 import { NetlifyGraph } from "./index";
@@ -30,8 +30,7 @@ const test = () => {
       "s",
       "code",
       "remix-netlify-graph-test",
-      "netlify",
-      "functions",
+      "app",
       "netlifyGraph",
     ],
     netlifyGraphImplementationFilename: [
@@ -40,8 +39,7 @@ const test = () => {
       "s",
       "code",
       "remix-netlify-graph-test",
-      "netlify",
-      "functions",
+      "app",
       "netlifyGraph",
       "index.js",
     ],
@@ -51,8 +49,7 @@ const test = () => {
       "s",
       "code",
       "remix-netlify-graph-test",
-      "netlify",
-      "functions",
+      "app",
       "netlifyGraph",
       "index.d.ts",
     ],
@@ -78,7 +75,7 @@ const test = () => {
       "netlifyGraph",
       "netlifyGraphSchema.graphql",
     ],
-    netlifyGraphRequirePath: ["./netlifyGraph"],
+    netlifyGraphRequirePath: ["../../netlify/functions/netlifyGraph"],
     framework: "Remix",
     moduleType: "esm",
     language: "typescript",
@@ -93,7 +90,7 @@ const test = () => {
       useClientAuth: true,
     },
     netlifyGraphConfig,
-    operationId: "12b5bdea-9bab-4164-a731-5e697b1552be",
+    operationId: "c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f",
     operationsDoc: sourceGraphQLFile,
     schema,
   });
@@ -109,6 +106,12 @@ const test = () => {
 
   exportedFiles?.forEach((element) => {
     console.log(element.name?.join("/"), element.content);
+
+    const sourcePath =
+      "/Users/s/code/remix-netlify-graph-test/" +
+      (element.name?.join("/") || "default.ts");
+
+    writeFileSync(sourcePath, element.content);
   });
 };
 

@@ -357,7 +357,7 @@ ${requiredVariableCount > 0 ? variableValidation : ""}
       }Data } =
     await NetlifyGraph.${operationFunctionName(
       namedOperationData
-    )}({ ${invocationParams.join(", ")} }, accessToken);
+    )}({ ${invocationParams.join(", ")} }, {accessToken: accessToken});
 
   if (${namedOperationData.name}Errors) {
     console.error(JSON.stringify(${namedOperationData.name}Errors, null, 2));
@@ -449,16 +449,13 @@ const subscriptionHandler = ({
 }): UnnamedExportedFile => {
   return {
     kind: "UnnamedExportedFile",
-    content: `${imp(netlifyGraphConfig, "{ getSecrets }", "@netlify/functions")}
-${imp(
-  netlifyGraphConfig,
-  "NetlifyGraph",
-  netlifyGraphConfig.netlifyGraphRequirePath
-)}
+    content: `${imp(
+      netlifyGraphConfig,
+      "NetlifyGraph",
+      netlifyGraphConfig.netlifyGraphRequirePath
+    )}
 
 ${exp(netlifyGraphConfig, "handler")} = async (event, context) => {
-  let secrets = await getSecrets(event);
-
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event(event);
 
   if (!payload) {
@@ -616,14 +613,13 @@ ${operationData.name}Data: ${operationData.name}Data`
 
     const snippet = `${imp(
       netlifyGraphConfig,
-      "{ getSecrets }",
-      "@netlify/functions"
-    )};
-${imp(netlifyGraphConfig, "NetlifyGraph", "./netlifyGraph")}
+      "NetlifyGraph",
+      "./netlifyGraph"
+    )}
 
-${exp(netlifyGraphConfig, "handler")} = async (event, context) => {
+${exp(netlifyGraphConfig, "handler")} = async (event) => {
   // By default, all API calls use no authentication
-  let accessToken = null;
+  let accessToken;
 
   //// If you want to use the client's accessToken when making API calls on the user's behalf:
   // accessToken = event.headers["authorization"]?.split(" ")[1]

@@ -139,17 +139,17 @@ ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
     )} = async ({ request }) => {
-const formData = await request.formData();
+  const formData = await request.formData();
 
-// By default, all API calls use no authentication
-let accessToken;
+  // By default, all API calls use no authentication
+  let accessToken;
 
-//// If you want to use the API with your own access token:
-// accessToken = process.env.ONEGRAPH_AUTHLIFY_TOKEN;
+  //// If you want to use the API with your own access token:
+  // accessToken = authlifyToken;
 
-${fetcherInvocation}
+  ${fetcherInvocation}
 
-return json({ data, errors });
+  return json({ data, errors });
 };
 
 export default function handler() {

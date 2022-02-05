@@ -613,10 +613,8 @@ const printObject = (obj: OutObject): string => {
   ${fields}
 }`;
   } else if (fieldSelectionCount === 0) {
-    console.debug("No fields, joining named fragments", obj);
     value = obj.namedFragments.join(" & ");
   } else {
-    console.debug("Fields and named fragments", obj);
     const subFields =
       fieldSelectionCount > 0
         ? `& {
@@ -739,7 +737,9 @@ export function typeScriptDefinitionObjectForFragment(
           console.warn(
             "Could not find field",
             name,
-            "in",
+            "on",
+            parentNamedType.name,
+            "among",
             // @ts-ignore
             Object.keys(parentNamedType.getFields())
           );

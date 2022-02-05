@@ -27,11 +27,7 @@ import {
 
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
 import { remixFunctionSnippet } from "./codegen/remixExporter";
-import {
-  ExportedFile,
-  ExporterResult,
-  FrameworkGenerator,
-} from "./codegen/codegenHelpers";
+import { ExportedFile, FrameworkGenerator } from "./codegen/codegenHelpers";
 
 export type State = {
   set: (key: string, value?: any) => any;
@@ -147,7 +143,7 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
     netlifyGraphConfig,
     ["node"],
     `const httpFetch = (siteId, options) => {
-      var reqBody = options.body || null
+      const reqBody = options.body || null
       const userHeaders = options.headers || {}
       const headers = {
         ...userHeaders,
@@ -155,7 +151,7 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
         'Content-Length': reqBody.length,
       }
    
-      var reqOptions = {
+      const reqOptions = {
         method: 'POST',
         headers: headers,
         timeout: 30000,
@@ -166,8 +162,8 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
   const respBody = []
 
   return new Promise((resolve, reject) => {
-    var req = https.request(url, reqOptions, (res) => {
-      if (res.statusCoce && (res.statusCode < 200 || res.statusCode > 299)) {
+    const req = https.request(url, reqOptions, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
         return reject(
           new Error(
             "Netlify OneGraph return non - OK HTTP status code" + res.statusCode,
@@ -195,21 +191,21 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
     req.write(reqBody)
     req.end()
   })
-}}
+}
 `
   )}
 ${out(
   netlifyGraphConfig,
   ["browser"],
   `const httpFetch = (siteId, options) => {
-  var reqBody = options.body || null
+  const reqBody = options.body || null
   const userHeaders = options.headers || {}
   const headers = {
     ...userHeaders,
     'Content-Type': 'application/json',
   }
 
-  var reqOptions = {
+  const  reqOptions = {
     method: 'POST',
     headers: headers,
     timeout: 30000,
@@ -727,7 +723,7 @@ export const generateJavaScriptClient = (
     netlifyGraphConfig,
     ["node"],
     "handler",
-    `async (event, context) => {
+    `() => {
       // return a 401 json response
       return {
         statusCode: 401,
@@ -1079,7 +1075,6 @@ export const extractFunctionsFromOperationDoc = (
     }
   });
 
-  //@ts-ignore
   return { functions, fragments };
 };
 
@@ -1112,13 +1107,16 @@ export const generateHandlerSource = ({
       operation: OperationDefinitionNode;
     }
   | undefined => {
+  console.log("Generating handler source for operation", operationId);
   const parsedDoc = parse(operationsDoc);
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
-  const fn = operations[operationId];
+  const fn = operations.functions[operationId];
 
   if (!fn) {
     internalConsole.warn(
-      `Operation ${operationId} not found in graphql.`,
+      `Operation ${operationId} not found in graphql, found: ${Object.keys(
+        operations
+      ).join(", ")}}`,
       Object.keys(operations)
     );
     return;
@@ -1167,11 +1165,11 @@ export const generateCustomHandlerSource = ({
   | undefined => {
   const parsedDoc = parse(operationsDoc);
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
-  const fn = operations[operationId];
+  const fn = operations.functions[operationId];
 
   if (!fn) {
     internalConsole.warn(
-      `Operation ${operationId} not found in graphql.`,
+      `Operation ${operationId} not found in graphql, bummer!`,
       Object.keys(operations)
     );
     return;

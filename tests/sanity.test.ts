@@ -33,6 +33,8 @@ const test = () => {
     extension: "ts",
     moduleType: "esm",
     language: "javascript",
+    runtimeTargetEnv: "node",
+    webhookBasePath: "/webhooks",
   };
 
   const { exportedFiles } = NetlifyGraph.generateHandlerSource({
@@ -41,7 +43,7 @@ const test = () => {
       useClientAuth: true,
     },
     netlifyGraphConfig,
-    operationId: "2b0c3674-06b0-4a84-b296-afa92c10dc6b",
+    operationId: "c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f",
     operationsDoc: sourceGraphQLFile,
     schema,
   });

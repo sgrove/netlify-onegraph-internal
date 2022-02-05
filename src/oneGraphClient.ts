@@ -458,19 +458,18 @@ const fetchOneGraph = async (config: {
   };
 
   const body = JSON.stringify(payload);
+  const url = `https://serve.onegraph.com/graphql?app_id=${appId}&show_metrics=false`;
+
   try {
-    const result = await basicPost(
-      `https://serve.onegraph.com/graphql?app_id=${appId}&show_metrics=false`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-        body,
-      }
-    );
+    const result = await basicPost(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: accessToken ? `Bearer ${accessToken}` : "",
+      },
+      body,
+    });
 
     // @ts-ignore
     const value = JSON.parse(result);
@@ -484,8 +483,11 @@ const fetchOneGraph = async (config: {
     return value;
   } catch (networkError) {
     internalConsole.warn(
-      "Network error fetching Netlify Graph upstream",
-      networkError
+      `Network error fetching Netlify Graph upstream: ${JSON.stringify(
+        networkError,
+        null,
+        2
+      )}`
     );
     return {};
   }

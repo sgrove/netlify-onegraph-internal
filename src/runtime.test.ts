@@ -19,20 +19,31 @@ const test = () => {
     NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
-    netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
-    framework: "Next.js",
+    netlifyGraphPath: ["functions", "netlifyGraph"],
+    framework: "custom",
     webhookBasePath: "/api",
     functionsPath: ["pages", "api"],
     graphQLOperationsSourceFilename: [
-      "..",
-      "..",
-      "lib",
+      "functions",
+      "netlifyGraph",
       "netlifyGraphOperationsLibrary.graphql",
     ],
-    graphQLSchemaFilename: ["..", "..", "lib", "netlifyGraphSchema.graphql"],
-    netlifyGraphImplementationFilename: ["..", "..", "lib", "index.js"],
-    netlifyGraphTypeDefinitionsFilename: ["..", "..", "lib", "index.d.ts"],
-    netlifyGraphRequirePath: ["..", "..", "lib", "netlifyGraph"],
+    graphQLSchemaFilename: [
+      "functions",
+      "netlifyGraph",
+      "netlifyGraphSchema.graphql",
+    ],
+    netlifyGraphImplementationFilename: [
+      "functions",
+      "netlifyGraph",
+      "index.js",
+    ],
+    netlifyGraphTypeDefinitionsFilename: [
+      "functions",
+      "netlifyGraph",
+      "index.d.ts",
+    ],
+    netlifyGraphRequirePath: ["functions", "netlifyGraph"],
     extension: "ts",
     moduleType: "esm",
     language: "typescript",
@@ -54,6 +65,13 @@ const test = () => {
   const { clientSource, typeDefinitionsSource } = result;
 
   console.log(typeDefinitionsSource);
+
+  const sourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.js`;
+
+  writeFileSync(sourcePath, clientSource);
+
+  const typeDefinitionsSourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.d.ts`;
+  writeFileSync(typeDefinitionsSourcePath, typeDefinitionsSource);
 };
 
 test();

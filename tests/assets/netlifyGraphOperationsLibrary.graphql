@@ -180,3 +180,43 @@ fragment ServiceAuthFragment on OneGraphServiceAuth @netlify(id: "12b5bdea-9bab-
 #    }
 #  }
 #}
+query GetIssueBreakdown($after: String) @netlify(id: """c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f""", doc: """Issue that allows querying GitHub for more information about issues.""") {
+  gitHub {
+    repository(owner: "microsoft", name: "powertoys") {
+      issues(first: 100, states: OPEN, after: $after) {
+        totalCount
+        pageInfo {
+          startCursor
+          hasNextPage
+          endCursor
+        }
+        edges {
+          node {
+            number
+            title
+            url
+            state
+            timelineItems(first: 200, itemTypes: CROSS_REFERENCED_EVENT) {
+              totalCount
+              pageInfo {
+                startCursor
+                hasNextPage
+                endCursor
+              }
+              nodes {
+                ... on GitHubCrossReferencedEvent {
+                  source {
+                    ... on GitHubIssue {
+                      number
+                      state
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
