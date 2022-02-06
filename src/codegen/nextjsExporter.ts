@@ -486,7 +486,7 @@ ${requiredVariableCount > 0 ? variableValidation : ""}
 
   const { errors, data } = await NetlifyGraph.${operationFunctionName(
     namedOperationData
-  )}({ ${invocationParams.join(", ")} }, accessToken);
+  )}({ ${invocationParams.join(", ")} }, {accessToken: accessToken}); 
 
   if (errors) {
     console.error(JSON.stringify(errors, null, 2));

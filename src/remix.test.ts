@@ -96,7 +96,7 @@ const test = () => {
   });
 
   if (typeof result === "undefined") {
-    console.error("No generated next.js code");
+    console.error("No generated remix code");
   }
 
   // @ts-ignore
