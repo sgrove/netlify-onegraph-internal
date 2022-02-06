@@ -138,7 +138,7 @@ export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An
   __typename
 }`;
 
-const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
+const generatedNetlifyGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
   `${out(
     netlifyGraphConfig,
     ["node"],
@@ -150,11 +150,13 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
         'Content-Type': 'application/json',
         'Content-Length': reqBody.length,
       }
-   
+
+      const timeoutMs = 30_000
+
       const reqOptions = {
         method: 'POST',
         headers: headers,
-        timeout: 30000,
+        timeout: timeoutMs,
       }
       
   const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
@@ -166,7 +168,7 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
       if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
         return reject(
           new Error(
-            "Netlify OneGraph return non - OK HTTP status code" + res.statusCode,
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode,
           ),
         )
       }
@@ -179,13 +181,13 @@ const generatedOneGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
       })
     })
 
-    req.on('error', (e) => {
-      console.error('Error making request to Netlify OneGraph: ', e)
+    req.on('error', (error) => {
+      console.error('Error making request to Netlify Graph:', error)
     })
 
     req.on('timeout', () => {
       req.destroy()
-      reject(new Error('Request to Netlify OneGraph timed out'))
+      reject(new Error('Request to Netlify Graph timed out'))
     })
 
     req.write(reqBody)
@@ -218,7 +220,7 @@ ${out(
 }`
 )}
 
-const fetchOneGraph = async function fetchOneGraph(input) {
+const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
   const accessToken = input.accessToken 
   const query = input.query
   const operationName = input.operationName
@@ -405,7 +407,7 @@ export const generateSubscriptionFunction = (
 
     const subscriptionOperationDoc = \`${safeBody}\`;
 
-    const result = await fetchOneGraph({
+    const result = await fetchNetlifyGraph({
       query: subscriptionOperationDoc,
       operationName: "${fn.operationName}",
       variables: fullVariables,
@@ -647,7 +649,7 @@ export const generateJavaScriptClient = (
       variables,
       options
       ) => {
-      return fetchOneGraph({
+      return fetchNetlifyGraph({
         query: \`${fn.safeBody}\`,
         variables: variables,
         options: options || {},
@@ -664,7 +666,7 @@ export const generateJavaScriptClient = (
       variables,
       options
     ) => {
-      return fetchOneGraph({
+      return fetchNetlifyGraph({
         query: operationsDoc,
         operationName: "${fn.operationName}",
         variables: variables,
@@ -735,8 +737,10 @@ export const generateJavaScriptClient = (
   );
 
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-${imp(netlifyGraphConfig, ["node"], "https", "https")}
-${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+  ${imp(netlifyGraphConfig, ["node"], "Buffer", "buffer")}
+  ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+  ${imp(netlifyGraphConfig, ["node"], "https", "https")}
+  ${imp(netlifyGraphConfig, ["node"], "process", "process")}
 
 ${exp(
   netlifyGraphConfig,
@@ -754,8 +758,8 @@ ${exp(
 
   const sig = {}
   for (const pair of signature.split(',')) {
-    const [k, v] = pair.split('=')
-    sig[k] = v
+    const [key, value] = pair.split('=')
+    sig[key] = value
   }
 
   if (!sig.t || !sig.hmac_sha256) {
@@ -791,7 +795,7 @@ ${exp(
 
 const operationsDoc = \`${safeOperationsDoc}\`
 
-${generatedOneGraphClient(netlifyGraphConfig)}
+${generatedNetlifyGraphClient(netlifyGraphConfig)}
 
 ${exp(
   netlifyGraphConfig,
