@@ -158,7 +158,7 @@ const generatedNetlifyGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
         headers: headers,
         timeout: timeoutMs,
       }
-      
+
   const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
 
   const respBody = []
@@ -176,7 +176,7 @@ const generatedNetlifyGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
       res.on('data', (chunk) => respBody.push(chunk))
 
       res.on('end', () => {
-        const resString = Buffer.concat(respBody).toString()
+        const resString = buffer.Buffer.concat(respBody).toString()
         resolve(resString)
       })
     })
@@ -221,7 +221,7 @@ ${out(
 )}
 
 const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
-  const accessToken = input.accessToken 
+  const accessToken = input.accessToken
   const query = input.query
   const operationName = input.operationName
   const variables = input.variables
@@ -420,7 +420,7 @@ const ${subscriptionParserName(fn)} = (event) => {
     console.warn("Unable to verify signature for ${filename}")
     return null
   }
-  
+
   return JSON.parse(event.body || '{}')
 }`;
 };
@@ -737,7 +737,7 @@ export const generateJavaScriptClient = (
   );
 
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-  ${imp(netlifyGraphConfig, ["node"], "Buffer", "buffer")}
+  ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
   ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
   ${imp(netlifyGraphConfig, ["node"], "https", "https")}
   ${imp(netlifyGraphConfig, ["node"], "process", "process")}
@@ -819,7 +819,7 @@ ${exp(
 )}
 
 ${functionDecls.join("\n\n")}
-  
+
 /**
  * The generated NetlifyGraph library with your operations
  */
@@ -916,7 +916,7 @@ export function ${fn.fnName}(
 
 export type NetlifyGraphFunctionOptions = {
   accessToken?: string;
-  siteId?: string; 
+  siteId?: string;
 }
 
 export type WebhookEvent = {
