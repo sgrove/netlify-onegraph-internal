@@ -54,6 +54,7 @@ const formUpdateHandler = `const updateFormVariables = (setFormVariables, path, 
 };`;
 
 const generatePage = (opts: {
+  netlifyGraphConfig: NetlifyGraphConfig;
   operationData: OperationData;
   schema: GraphQLSchema;
   route: string;
@@ -64,12 +65,24 @@ const generatePage = (opts: {
     callFn: "submitForm()",
   });
 
+  const extension =
+    opts.netlifyGraphConfig.language === "typescript" ? "tsx" : "jsx";
+
   return {
     kind: "NamedExportedFile",
-    name: ["pages", `${opts.operationData.displayName}Form.tsx`],
+    name: ["pages", `${opts.operationData.displayName}Form.${extension}`],
     content: `import Head from "next/head";
 import React, { useState } from "react";
-import NetlifyGraphAuth from "netlify-graph-auth";
+import { Auth } from 'netlify-graph-auth';${ts(
+      opts.netlifyGraphConfig,
+      `
+import NetlifyGraphAuth = Auth.NetlifyGraphAuth;`
+    )}${notTs(
+      opts.netlifyGraphConfig,
+      `
+
+const { NetlifyGraphAuth } = Auth;`
+    )}
 
 export default function Form(props) {
   const isServer = typeof window === "undefined";
@@ -577,6 +590,9 @@ ${variables}
 const ts = (netlifyGraphConfig: NetlifyGraphConfig, string: string) =>
   netlifyGraphConfig.language === "typescript" ? string : "";
 
+const notTs = (netlifyGraphConfig: NetlifyGraphConfig, string: string) =>
+  netlifyGraphConfig.language !== "typescript" ? string : "";
+
 const subscriptionHandler = ({
   netlifyGraphConfig,
   operationData,
@@ -835,6 +851,7 @@ ${clientSideCalls}
 */`;
 
     const page: NamedExportedFile = generatePage({
+      netlifyGraphConfig,
       operationData: firstOperation,
       schema: opts.schema,
       route: `/api/${firstOperation.displayName}`,
