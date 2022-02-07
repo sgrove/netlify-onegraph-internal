@@ -221,7 +221,7 @@ ${out(
 )}
 
 const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
-  const accessToken = input.accessToken
+  const accessToken = input.options.accessToken
   const query = input.query
   const operationName = input.operationName
   const variables = input.variables
