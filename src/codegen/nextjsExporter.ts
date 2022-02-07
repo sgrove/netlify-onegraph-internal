@@ -618,7 +618,11 @@ ${exp(netlifyGraphConfig, "handler")} = async (req${ts(
   const reqBody = await extractBody(req);
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
-    headers: req.headers,
+    headers: {
+      "x-netlify-graph-signature": req.headers[
+        "x-netlify-graph-signature"
+      ]${ts(netlifyGraphConfig, " as string")}
+    },
     body: reqBody,
   });
 
