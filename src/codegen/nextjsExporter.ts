@@ -441,7 +441,10 @@ const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
           namedOperationData?.operationDefinition?.variableDefinitions
             ?.map((def) => {
               const name = def.variable.name.value;
-              const withCoercer = coercerFor(def.type, `req.query?.${name}`);
+              const withCoercer = coercerFor(
+                def.type,
+                `typeof req.query?.${name} === 'string' ? req.query?.${name} : req.query?.${name}[0]`
+              );
               return `const ${munge(name)} = ${withCoercer};`;
             })
             .join("\n  ") || "",
@@ -484,12 +487,9 @@ const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
           .join(", ");
 
         variableValidation = `  if (${condition}) {
-    return json(
-      {
+    return res.status(422).json({
         errors: ["You must supply parameters for: ${message}"],
-      },
-      { status: 422 }
-    );
+    });
   }`;
       }
 
@@ -709,7 +709,7 @@ const exp = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 
 const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
   if (netlifyGraphConfig.moduleType === "commonjs") {
-    return `exports.default = ${name}`;
+    return `exports.default = exports.${name}`;
   }
 
   return `export default ${name}`;
