@@ -138,14 +138,14 @@ import invariant from "tiny-invariant";`
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ request }) => {
+    )} = async ({ netlifyGraphToken, request }) => {
   const formData = await request.formData();
 
   // By default, all API calls use no authentication
   let accessToken;
 
   //// If you want to use the API with your own access token:
-  // accessToken = event.netlifyGraphToken;
+  // accessToken = netlifyGraphToken;
 
   ${fetcherInvocation}
 
@@ -644,13 +644,13 @@ import NetlifyGraph from "../${netlifyGraphConfig.netlifyGraphRequirePath}";
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ request }) => {
+    )} = async ({ netlifyGraphSignature, request }) => {
   const reqBody = await request.text();
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
     body: reqBody,
     headers: {
-      'x-netlify-graph-signature': event.netlifyGraphSignature
+      'x-netlify-graph-signature': netlifyGraphSignature
     },
   });
 
