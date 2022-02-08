@@ -55,6 +55,7 @@ export type NetlifyGraphConfig = {
   graphQLSchemaFilename: string[];
   netlifyGraphRequirePath: string[];
   netlifyGraphPath: string[];
+  graphQLConfigJsonFilename: string[];
   framework: string;
   extension: string;
   moduleType: "commonjs" | "esm";
@@ -103,6 +104,7 @@ export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
   functionsPath: ["netlify", "functions"],
   netlifyGraphPath: ["netlify", "functions", "netlifyGraph"],
   webhookBasePath: "/.netlify/functions",
+  graphQLConfigJsonFilename: [".graphqlrc.json"],
   netlifyGraphImplementationFilename: [
     "netlify",
     "functions",

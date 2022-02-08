@@ -15,6 +15,7 @@ const test = () => {
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     extension: "js",
+    graphQLConfigJsonFilename: [".graphqlrc.json"],
     webhookBasePath: "/webhooks",
     functionsPath: [
       "Users",
