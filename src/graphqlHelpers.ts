@@ -1,10 +1,12 @@
 import {
+  DirectiveDefinitionNode,
   getNamedType,
   GraphQLInterfaceType,
   GraphQLList,
   GraphQLObjectType,
   GraphQLScalarType,
   GraphQLUnionType,
+  InputValueDefinitionNode,
   isEnumType,
   isInputObjectType,
   isInterfaceType,
@@ -14,6 +16,9 @@ import {
   isScalarType,
   isWrappingType,
   Kind,
+  NamedTypeNode,
+  NonNullTypeNode,
+  parse,
   parseType,
   print,
   SelectionNode,
@@ -1432,4 +1437,151 @@ export const formElComponent = ({
     <input type="submit" />
   </form>`,
   };
+};
+
+const makeInputValueDefinitionNode = ({
+  name,
+  baseKind,
+  optional,
+  description,
+}: {
+  name: string;
+  baseKind: string;
+  optional: boolean;
+  description: string;
+}): InputValueDefinitionNode => {
+  const baseType: NamedTypeNode = {
+    kind: Kind.NAMED_TYPE,
+    name: {
+      kind: Kind.NAME,
+      value: baseKind,
+    },
+  };
+  const type: NamedTypeNode | NonNullTypeNode = optional
+    ? baseType
+    : { kind: Kind.NON_NULL_TYPE, type: baseType };
+
+  return {
+    kind: Kind.INPUT_VALUE_DEFINITION,
+    name: {
+      kind: Kind.NAME,
+      value: name,
+    },
+    type: type,
+    directives: [],
+    description: {
+      kind: Kind.STRING,
+      block: true,
+      value: description,
+    },
+  };
+};
+
+const netlifyDirective: DirectiveDefinitionNode = {
+  kind: Kind.DIRECTIVE_DEFINITION,
+  description: {
+    kind: Kind.STRING,
+    value: "An internal directive used by Netlify Graph",
+    block: true,
+  },
+  name: {
+    kind: Kind.NAME,
+    value: "netlify",
+  },
+  arguments: [
+    makeInputValueDefinitionNode({
+      name: "id",
+      baseKind: "String",
+      optional: false,
+      description: "The uuid of the operation (normally auto-generated)",
+    }),
+    makeInputValueDefinitionNode({
+      name: "doc",
+      baseKind: "String",
+      optional: true,
+      description: "The docstring for this operation",
+    }),
+  ],
+  repeatable: false,
+  locations: [
+    {
+      kind: Kind.NAME,
+      value: "QUERY",
+    },
+    {
+      kind: Kind.NAME,
+      value: "MUTATION",
+    },
+    {
+      kind: Kind.NAME,
+      value: "SUBSCRIPTION",
+    },
+    {
+      kind: Kind.NAME,
+      value: "FRAGMENT_DEFINITION",
+    },
+  ],
+};
+
+export const normalizeOperationsDoc = (operationsDoc: string) => {
+  const parsedOperations = parse(operationsDoc);
+
+  const fragments: FragmentDefinitionNode[] = [];
+  const operations: OperationDefinitionNode[] = [];
+
+  const sortedDefinitions = [...parsedOperations.definitions].sort((a, b) => {
+    const aName: string =
+      (a.kind === Kind.OPERATION_DEFINITION
+        ? a.name?.value
+        : a.kind === Kind.FRAGMENT_DEFINITION
+        ? a.name.value
+        : null) || "__unknownDefinition";
+    const bName: string =
+      (b.kind === Kind.OPERATION_DEFINITION
+        ? b.name?.value
+        : b.kind === Kind.FRAGMENT_DEFINITION
+        ? b.name.value
+        : null) || "__unknownDefinition";
+
+    return aName.localeCompare(bName);
+  });
+
+  for (const definition of sortedDefinitions) {
+    const definitionWithNormalizedStrings = visit(definition, {
+      StringValue: {
+        enter(node) {
+          const hasNewlines = node.value.match(/\n/);
+          return {
+            ...node,
+            block: hasNewlines ? true : node.block,
+          };
+        },
+      },
+    });
+
+    if (definitionWithNormalizedStrings.kind === Kind.OPERATION_DEFINITION) {
+      operations.push(definitionWithNormalizedStrings);
+    } else if (
+      definitionWithNormalizedStrings.kind === Kind.FRAGMENT_DEFINITION
+    ) {
+      fragments.push(definitionWithNormalizedStrings);
+    }
+  }
+
+  const netlifyDirectiveString = print(netlifyDirective);
+
+  const fragmentStrings = fragments.map((fragment) => {
+    return print(fragment);
+  });
+
+  const operationStrings = operations.map((operation) => {
+    return print(operation);
+  });
+
+  const fullDoc =
+    [netlifyDirectiveString, ...fragmentStrings, ...operationStrings].join(
+      "\n\n"
+    ) + "\n";
+
+  return fullDoc;
 };
