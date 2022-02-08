@@ -221,12 +221,12 @@ ${out(
 )}
 
 const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
-  const accessToken = input.options.accessToken
   const query = input.query
   const operationName = input.operationName
   const variables = input.variables
-  const options = input.options || {}
 
+  const options = input.options || {}
+  const accessToken = options.accessToken
   const siteId = options.siteId || process.env.SITE_ID
 
   const payload = {
@@ -341,12 +341,31 @@ export function ${subscriptionFunctionName(fn)}(
    * Use this to keep track of which subscription you're receiving
    * events for.
    */
-  netlifyGraphWebhookId: string,
   variables: ${
     variableSignature === "{}" ? "Record<string, never>" : variableSignature
   },
-  accessToken?: string | null | undefined
-  ) : void
+  options?: {
+    /**
+     * The accessToken to use for the lifetime of the subscription.
+     */
+    accessToken?: string | null | undefined;
+    /**
+     * A string id that will be passed to your webhook handler as a query parameter
+     * along with each event.
+     * This can be used to keep track of which subscription you're receiving
+     */
+    netlifyGraphWebhookId?: string | null | undefined;
+    /**
+     * The absolute URL of your webhook handler to handle events from this subscription.
+     */
+    webhookUrl?: string | null | undefined;
+    /**
+     * The secret to use when signing the webhook request. Use this to verify
+     * that the webhook payload is coming from Netlify Graph. Defaults to the
+     * value of the NETLIFY_GRAPH_WEBHOOK_SECRET environment variable.
+     */
+    webhookSecret?: string | null | undefined;
+  }) : void
 
 export type ${subscriptionParserReturnName(
     fn
@@ -389,34 +408,29 @@ export const generateSubscriptionFunction = (
   const safeBody = replaceAll(body, "${", "\\${");
 
   return `const ${subscriptionFunctionName(fn)} = async (
-  /**
-   * This will be available in your webhook handler as a query parameter.
-   * Use this to keep track of which subscription you're receiving
-   * events for.
-   */
-  netlifyGraphWebhookId,
   variables,
   rawOptions
   ) => {
-    const options = rawOptions || {}
-    const netlifyGraphWebhookUrl = \`\${process.env.DEPLOY_URL}${
+    const options = rawOptions || {};
+    const netlifyGraphWebhookId = options.netlifyGraphWebhookId;
+    const netlifyGraphWebhookUrl = options.webhookUrl || \`\${process.env.DEPLOY_URL}${
       netlifyGraphConfig.webhookBasePath
-    }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`
-    const secret = options.secret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
+    }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`;
+    const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
     const fullVariables = {...variables, netlifyGraphWebhookUrl: netlifyGraphWebhookUrl, netlifyGraphWebhookSecret: { hmacSha256Key: secret }}
 
     const subscriptionOperationDoc = \`${safeBody}\`;
 
-    const result = await fetchNetlifyGraph({
+    fetchNetlifyGraph({
       query: subscriptionOperationDoc,
       operationName: "${fn.operationName}",
       variables: fullVariables,
-      options: Object.assign({accessToken: accessToken}, options || {}),
+      options: options,
   })
 }
 
-const ${subscriptionParserName(fn)} = (event) => {
-  if (!verifyRequestSignature({ event: event })) {
+const ${subscriptionParserName(fn)} = (event, options) => {
+  if (!verifyRequestSignature({ event: event }, options)) {
     console.warn("Unable to verify signature for ${filename}")
     return null
   }
@@ -801,9 +815,9 @@ ${exp(
   netlifyGraphConfig,
   ["node"],
   "verifyRequestSignature",
-  `(request) => {
+  `(request, options) => {
   const event = request.event
-  const secret = process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
+  const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
   const signature = event.headers['x-netlify-graph-signature']
   const body = event.body
 
@@ -915,7 +929,14 @@ export function ${fn.fnName}(
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
+  /**
+   * The accessToken to use for the request
+   */
   accessToken?: string;
+  /**
+   * The siteId to use for the request
+   * @default process.env.SITE_ID
+   */
   siteId?: string;
 }
 
