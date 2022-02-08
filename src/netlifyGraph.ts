@@ -1114,14 +1114,14 @@ export const generateHandlerSource = ({
   console.log("Generating handler source for operation", operationId);
   const parsedDoc = parse(operationsDoc);
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
-  const fn = operations.functions[operationId];
+  const functions = operations.functions;
+  const fn = functions[operationId];
 
   if (!fn) {
     internalConsole.warn(
       `Operation ${operationId} not found in graphql, found: ${Object.keys(
-        operations
-      ).join(", ")}}`,
-      Object.keys(operations)
+        functions
+      ).join(", ")}}`
     );
     return;
   }
