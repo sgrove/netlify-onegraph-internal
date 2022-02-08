@@ -127,7 +127,11 @@ const generateRoute = (opts: {
         opts.netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
       }`,
     ],
-    content: `import { json, Form, useActionData, useTransition } from "remix";
+    content: `${ts(
+      netlifyGraphConfig,
+      `import { DataFunctionArgs } from "@remix-run/server-runtime";
+`
+    )}import { json, Form, useActionData, useTransition } from "remix";
 import type { ActionFunction } from "remix";
 import NetlifyGraph from "${netlifyGraphConfig.netlifyGraphRequirePath}";${ts(
       netlifyGraphConfig,
@@ -138,7 +142,10 @@ import invariant from "tiny-invariant";`
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ netlifyGraphToken, request }) => {
+    )} = async ({ netlifyGraphToken, request }${ts(
+      netlifyGraphConfig,
+      `: DataFunctionArgs & { netlifyGraphToken?: string; }`
+    )}) => {
   const formData = await request.formData();
 
   // By default, all API calls use no authentication
@@ -635,16 +642,20 @@ const subscriptionHandler = ({
         netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
       }`,
     ],
-    content: `import { ${ts(
+    content: `${ts(
       netlifyGraphConfig,
-      "ActionFunction, "
-    )}json } from "remix";
+      `import { DataFunctionArgs } from "@remix-run/server-runtime";
+    `
+    )}import { ${ts(netlifyGraphConfig, "ActionFunction, ")}json } from "remix";
 import NetlifyGraph from "../${netlifyGraphConfig.netlifyGraphRequirePath}";
 
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ netlifyGraphSignature, request }) => {
+    )} = async ({ netlifyGraphSignature, request }${ts(
+      netlifyGraphConfig,
+      `: DataFunctionArgs & { netlifyGraphSignature?: string; }`
+    )}) => {
   const reqBody = await request.text();
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
