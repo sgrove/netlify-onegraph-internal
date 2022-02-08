@@ -16,6 +16,7 @@ import {
   Kind,
   parseType,
   print,
+  SelectionNode,
   SelectionSetNode,
   typeFromAST,
   TypeInfo,
@@ -214,16 +215,21 @@ export function typeScriptSignatureForOperationVariables(
       return variableNames.includes(variableName);
     });
 
-  let typesObject = variables.map(([varName, varDef]) => {
-    let printedType = print(varDef.type);
-    let parsedType = parseType(printedType);
-    //@ts-ignore
-    let gqlType = typeFromAST(schema, parsedType);
-    //@ts-ignore
-    let tsType = typeScriptForGraphQLType(schema, gqlType);
+  let typesObject: [string, string][] = variables
+    .map(([varName, varDef]) => {
+      let printedType = print(varDef.type);
+      let parsedType = parseType(printedType);
+      let gqlType = typeFromAST(schema, parsedType);
 
-    return [varName, tsType];
-  });
+      if (!gqlType) {
+        return;
+      }
+
+      let tsType = typeScriptForGraphQLType(schema, gqlType);
+
+      return [varName, tsType];
+    })
+    .filter(Boolean) as [string, string][];
 
   let typeFields = typesObject
     .map(([name, tsType]) => `"${name}": ${tsType}`)
@@ -234,7 +240,6 @@ export function typeScriptSignatureForOperationVariables(
   return types === "" ? "null" : types;
 }
 
-//@ts-ignore
 export function listCount(gqlType) {
   let inspectedType = gqlType;
 
@@ -958,81 +963,83 @@ export function patchSubscriptionWebhookField({
     return definition;
   }
 
-  const newSelections = definition.selectionSet.selections.map((selection) => {
-    if (selection.kind !== "Field") return selection;
+  const newSelections: SelectionNode[] = definition.selectionSet.selections.map(
+    (selection) => {
+      if (selection.kind !== "Field") return selection;
 
-    const field = subscriptionType.getFields()[selection.name.value];
-    if (!field) {
-      return selection;
-    }
-    const fieldHasWebhookUrlArg = field.args.some(
-      (arg) => arg.name === "webhookUrl"
-    );
-    const selectionHasWebhookUrlArg = selection.arguments?.some(
-      (arg) => arg.name.value === "webhookUrl"
-    );
+      const field = subscriptionType.getFields()[selection.name.value];
+      if (!field) {
+        return selection;
+      }
+      const fieldHasWebhookUrlArg = field.args.some(
+        (arg) => arg.name === "webhookUrl"
+      );
+      const selectionHasWebhookUrlArg = selection.arguments?.some(
+        (arg) => arg.name.value === "webhookUrl"
+      );
 
-    if (fieldHasWebhookUrlArg && !selectionHasWebhookUrlArg) {
-      return {
-        ...selection,
-        arguments: [
-          ...(selection.arguments || []),
-          {
-            kind: "Argument",
-            name: {
-              kind: "Name",
-              value: "webhookUrl",
-            },
-            value: {
-              kind: "Variable",
+      if (fieldHasWebhookUrlArg && !selectionHasWebhookUrlArg) {
+        return {
+          ...selection,
+          arguments: [
+            ...(selection.arguments || []),
+            {
+              kind: Kind.ARGUMENT,
               name: {
-                kind: "Name",
-                value: "netlifyGraphWebhookUrl",
+                kind: Kind.NAME,
+                value: "webhookUrl",
+              },
+              value: {
+                kind: Kind.VARIABLE,
+                name: {
+                  kind: Kind.NAME,
+                  value: "netlifyGraphWebhookUrl",
+                },
               },
             },
-          },
-        ],
-      };
-    }
+          ],
+        };
+      }
 
-    return selection;
-  });
+      return selection;
+    }
+  );
 
   const hasWebhookVariableDefinition = definition.variableDefinitions?.find(
     (varDef) => varDef.variable.name.value === "netlifyGraphWebhookUrl"
   );
 
+  const netlifyGraphWebhookUrlVariable: VariableDefinitionNode = {
+    kind: Kind.VARIABLE_DEFINITION,
+    type: {
+      kind: Kind.NON_NULL_TYPE,
+      type: {
+        kind: Kind.NAMED_TYPE,
+        name: {
+          kind: Kind.NAME,
+          value: "String",
+        },
+      },
+    },
+    variable: {
+      kind: Kind.VARIABLE,
+      name: {
+        kind: Kind.NAME,
+        value: "netlifyGraphWebhookUrl",
+      },
+    },
+  };
+
   const variableDefinitions = !!hasWebhookVariableDefinition
     ? definition.variableDefinitions
     : [
         ...(definition.variableDefinitions || []),
-        {
-          kind: "VariableDefinition",
-          type: {
-            kind: "NonNullType",
-            type: {
-              kind: "NamedType",
-              name: {
-                kind: "Name",
-                value: "String",
-              },
-            },
-          },
-          variable: {
-            kind: "Variable",
-            name: {
-              kind: "Name",
-              value: "netlifyGraphWebhookUrl",
-            },
-          },
-        },
+        netlifyGraphWebhookUrlVariable,
       ];
 
   return {
     ...definition,
-    //@ts-ignore: Handle edge cases later
     variableDefinitions,
-    //@ts-ignore: Handle edge cases later
     selectionSet: { ...definition.selectionSet, selections: newSelections },
   };
 }
@@ -1054,82 +1061,84 @@ export function patchSubscriptionWebhookSecretField({
     return definition;
   }
 
-  const newSelections = definition.selectionSet.selections.map((selection) => {
-    if (selection.kind !== "Field") return selection;
+  const newSelections: SelectionNode[] = definition.selectionSet.selections.map(
+    (selection) => {
+      if (selection.kind !== "Field") return selection;
 
-    const field = subscriptionType.getFields()[selection.name.value];
-    if (!field) {
-      return selection;
-    }
+      const field = subscriptionType.getFields()[selection.name.value];
+      if (!field) {
+        return selection;
+      }
 
-    const fieldHasWebhookSecretArg = field.args.some(
-      (arg) => arg.name === "secret"
-    );
-    const selectionHasWebhookSecretArg = selection.arguments?.some(
-      (arg) => arg.name.value === "secret"
-    );
+      const fieldHasWebhookSecretArg = field.args.some(
+        (arg) => arg.name === "secret"
+      );
+      const selectionHasWebhookSecretArg = selection.arguments?.some(
+        (arg) => arg.name.value === "secret"
+      );
 
-    if (fieldHasWebhookSecretArg && !selectionHasWebhookSecretArg) {
-      return {
-        ...selection,
-        arguments: [
-          ...(selection.arguments || []),
-          {
-            kind: "Argument",
-            name: {
-              kind: "Name",
-              value: "secret",
-            },
-            value: {
-              kind: "Variable",
+      if (fieldHasWebhookSecretArg && !selectionHasWebhookSecretArg) {
+        return {
+          ...selection,
+          arguments: [
+            ...(selection.arguments || []),
+            {
+              kind: Kind.ARGUMENT,
               name: {
-                kind: "Name",
-                value: "netlifyGraphWebhookSecret",
+                kind: Kind.NAME,
+                value: "secret",
+              },
+              value: {
+                kind: Kind.VARIABLE,
+                name: {
+                  kind: Kind.NAME,
+                  value: "netlifyGraphWebhookSecret",
+                },
               },
             },
-          },
-        ],
-      };
-    }
+          ],
+        };
+      }
 
-    return selection;
-  });
+      return selection;
+    }
+  );
 
   const hasWebhookVariableDefinition = definition.variableDefinitions?.find(
     (varDef) => varDef.variable.name.value === "netlifyGraphWebhookSecret"
   );
 
+  const netlifyGraphWebhookUrlVariable: VariableDefinitionNode = {
+    kind: Kind.VARIABLE_DEFINITION,
+    type: {
+      kind: Kind.NON_NULL_TYPE,
+      type: {
+        kind: Kind.NAMED_TYPE,
+        name: {
+          kind: Kind.NAME,
+          value: "OneGraphSubscriptionSecretInput",
+        },
+      },
+    },
+    variable: {
+      kind: Kind.VARIABLE,
+      name: {
+        kind: Kind.NAME,
+        value: "netlifyGraphWebhookSecret",
+      },
+    },
+  };
+
   const variableDefinitions = !!hasWebhookVariableDefinition
     ? definition.variableDefinitions
     : [
         ...(definition.variableDefinitions || []),
-        {
-          kind: "VariableDefinition",
-          type: {
-            kind: "NonNullType",
-            type: {
-              kind: "NamedType",
-              name: {
-                kind: "Name",
-                value: "OneGraphSubscriptionSecretInput",
-              },
-            },
-          },
-          variable: {
-            kind: "Variable",
-            name: {
-              kind: "Name",
-              value: "netlifyGraphWebhookSecret",
-            },
-          },
-        },
+        netlifyGraphWebhookUrlVariable,
       ];
 
   return {
     ...definition,
-    //@ts-ignore: Handle edge cases later
     variableDefinitions,
-    //@ts-ignore: Handle edge cases later
     selectionSet: { ...definition.selectionSet, selections: newSelections },
   };
 }
