@@ -145,7 +145,7 @@ ${exp(netlifyGraphConfig, "action")}${ts(
   let accessToken;
 
   //// If you want to use the API with your own access token:
-  // accessToken = authlifyToken;
+  // accessToken = event.netlifyGraphToken;
 
   ${fetcherInvocation}
 
@@ -650,7 +650,7 @@ ${exp(netlifyGraphConfig, "action")}${ts(
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
     body: reqBody,
     headers: {
-      'x-netlify-graph-signature': request.headers.get('x-netlify-graph-signature')
+      'x-netlify-graph-signature': event.netlifyGraphSignature
     },
   });
 
