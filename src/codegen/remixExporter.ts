@@ -15,7 +15,6 @@ import {
   OperationData,
   OperationDataList,
   SnippetGeneratorWithMeta,
-  UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { remixFormInput } from "../graphqlHelpers";
@@ -127,11 +126,7 @@ const generateRoute = (opts: {
         opts.netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
       }`,
     ],
-    content: `${ts(
-      netlifyGraphConfig,
-      `import { DataFunctionArgs } from "@remix-run/server-runtime";
-`
-    )}import { json, Form, useActionData, useTransition } from "remix";
+    content: `import { json, Form, useActionData, useTransition } from "remix";
 import type { ActionFunction } from "remix";
 import NetlifyGraph from "${netlifyGraphConfig.netlifyGraphRequirePath}";${ts(
       netlifyGraphConfig,
@@ -142,17 +137,14 @@ import invariant from "tiny-invariant";`
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ netlifyGraphToken, request }${ts(
-      netlifyGraphConfig,
-      `: DataFunctionArgs & { netlifyGraphToken?: string; }`
-    )}) => {
+    )} = async ({ context, request }) => {
   const formData = await request.formData();
 
   // By default, all API calls use no authentication
   let accessToken;
 
   //// If you want to use the API with your own access token:
-  // accessToken = netlifyGraphToken;
+  // accessToken = context.netlifyGraphToken;
 
   ${fetcherInvocation}
 
@@ -642,26 +634,22 @@ const subscriptionHandler = ({
         netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
       }`,
     ],
-    content: `${ts(
+    content: `import { ${ts(
       netlifyGraphConfig,
-      `import { DataFunctionArgs } from "@remix-run/server-runtime";
-    `
-    )}import { ${ts(netlifyGraphConfig, "ActionFunction, ")}json } from "remix";
+      "ActionFunction, "
+    )}json } from "remix";
 import NetlifyGraph from "../${netlifyGraphConfig.netlifyGraphRequirePath}";
 
 ${exp(netlifyGraphConfig, "action")}${ts(
       netlifyGraphConfig,
       ": ActionFunction"
-    )} = async ({ netlifyGraphSignature, request }${ts(
-      netlifyGraphConfig,
-      `: DataFunctionArgs & { netlifyGraphSignature?: string; }`
-    )}) => {
+    )} = async ({ context, request }) => {
   const reqBody = await request.text();
 
   const payload = NetlifyGraph.parseAndVerify${operationData.name}Event({
     body: reqBody,
     headers: {
-      'x-netlify-graph-signature': netlifyGraphSignature
+      'x-netlify-graph-signature': context.netlifyGraphSignature
     },
   });
 

@@ -90,7 +90,7 @@ const test = () => {
       useClientAuth: true,
     },
     netlifyGraphConfig,
-    operationId: "c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f",
+    operationId: "39b94699-9a08-4deb-bf06-8e5b4d5eee9f",
     operationsDoc: sourceGraphQLFile,
     schema,
   });

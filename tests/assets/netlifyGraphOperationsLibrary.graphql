@@ -96,31 +96,31 @@ fragment ServiceAuthFragment on OneGraphServiceAuth @netlify(id: "12b5bdea-9bab-
 #
 #
 #
-#subscription NpmPublishActivity @netlify(id: "39b94699-9a08-4deb-bf06-8e5b4d5eee9f", doc: "Package info with open issue count on every publish") {
-#  npm {
-#    allPublishActivity {
-#      package {
-#        id
-#        name
-#        description
-#        license {
-#          url
-#        }
-#        repository {
-#          sourceRepository {
-#            ... on GitHubRepository {
-#              id
-#              name
-#              issues(states: OPEN) {
-#                totalCount
-#              }
-#            }
-#          }
-#        }
-#      }
-#    }
-#  }
-#}
+subscription NpmPublishActivity @netlify(id: "39b94699-9a08-4deb-bf06-8e5b4d5eee9f", doc: "Package info with open issue count on every publish") {
+ npm {
+   allPublishActivity {
+     package {
+       id
+       name
+       description
+       license {
+         url
+       }
+       repository {
+         sourceRepository {
+           ... on GitHubRepository {
+             id
+             name
+             issues(states: OPEN) {
+               totalCount
+             }
+           }
+         }
+       }
+     }
+   }
+ }
+}
 #
 #query GitHubRepositoryIssues($owner: String!, $name: String!, $first: Int = 1) @netlify(id: "12b5bdea-9bab-4164-a731-5e697b1552be", doc: "GitHub issues for everyone") {
 #  gitHub {
