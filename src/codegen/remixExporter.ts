@@ -126,8 +126,10 @@ const generateRoute = (opts: {
         opts.netlifyGraphConfig.language === "typescript" ? "tsx" : "js"
       }`,
     ],
-    content: `import { json, Form, useActionData, useTransition } from "remix";
-import type { ActionFunction } from "remix";
+    content: `import { ${ts(
+      netlifyGraphConfig,
+      "ActionFunction, "
+    )}json, Form, useActionData, useTransition } from "remix";
 import NetlifyGraph from "${netlifyGraphConfig.netlifyGraphRequirePath}";${ts(
       netlifyGraphConfig,
       `
