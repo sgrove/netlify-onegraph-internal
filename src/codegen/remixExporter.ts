@@ -527,7 +527,7 @@ ${requiredVariableCount > 0 ? variableValidation : ""}
 
   const { errors, data } = await NetlifyGraph.${operationFunctionName(
     namedOperationData
-  )}({ ${invocationParams.join(", ")} }, accessToken);
+  )}({ ${invocationParams.join(", ")} }, {accessToken: accessToken});
 
   if (errors) {
     console.error(JSON.stringify(errors, null, 2));
@@ -673,7 +673,7 @@ ${exp(netlifyGraphConfig, "action")}${ts(
    * If you want to unsubscribe from this webhook
    * in order to stop receiving new events,
    * simply return status 410, e.g.:
-   * 
+   *
    * return json({}, { status: 410 });
    */
 
@@ -808,7 +808,7 @@ ${imp(
   netlifyGraphConfig.netlifyGraphRequirePath
 )};
 
-/** 
+/**
  * Client-side invocations:
  * Call your Netlify function from the browser with this helper:
  */
