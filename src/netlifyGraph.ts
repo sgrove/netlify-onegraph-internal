@@ -909,6 +909,13 @@ export const generateTypeScriptDefinitions = (
     const returnSignatureName = capitalizeFirstLetter(baseName);
     const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
     const shouldExportInputSignature = fn.variableSignature !== "{}";
+    const emptyVariablesGuideDocString =
+      fn.variableSignature === "{}"
+        ? `/**
+  * Pass \`{}\` as no variables are defined for this function.
+  */
+  `
+        : ``;
     const inputSignatureExport = shouldExportInputSignature
       ? `export type ${inputSignatureName} = ${fn.variableSignature};
 `
@@ -921,9 +928,9 @@ export type ${returnSignatureName} = ${fn.returnSignature};
  * ${jsDoc}
  */
 export function ${fn.fnName}(
-  variables: ${
-    shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
-  },
+  ${emptyVariablesGuideDocString}variables: ${
+      shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
+    },
   options?: NetlifyGraphFunctionOptions
 ): Promise<${returnSignatureName}>;`;
   });
