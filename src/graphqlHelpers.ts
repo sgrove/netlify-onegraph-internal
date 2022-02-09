@@ -1,6 +1,9 @@
 import {
+  ArgumentNode,
+  ASTVisitFn,
   DirectiveDefinitionNode,
   getNamedType,
+  GraphQLInputField,
   GraphQLInterfaceType,
   GraphQLList,
   GraphQLObjectType,
@@ -18,6 +21,7 @@ import {
   Kind,
   NamedTypeNode,
   NonNullTypeNode,
+  ObjectFieldNode,
   parse,
   parseType,
   print,
@@ -25,6 +29,7 @@ import {
   SelectionSetNode,
   typeFromAST,
   TypeInfo,
+  VariableNode,
   visit,
   visitWithTypeInfo,
 } from "graphql";
@@ -220,7 +225,88 @@ export function typeScriptSignatureForOperationVariables(
       return variableNames.includes(variableName);
     });
 
-  let typesObject: [string, string][] = variables
+  const guessVariableDescription = (
+    variableNames: string[]
+  ): Record<
+    string,
+    {
+      usageCount: number;
+      descriptions?: Set<string>;
+    }
+  > => {
+    const variableRecords: Record<
+      string,
+      { usageCount: number; descriptions?: Set<string> }
+    > = {};
+
+    for (let variableName of variableNames) {
+      variableRecords[variableName] = {
+        usageCount: 0,
+        descriptions: new Set(),
+      };
+    }
+
+    const typeInfo = new TypeInfo(schema);
+
+    const argHandler: ASTVisitFn<ArgumentNode> = (node) => {
+      if (node.value && node.value.kind === Kind.VARIABLE) {
+        const argument = typeInfo.getArgument();
+        const existingRecord = variableRecords[node.value.name.value];
+        const existingDescription = existingRecord?.descriptions;
+
+        if (existingDescription && argument?.description) {
+          existingDescription.add(argument.description);
+        }
+
+        variableRecords[node.value.name.value] = {
+          ...existingRecord,
+          usageCount: existingRecord.usageCount + 1,
+        };
+      }
+      return node;
+    };
+
+    const objectFieldHandler: ASTVisitFn<ObjectFieldNode> = (node) => {
+      if (node.value && node.value.kind === Kind.VARIABLE) {
+        const parentType = typeInfo.getParentInputType();
+        const namedParentType = getNamedType(parentType);
+
+        let field: GraphQLInputField | undefined;
+
+        if (isInputObjectType(namedParentType)) {
+          field = namedParentType?.getFields()[node.name.value];
+
+          const existingRecord = variableRecords[node.value.name.value];
+          const existingDescription = existingRecord?.descriptions;
+
+          if (existingDescription && field?.description) {
+            existingDescription.add(field.description);
+          }
+
+          variableRecords[node.value.name.value] = {
+            ...existingRecord,
+            usageCount: existingRecord.usageCount + 1,
+          };
+        }
+
+        return node;
+      }
+    };
+
+    visit(
+      operationDefinition,
+      visitWithTypeInfo(typeInfo, {
+        Argument: argHandler,
+        ObjectField: objectFieldHandler,
+      })
+    );
+
+    return variableRecords;
+  };
+
+  const variableUsageInfo = guessVariableDescription(variableNames);
+
+  let typesObject: [string, string, boolean][] = variables
     .map(([varName, varDef]) => {
       let printedType = print(varDef.type);
       let parsedType = parseType(printedType);
@@ -230,17 +316,35 @@ export function typeScriptSignatureForOperationVariables(
         return;
       }
 
+      let isRequired = isNonNullType(gqlType);
+
       let tsType = typeScriptForGraphQLType(schema, gqlType);
 
-      return [varName, tsType];
+      return [varName, tsType, isRequired];
     })
-    .filter(Boolean) as [string, string][];
+    .filter(Boolean) as [string, string, boolean][];
 
   let typeFields = typesObject
-    .map(([name, tsType]) => `"${name}": ${tsType}`)
-    .join("; ");
+    .map(([name, tsType, isRequired]) => {
+      const usageCount = variableUsageInfo[name].usageCount;
+      const descriptions = variableUsageInfo[name].descriptions;
+      let description = "";
+      if (usageCount > 0 && descriptions?.size === 1) {
+        description = ` /**
+ * ${Array.from(descriptions)[0]}
+ */
+ `;
+      }
 
-  let types = `{${typeFields}}`;
+      const optionalMark = isRequired ? "" : "?";
+
+      return `${description}"${name}"${optionalMark}: ${tsType}`;
+    })
+    .join(";  \n");
+
+  let types = `{
+ ${typeFields}
+}`;
 
   return types === "" ? "null" : types;
 }
@@ -271,43 +375,42 @@ export function listCount(gqlType) {
 
 const unknownScalar: OutScalar = { kind: "scalar", type: "unknown" };
 
-export function typeScriptDefinitionObjectForOperation(
-  schema: GraphQLSchema,
-  operationDefinition: OperationDefinitionNode | FragmentDefinitionNode,
-  fragmentDefinitions: Record<string, FragmentDefinitionNode>,
-  shouldLog = true
-): OutObject {
-  const dummyOut: OutObject = {
-    kind: "object",
-    namedFragments: [],
-    inlineFragments: [],
-    selections: {
-      data: {
-        kind: "selection_field",
-        name: "data",
-        description:
-          "Any data retrieved by the function will be returned here [Placeholder]",
+const dummyOut: OutObject = {
+  kind: "object",
+  namedFragments: [],
+  inlineFragments: [],
+  selections: {
+    data: {
+      kind: "selection_field",
+      name: "data",
+      description:
+        "Any data retrieved by the function will be returned here [Placeholder]",
+      type: {
+        kind: "scalar",
+        type: "Record<string, unknown>",
+      },
+    },
+    errors: {
+      kind: "selection_field",
+      name: "errors",
+      description:
+        "Any errors in the function will be returned here [Placeholder]",
+      type: {
+        kind: "array",
         type: {
           kind: "scalar",
-          type: "Record<string, unknown>",
-        },
-      },
-      errors: {
-        kind: "selection_field",
-        name: "errors",
-        description:
-          "Any errors in the function will be returned here [Placeholder]",
-        type: {
-          kind: "array",
-          type: {
-            kind: "scalar",
-            type: "GraphQLError",
-          },
+          type: "GraphQLError",
         },
       },
     },
-  };
+  },
+};
 
+export function typeScriptDefinitionObjectForOperation(
+  schema: GraphQLSchema,
+  operationDefinition: OperationDefinitionNode | FragmentDefinitionNode,
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>
+): OutObject {
   const objectHelper = (
     type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
     selectionSet: SelectionSetNode

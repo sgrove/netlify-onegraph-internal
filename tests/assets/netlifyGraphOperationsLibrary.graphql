@@ -169,17 +169,17 @@ subscription NpmPublishActivity @netlify(id: "39b94699-9a08-4deb-bf06-8e5b4d5eee
 #  }
 #}
 #
-#mutation DeleteServiceAuthMutation($siteId: String!, $serviceAuthId: String!, $nfToken: String!) @netlify(id: "5c7bb879-a810-4a7e-8aec-55d05fd9c172", doc: "Delete a custom service auth") {
-#  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
-#    destroyServiceAuth(data: {appId: $siteId, serviceAuthId: $serviceAuthId}) {
-#      app {
-#        serviceAuths {
-#          ...ServiceAuthFragment
-#        }
-#      }
-#    }
-#  }
-#}
+mutation DeleteServiceAuthMutation($siteId: String!, $serviceAuthId: String!, $nfToken: String!) @netlify(id: "5c7bb879-a810-4a7e-8aec-55d05fd9c172", doc: "Delete a custom service auth") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    destroyServiceAuth(data: {appId: $siteId, serviceAuthId: $serviceAuthId}) {
+      app {
+        serviceAuths {
+          ...ServiceAuthFragment
+        }
+      }
+    }
+  }
+}
 query GetIssueBreakdown($after: String) @netlify(id: """c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f""", doc: """Issue that allows querying GitHub for more information about issues.""") {
   gitHub {
     repository(owner: "microsoft", name: "powertoys") {
@@ -220,3 +220,105 @@ query GetIssueBreakdown($after: String) @netlify(id: """c67c5c11-cbc4-48ed-8ac8-
     }
   }
 }
+
+mutation CreateNewSchemaMutation(
+  $nfToken: String!
+  $input: OneGraphCreateGraphQLSchemaInput!
+  $appId: String = ""
+  $enabledServices: [OneGraphServiceEnumArg!] = ADROLL
+  $parentId: String = ""
+  $salesforceSchemaId: String = ""
+  $setAsDefaultForApp: Boolean = false
+  $externalGraphQLSchemaId: String = ""
+  $style: OneGraphAppLogoStyleEnum = DEFAULT
+  $id: String = ""
+  $input1: OneGraphDangerouslySignJwtPayloadInput = {
+    payload: ""
+  }
+)
+@netlify(
+  id: "4fc2298a-225b-4329-b3f3-a8f8bc0513a8"
+  doc: "Create a new GraphQL schema for an app with a set of services enabled. Note that this just makes the schema _available_ for the app to use, it doesn't set it as the default for all queries to use."
+) {
+  oneGraph(
+    auths: { netlifyAuth: { oauthToken: $nfToken } }
+  ) {
+    createGraphQLSchema(
+      input: {
+        appId: $appId
+        enabledServices: $enabledServices
+        salesforceSchemaId: $salesforceSchemaId
+        setAsDefaultForApp: $setAsDefaultForApp
+        parentId: $parentId
+        externalGraphQLSchemas: {
+          externalGraphQLSchemaId: $externalGraphQLSchemaId
+        }
+      }
+    ) {
+      app {
+        graphQLSchema {
+          id
+        }
+      }
+      graphqlSchema {
+        id
+        services {
+          friendlyServiceName
+          logoUrl(style: $style)
+          service
+          slug
+          supportsCustomRedirectUri
+          supportsCustomServiceAuth
+          supportsOauthLogin
+        }
+      }
+    }
+    app(id: $id) {
+      dangerouslySignJwtPayload(input: $input1)
+    }
+  }
+}
+
+
+query MyQuery(
+  $owner: String = "graphql"
+  $states: [GitHubIssueState!] = OPEN
+  $orderBy: GitHubIssueOrder = {
+    field: CREATED_AT
+    direction: DESC
+  }
+  $labels: [String!] = ""
+  $last: Int = 10
+  $assignee: String = ""
+  $createdBy: String = ""
+  $labels1: [String!]!
+  $mentioned: String = ""
+  $milestone: String!
+  $since: GitHubDateTime = ""
+  $after: String!
+) @netlify(
+  id: "4fc2298a-225b-4329-baa3-a8f8bc0513a8"
+  doc: "A test"
+){
+  gitHub {
+    repository(owner: $owner) {
+      issues(
+        first: 10
+        orderBy: $orderBy
+        states: $states
+        last: $last
+        labels: $labels
+        filterBy: {
+          assignee: $assignee
+          createdBy: $createdBy
+          labels: $labels1
+          mentioned: $mentioned
+          milestone: $milestone
+          since: $since
+        }
+        after: $after
+      )
+    }
+  }
+}
+

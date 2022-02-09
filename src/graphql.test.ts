@@ -1,5 +1,9 @@
 import { writeFileSync, readFileSync } from "fs";
-import { normalizeOperationsDoc } from "./graphqlHelpers";
+import { buildASTSchema, Kind, OperationDefinitionNode, parse } from "graphql";
+import {
+  normalizeOperationsDoc,
+  typeScriptSignatureForOperationVariables,
+} from "./graphqlHelpers";
 
 const test = () => {
   const sourceGraphQLFilename =
@@ -7,6 +11,39 @@ const test = () => {
   const schemaGraphQLFilename = "./tests/assets/netlifyGraphSchema.graphql";
 
   const sourceGraphQLFile = readFileSync(sourceGraphQLFilename, "utf8");
+  const schemaFile = readFileSync(schemaGraphQLFilename, "utf8");
+
+  const schema = buildASTSchema(parse(schemaFile));
+  const opsDoc = parse(sourceGraphQLFile);
+
+  const targetOperationName = "MyQuery";
+
+  const operation: OperationDefinitionNode | undefined =
+    opsDoc.definitions.find((operation) => {
+      if (
+        operation.kind === Kind.OPERATION_DEFINITION &&
+        operation.name?.value === targetOperationName
+      ) {
+        return true;
+      }
+    }) as OperationDefinitionNode | undefined;
+
+  if (!operation) {
+    throw new Error(`Could not find operation: ${targetOperationName}`);
+  }
+
+  const operationVariableNames =
+    operation.variableDefinitions?.map(
+      (variableDefinition) => variableDefinition.variable.name.value
+    ) || [];
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    operationVariableNames,
+    schema,
+    operation
+  );
+
+  console.log(`variableSignature:\n${variableSignature}`);
 
   const result = normalizeOperationsDoc(sourceGraphQLFile);
 
