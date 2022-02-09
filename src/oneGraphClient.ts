@@ -379,7 +379,7 @@ const basicPost = async (
   const respBody = await resp.text();
 
   if (resp.status < httpOkLow || resp.status > httpOkHigh) {
-    internalConsole.debug("Response:", respBody);
+    internalConsole.debug(`Response: ${JSON.stringify(respBody, null, 2)}`);
     internalConsole.error(
       `Netlify Graph upstream return invalid HTTP status code: ${resp.status}`
     );
@@ -413,7 +413,9 @@ export const fetchOneGraphSchemaJson = async (
 
     return JSON.parse(response);
   } catch (error) {
-    internalConsole.error("Error fetching schema:", error);
+    internalConsole.error(
+      `Error fetching schema: ${JSON.stringify(error, null, 2)}`
+    );
   }
 };
 
@@ -475,9 +477,11 @@ const fetchOneGraph = async (config: {
     const value = JSON.parse(result);
     if (value.errors) {
       internalConsole.warn(
-        `Errors seen fetching Netlify Graph upstream`,
-        operationName,
-        JSON.stringify(value, null, 2)
+        `Errors seen fetching Netlify Graph upstream for ${operationName}: ${JSON.stringify(
+          value.errors,
+          null,
+          2
+        )}`
       );
     }
     return value;
@@ -532,8 +536,8 @@ const fetchOneGraphPersisted = async (config: {
     return JSON.parse(result);
   } catch (networkError) {
     internalConsole.warn(
-      "Network error fetching Netlify Graph upstream",
-      networkError
+      `Network error fetching Netlify Graph upstream:
+${JSON.stringify(networkError, null, 2)}`
     );
     return {};
   }

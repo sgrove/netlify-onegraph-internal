@@ -1196,8 +1196,8 @@ export const generateCustomHandlerSource = ({
 
   if (!fn) {
     internalConsole.warn(
-      `Operation ${operationId} not found in graphql, bummer!`,
-      Object.keys(operations)
+      `Operation ${operationId} not found in graphql among:
+ [${Object.keys(operations).join(",\n ")}]`
     );
     return;
   }
