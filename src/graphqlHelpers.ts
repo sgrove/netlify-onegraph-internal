@@ -342,7 +342,7 @@ export function typeScriptSignatureForOperationVariables(
       ? ""
       : `
  ${typeFields}
-}`;
+`;
 
   let types = `{${formattedTypeFields}}`;
 
