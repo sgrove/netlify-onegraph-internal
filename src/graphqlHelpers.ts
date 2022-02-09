@@ -1,7 +1,6 @@
 import {
   ArgumentNode,
   ASTVisitFn,
-  DirectiveDefinitionNode,
   getNamedType,
   GraphQLInputField,
   GraphQLInterfaceType,
@@ -9,7 +8,6 @@ import {
   GraphQLObjectType,
   GraphQLScalarType,
   GraphQLUnionType,
-  InputValueDefinitionNode,
   isEnumType,
   isInputObjectType,
   isInterfaceType,
@@ -19,8 +17,6 @@ import {
   isScalarType,
   isWrappingType,
   Kind,
-  NamedTypeNode,
-  NonNullTypeNode,
   ObjectFieldNode,
   parse,
   parseType,
@@ -29,7 +25,6 @@ import {
   SelectionSetNode,
   typeFromAST,
   TypeInfo,
-  VariableNode,
   visit,
   visitWithTypeInfo,
 } from "graphql";
@@ -342,9 +337,14 @@ export function typeScriptSignatureForOperationVariables(
     })
     .join(";  \n");
 
-  let types = `{
+  const formattedTypeFields =
+    typeFields.trim() === ""
+      ? ""
+      : `
  ${typeFields}
 }`;
+
+  let types = `{${formattedTypeFields}}`;
 
   return types === "" ? "null" : types;
 }

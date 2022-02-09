@@ -159,15 +159,15 @@ subscription NpmPublishActivity @netlify(id: "39b94699-9a08-4deb-bf06-8e5b4d5eee
 #  }
 #}
 #
-#query Deprecated_FindLoggedInServicesQuery @netlify(id: "9ffe3872-4ae8-4f86-b5b7-ffcdfe7843fd", doc: "(Deprecated) Find logged in services") {
-#  me {
-#    serviceMetadata {
-#      loggedInServices {
-#        ...LoggedInServicesFragment
-#      }
-#    }
-#  }
-#}
+query Deprecated_FindLoggedInServicesQuery @netlify(id: "9ffe3872-4ae8-4f86-b5b7-ffcdfe7843fd", doc: "(Deprecated) Find logged in services") {
+ me {
+   serviceMetadata {
+     loggedInServices {
+       ...LoggedInServicesFragment
+     }
+   }
+ }
+}
 #
 mutation DeleteServiceAuthMutation($siteId: String!, $serviceAuthId: String!, $nfToken: String!) @netlify(id: "5c7bb879-a810-4a7e-8aec-55d05fd9c172", doc: "Delete a custom service auth") {
   oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {

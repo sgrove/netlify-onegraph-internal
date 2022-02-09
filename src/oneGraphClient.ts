@@ -207,7 +207,7 @@ mutation CreateCLISessionEventMutation(
   }
 }
   
-query CLISessionEventsQuery(
+query CLISessionQuery(
   $nfToken: String!
   $sessionId: String!
   $first: Int!
@@ -215,23 +215,33 @@ query CLISessionEventsQuery(
   oneGraph(
     auths: { netlifyAuth: { oauthToken: $nfToken } }
   ) {
-    netlifyCliEvents(sessionId: $sessionId, first: $first) {
-      __typename
+    __typename
+    netlifyCliSession(id: $sessionId) {
+      appId
       createdAt
       id
-      sessionId
-      ... on OneGraphNetlifyCliSessionLogEvent {
-        id
-        message
-        sessionId
+      events(first: $first) {
+        __typename
         createdAt
-      }
-      ... on OneGraphNetlifyCliSessionTestEvent {
         id
-        createdAt
-        payload
         sessionId
+        ... on OneGraphNetlifyCliSessionLogEvent {
+          id
+          message
+          sessionId
+          createdAt
+        }
+        ... on OneGraphNetlifyCliSessionTestEvent {
+          id
+          createdAt
+          payload
+          sessionId
+        }
       }
+      lastEventAt
+      metadata
+      name
+      netlifyUserId
     }
   }
 }
@@ -583,6 +593,59 @@ export const fetchPersistedQuery = async (
   return persistedQuery;
 };
 
+type OneGraphCliEvent = Record<string, any>;
+
+type OneGraphCliSession = {
+  appId: string;
+  createdAt: string;
+  id: string;
+  events: OneGraphCliEvent[];
+  lastEventAt: string;
+  metadata?: Record<string, any>;
+  name: string;
+  netlifyUserId: string;
+};
+
+/**
+ *
+ * @param {object} options
+ * @param {string} options.appId The app to query against, typically the siteId
+ * @param {string} options.authToken The (typically netlify) access token that is used for authentication
+ * @param {string} options.sessionId The session id to fetch CLI events for
+ * @returns {Promise<{session: OneGraphCliSession , errors: any[]}>} The unhandled events for the cli session to process
+ */
+export const fetchCliSession = async (options: {
+  appId: string;
+  authToken: string;
+  sessionId: string;
+  desiredEventCount?: number;
+}): Promise<{ session?: OneGraphCliSession; errors?: any[] }> => {
+  const { appId, authToken, sessionId } = options;
+
+  const desiredEventCount = options.desiredEventCount || 1;
+
+  const next = await fetchOneGraph({
+    accessToken: null,
+    appId,
+    query: internalOperationsDoc,
+    operationName: "CLISessionQuery",
+    variables: {
+      nfToken: authToken,
+      sessionId,
+      first: desiredEventCount || 1000,
+    },
+  });
+
+  if (next.errors) {
+    return next;
+  }
+
+  const session: OneGraphCliSession | undefined =
+    next.data?.oneGraph?.netlifyCliSession || [];
+
+  return { session, errors: next.errors };
+};
+
 /**
  *
  * @param {object} options
@@ -600,30 +663,22 @@ export const fetchCliSessionEvents = async (options: {
 
   // Grab the first 1000 events so we can chew through as many at a time as possible
   const desiredEventCount = 1000;
-  const next = await fetchOneGraph({
-    accessToken: null,
+
+  const next = await fetchCliSession({
     appId,
-    query: internalOperationsDoc,
-    operationName: "CLISessionEventsQuery",
-    variables: {
-      nfToken: authToken,
-      sessionId,
-      first: desiredEventCount,
-    },
+    authToken,
+    sessionId,
+    desiredEventCount,
   });
 
   if (next.errors) {
     return next;
   }
 
-  const events =
-    (next.data && next.data.oneGraph && next.data.oneGraph.netlifyCliEvents) ||
-    [];
+  const events = next.session?.events || [];
 
   return { events };
 };
-
-type OneGraphCliEvent = Record<string, any>;
 
 /**
  * Register a new CLI session with OneGraph
@@ -654,11 +709,7 @@ export const createCLISession = async (
     variables: payload,
   });
 
-  const session =
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.createNetlifyCliSession &&
-    result.data.oneGraph.createNetlifyCliSession.session;
+  const session = result.data?.oneGraph?.createNetlifyCliSession?.session;
 
   return session;
 };

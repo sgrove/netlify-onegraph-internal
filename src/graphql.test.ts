@@ -16,7 +16,7 @@ const test = () => {
   const schema = buildASTSchema(parse(schemaFile));
   const opsDoc = parse(sourceGraphQLFile);
 
-  const targetOperationName = "MyQuery";
+  const targetOperationName = "Deprecated_FindLoggedInServicesQuery";
 
   const operation: OperationDefinitionNode | undefined =
     opsDoc.definitions.find((operation) => {
