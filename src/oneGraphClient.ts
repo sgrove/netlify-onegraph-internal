@@ -346,6 +346,48 @@ mutation CreateNewSchemaMutation(
       }
     }
   }
+}
+
+# Resurrect a session / update heartbeat
+mutation MarkCLISessionActiveHeartbeat(
+  $nfToken: String!
+  $id: String!
+) {
+  oneGraph(
+    auths: { netlifyAuth: { oauthToken: $nfToken } }
+  ) {
+    updateNetlifyCliSession(
+      input: { status: ACTIVE, id: $id }
+    ) {
+      session {
+        id
+        status
+        createdAt
+        updatedAt
+      }
+    }
+  }
+}
+
+# Mutation to mark the session as inactive. Can be called when the CLI exits
+mutation MarkCLISessionInactive(
+  $nfToken: String!
+  $id: String!
+) {
+  oneGraph(
+    auths: { netlifyAuth: { oauthToken: $nfToken } }
+  ) {
+    updateNetlifyCiSession(
+      input: { status: INACTIVE, id: $id }
+    ) {
+      session {
+        id
+        status
+        createdAt
+        updatedAt
+      }
+    }
+  }
 }`;
 
 const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
@@ -585,10 +627,7 @@ export const fetchPersistedQuery = async (
     },
   });
 
-  const persistedQuery =
-    response.data &&
-    response.data.oneGraph &&
-    response.data.oneGraph.persistedQuery;
+  const persistedQuery = response.data?.oneGraph?.persistedQuery;
 
   return persistedQuery;
 };
@@ -740,11 +779,7 @@ export const updateCLISessionMetadata = async (
     },
   });
 
-  const session =
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.updateNetlifyCliSession &&
-    result.data.oneGraph.updateNetlifyCliSession.session;
+  const session = result.data?.oneGraph?.updateNetlifyCliSession?.session;
 
   return session;
 };
@@ -777,10 +812,7 @@ export const ackCLISessionEvents = async (input: {
     },
   });
 
-  const events =
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.ackNetlifyCliEvents;
+  const events = result.data?.oneGraph?.ackNetlifyCliEvents;
 
   return events;
 };
@@ -819,10 +851,7 @@ export const createPersistedQuery = async (
   });
 
   const persistedQuery =
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.createPersistedQuery &&
-    result.data.oneGraph.createPersistedQuery.persistedQuery;
+    result.data?.oneGraph?.createPersistedQuery?.persistedQuery;
 
   return persistedQuery;
 };
@@ -865,12 +894,7 @@ export const fetchAppSchema = async (authToken: string, siteId: string) => {
     },
   });
 
-  return (
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.app &&
-    result.data.oneGraph.app.graphQLSchema
-  );
+  return result.data?.oneGraph?.app?.graphQLSchema;
 };
 
 /**
@@ -891,12 +915,7 @@ export const upsertAppForSite = async (authToken: string, siteId: string) => {
     },
   });
 
-  return (
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.upsertAppForNetlifySite &&
-    result.data.oneGraph.upsertAppForNetlifySite.app
-  );
+  return result.data?.oneGraph?.upsertAppForNetlifySite?.app;
 };
 
 /**
@@ -924,12 +943,7 @@ export const createNewAppSchema = async (
     },
   });
 
-  return (
-    result.data &&
-    result.data.oneGraph &&
-    result.data.oneGraph.createGraphQLSchema &&
-    result.data.oneGraph.createGraphQLSchema.graphqlSchema
-  );
+  return result.data?.oneGraph?.createGraphQLSchema?.graphqlSchema;
 };
 
 /**
@@ -964,5 +978,68 @@ export const fetchEnabledServices = async (
   appId: string
 ) => {
   const appSchema = await fetchAppSchema(authToken, appId);
-  return appSchema && appSchema.services;
+  return appSchema?.services;
+};
+
+export type MiniSession = {
+  id: string;
+  status: "ACTIVE" | "INACTIVE";
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Mark a CLI session as active and update the session's heartbeat
+ * @param {string} authToken The (typically netlify) access token that is used for authentication
+ * @param {string} appId The app to query against, typically the siteId
+ * @param {string} sessionId The session id to mark as active / update heartbeat
+ * @returns {errors: any[], data: MiniSession}
+ */
+export const executeMarkCliSessionActiveHeartbeat = async (
+  authToken: string,
+  appId: string,
+  sessionId: string
+) => {
+  const result = await fetchOneGraph({
+    accessToken: null,
+    appId: appId,
+    query: internalOperationsDoc,
+    operationName: "MarkCLISessionActiveHeartbeat",
+    variables: {
+      nfToken: authToken,
+      id: sessionId,
+    },
+  });
+
+  const session = result.data?.oneGraph?.updateNetlifyCliSession?.session;
+
+  return { errors: result.errors, data: session };
+};
+
+/**
+ * Mark a CLI session as inactive
+ * @param {string} authToken The (typically netlify) access token that is used for authentication
+ * @param {string} appId The app to query against, typically the siteId
+ * @param {string} sessionId The session id to mark as inactive
+ * @returns {errors: any[], data: MiniSession}
+ */
+export const executeMarkCliSessionInactive = async (
+  authToken: string,
+  appId: string,
+  sessionId: string
+) => {
+  const result = await fetchOneGraph({
+    accessToken: null,
+    appId: appId,
+    query: internalOperationsDoc,
+    operationName: "MarkCLISessionInactive",
+    variables: {
+      nfToken: authToken,
+      id: sessionId,
+    },
+  });
+
+  const session = result.data?.oneGraph?.updateNetlifyCliSession?.session;
+
+  return { errors: result.errors, data: session };
 };
