@@ -377,7 +377,7 @@ mutation MarkCLISessionInactive(
   oneGraph(
     auths: { netlifyAuth: { oauthToken: $nfToken } }
   ) {
-    updateNetlifyCiSession(
+    updateNetlifyCliSession(
       input: { status: INACTIVE, id: $id }
     ) {
       session {
