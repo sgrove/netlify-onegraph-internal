@@ -1,5 +1,6 @@
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 const fetch = require('node-fetch')
+const internalConsole = require("./internalConsole").internalConsole;
 
 const operationsDoc = `mutation CreatePersistedQueryMutation(
   $nfToken: String!
@@ -477,9 +478,21 @@ const httpFetch = (siteId, options) => {
     body: reqBody,
   };
 
-  const url = "https://serve.onegraph.com/graphql?app_id=" + siteId;
+  const url = `https://serve.onegraph.com/graphql?app_id=${siteId}&show_metrics=false`;
 
-  return fetch(url, reqOptions).then((response) => response.text());
+  const httpOkLow = 200;
+  const httpOkHigh = 299;
+
+  return fetch(url, reqOptions).then((response) => {
+    if (response.status < httpOkLow || response.status > httpOkHigh) {
+      internalConsole.debug(`Response: ${JSON.stringify(respBody, null, 2)}`);
+      internalConsole.error(
+        `Netlify Graph upstream return invalid HTTP status code: ${resp.status}`
+      );
+    }
+
+    return response.text()
+  });
 };
 
 const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
@@ -496,16 +509,36 @@ const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
     variables: variables,
     operationName: operationName,
   };
+  try {
+    const result = await httpFetch(siteId, {
+      method: "POST",
+      headers: {
+        Authorization: accessToken ? `Bearer ${accessToken}` : "",
+      },
+      body: JSON.stringify(payload),
+    });
 
-  const result = await httpFetch(siteId, {
-    method: "POST",
-    headers: {
-      Authorization: accessToken ? "Bearer " + accessToken : "",
-    },
-    body: JSON.stringify(payload),
-  });
+    if (value.errors) {
+      internalConsole.warn(
+        `Errors seen fetching Netlify Graph upstream for ${operationName}: ${JSON.stringify(
+          value.errors,
+          null,
+          2
+        )}`
+      );
+    }
 
-  return JSON.parse(result);
+    return JSON.parse(result);
+  } catch (networkError) {
+    internalConsole.warn(
+      `Network error fetching Netlify Graph upstream: ${JSON.stringify(
+        networkError,
+        null,
+        2
+      )}`
+    );
+    return {};
+  }
 };
 
 export const executeCreatePersistedQueryMutation = (variables, options) => {
