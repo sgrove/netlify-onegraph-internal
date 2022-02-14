@@ -1,0 +1,9 @@
+[graph]
+  functionsPath = "./functions"
+  netlifyGraphImplementationFilename = "./src/generatedOneGraphClient.js"
+  netlifyGraphTypeDefinitionsFilename = "./src/generatedOneGraphClient.d.ts"
+  graphQLOperationsSourceFilename = "./operations.graphql"
+  graphQLSchemaFilename = "./schema.graphql"
+  moduleType = "esm"
+  language = "typescript"
+  runtimeTargetEnv = "node"
