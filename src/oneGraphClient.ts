@@ -29,7 +29,6 @@ export const fetchOneGraphSchemaJson = async (
     });
 
     const text = await response.text();
-
     return JSON.parse(text);
   } catch (error) {
     internalConsole.error(
@@ -109,7 +108,7 @@ export const fetchCliSession = async (options: {
 
   const desiredEventCount = options.desiredEventCount || 1;
 
-  const next = await GeneratedClient.fetchCLISessionQuery(
+  const sessionResult = await GeneratedClient.fetchCLISessionQuery(
     {
       nfToken: authToken,
       sessionId,
@@ -120,9 +119,9 @@ export const fetchCliSession = async (options: {
     }
   );
 
-  const session = next.data?.oneGraph?.netlifyCliSession || [];
+  const session = sessionResult.data?.oneGraph?.netlifyCliSession || [];
 
-  return { session, errors: next.errors };
+  return { session: session, errors: sessionResult.errors };
 };
 
 /**
@@ -150,13 +149,9 @@ export const fetchCliSessionEvents = async (options: {
     desiredEventCount,
   });
 
-  if (next.errors) {
-    return next;
-  }
-
   const events = next.session?.events || [];
 
-  return { events };
+  return { errors: next.errors, events };
 };
 
 /**
@@ -382,30 +377,45 @@ export const createNewAppSchema = async (
  * @returns
  */
 export const ensureAppForSite = async (authToken: string, siteId: string) => {
-  const upsertResult = await GeneratedClient.executeUpsertAppForSiteMutation({
-    nfToken: authToken,
-    siteId: siteId,
-  });
+  const upsertResult = await GeneratedClient.executeUpsertAppForSiteMutation(
+    {
+      nfToken: authToken,
+      siteId: siteId,
+    },
+    {
+      siteId: ONEDASH_APP_ID,
+    }
+  );
 
   const appId = upsertResult.data?.oneGraph?.upsertAppForNetlifySite?.app?.id;
 
-  const schema = await GeneratedClient.fetchAppSchemaQuery({
-    nfToken: authToken,
-    appId,
-  });
+  const schema = await GeneratedClient.fetchAppSchemaQuery(
+    {
+      nfToken: authToken,
+      appId,
+    },
+    {
+      siteId: appId,
+    }
+  );
 
   if (!schema) {
     internalConsole.log(
       `Creating new empty default GraphQL schema for site....`
     );
-    await GeneratedClient.executeCreateNewSchemaMutation({
-      nfToken: authToken,
-      input: {
-        appId: siteId,
-        enabledServices: ["ONEGRAPH"],
-        setAsDefaultForApp: true,
+    await GeneratedClient.executeCreateNewSchemaMutation(
+      {
+        nfToken: authToken,
+        input: {
+          appId: siteId,
+          enabledServices: ["ONEGRAPH"],
+          setAsDefaultForApp: true,
+        },
       },
-    });
+      {
+        siteId: appId,
+      }
+    );
   }
 };
 
@@ -419,10 +429,15 @@ export const fetchEnabledServices = async (
   authToken: string,
   appId: string
 ) => {
-  const appSchemaResult = await GeneratedClient.fetchAppSchemaQuery({
-    nfToken: authToken,
-    appId,
-  });
+  const appSchemaResult = await GeneratedClient.fetchAppSchemaQuery(
+    {
+      nfToken: authToken,
+      appId,
+    },
+    {
+      siteId: appId,
+    }
+  );
   return appSchemaResult.data?.oneGraph?.app?.graphQLSchema?.services;
 };
 

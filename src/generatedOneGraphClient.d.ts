@@ -128,6 +128,10 @@ export type CreateCLISessionMutation = {
           appId: string;
           netlifyUserId: string;
           name: string;
+          /**
+           * Number of milliseconds to wait between heartbeats
+           */
+          cliHeartbeatIntervalMs: number;
         };
       };
     };
@@ -440,6 +444,10 @@ export type MarkCLISessionActiveHeartbeat = {
           status: "ACTIVE" | "INACTIVE";
           createdAt: string;
           updatedAt: string;
+          /**
+           * Number of milliseconds to wait between heartbeats
+           */
+          cliHeartbeatIntervalMs: number;
         };
       };
     };
@@ -484,6 +492,10 @@ export type MarkCLISessionInactive = {
           status: "ACTIVE" | "INACTIVE";
           createdAt: string;
           updatedAt: string;
+          /**
+           * Number of milliseconds to wait between heartbeats
+           */
+          cliHeartbeatIntervalMs: number;
         };
       };
     };
@@ -531,6 +543,10 @@ export type UpdateCLISessionMetadataMutation = {
           id: string;
           name: string;
           metadata: unknown;
+          /**
+           * Number of milliseconds to wait between heartbeats
+           */
+          cliHeartbeatIntervalMs: number;
         };
       };
     };
@@ -772,6 +788,10 @@ export type CLISessionQuery = {
         appId: string;
         createdAt: string;
         id: string;
+        /**
+         * Number of milliseconds to wait between heartbeats
+         */
+        cliHeartbeatIntervalMs: number;
         events: Array<{
           createdAt: string;
           id: string;
@@ -1033,10 +1053,7 @@ export function fetchPersistedQueryQuery(
   options?: NetlifyGraphFunctionOptions
 ): Promise<PersistedQueryQuery>;
 
-/**
- * The generated NetlifyGraph library with your operations
- */
-interface Functions {
+export interface Functions {
   /**
    * Acknowledge CLI events that have been processed and delete them from the upstream queue
    */

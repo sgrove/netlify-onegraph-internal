@@ -163,6 +163,7 @@ Register a new CLI session with OneGraph
         appId
         netlifyUserId
         name
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -191,6 +192,7 @@ Update the CLI session with new metadata (e.g. the latest docId) by its id
         id
         name
         metadata
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -248,6 +250,7 @@ query CLISessionQuery(
       appId
       createdAt
       id
+      cliHeartbeatIntervalMs
       events(first: $first) {
         __typename
         createdAt
@@ -429,6 +432,7 @@ Mark a CLI session as active and update the session's heartbeat
         status
         createdAt
         updatedAt
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -458,6 +462,7 @@ Mark a CLI session as inactive
         status
         createdAt
         updatedAt
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -491,8 +496,8 @@ const httpFetch = (siteId, options) => {
       );
     }
 
-    return response.text()
-  });
+    return response.text();
+  })
 };
 
 const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
@@ -509,8 +514,13 @@ const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
     variables: variables,
     operationName: operationName,
   };
+
+  if (!options.siteId) {
+    internalConsole.warn(`No siteId provided`);
+  }
+
   try {
-    const result = await httpFetch(siteId, {
+    const responseText = await httpFetch(siteId, {
       method: "POST",
       headers: {
         Authorization: accessToken ? `Bearer ${accessToken}` : "",
@@ -518,18 +528,21 @@ const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
       body: JSON.stringify(payload),
     });
 
-    if (value.errors) {
+    const result = JSON.parse(responseText);
+
+    if (result.errors) {
       internalConsole.warn(
         `Errors seen fetching Netlify Graph upstream for ${operationName}: ${JSON.stringify(
-          value.errors,
+          result.errors,
           null,
           2
         )}`
       );
     }
 
-    return JSON.parse(result);
+    return result;
   } catch (networkError) {
+    console.warn("Network error:", networkError);
     internalConsole.warn(
       `Network error fetching Netlify Graph upstream: ${JSON.stringify(
         networkError,

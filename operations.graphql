@@ -159,6 +159,7 @@ Register a new CLI session with OneGraph
         appId
         netlifyUserId
         name
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -187,6 +188,7 @@ Update the CLI session with new metadata (e.g. the latest docId) by its id
         id
         name
         metadata
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -244,6 +246,7 @@ query CLISessionQuery(
       appId
       createdAt
       id
+      cliHeartbeatIntervalMs
       events(first: $first) {
         __typename
         createdAt
@@ -425,6 +428,7 @@ Mark a CLI session as active and update the session's heartbeat
         status
         createdAt
         updatedAt
+        cliHeartbeatIntervalMs
       }
     }
   }
@@ -454,6 +458,7 @@ Mark a CLI session as inactive
         status
         createdAt
         updatedAt
+        cliHeartbeatIntervalMs
       }
     }
   }
