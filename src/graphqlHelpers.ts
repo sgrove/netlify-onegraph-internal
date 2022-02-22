@@ -1,6 +1,8 @@
 import {
   ArgumentNode,
   ASTVisitFn,
+  DocumentNode,
+  FragmentSpreadNode,
   getNamedType,
   GraphQLInputField,
   GraphQLInterfaceType,
@@ -1596,6 +1598,110 @@ export const normalizeOperationsDoc = (operationsDoc: string) => {
   });
 
   const fullDoc = [...fragmentStrings, ...operationStrings].join("\n\n") + "\n";
+
+  return fullDoc;
+};
+
+export const gatherHardcodedValues = (query: string) => {
+  let parsedQuery;
+  try {
+    parsedQuery = parse(query);
+    // [fieldName, value]
+    const hardCodedValues: [string, string | number][] = [];
+
+    const isHardcodedValueNode = (node: ArgumentNode | ObjectFieldNode) => {
+      const isHardcodedValue =
+        node.value &&
+        (node.value.kind === Kind.STRING ||
+          node.value.kind === Kind.INT ||
+          node.value.kind === Kind.FLOAT);
+
+      return isHardcodedValue;
+    };
+
+    const hardCodedValueExtractor: ASTVisitFn<
+      ArgumentNode | ObjectFieldNode
+    > = (node) => {
+      const isHardcodedValue = isHardcodedValueNode(node);
+
+      if (isHardcodedValue) {
+        const nodeName = node.name.value;
+        let nodeValue: number | string | null = null;
+        if (node.value.kind === Kind.STRING) {
+          nodeValue = node.value.value;
+        } else if (node.value.kind === Kind.INT) {
+          nodeValue = node.value.value;
+        } else if (node.value.kind === Kind.FLOAT) {
+          nodeValue = node.value.value;
+        }
+
+        if (nodeValue) {
+          hardCodedValues.push([nodeName, nodeValue]);
+        }
+      }
+      return node;
+    };
+
+    visit(parsedQuery, {
+      Argument: hardCodedValueExtractor,
+      ObjectField: hardCodedValueExtractor,
+    });
+
+    return hardCodedValues;
+  } catch (e) {
+    console.warn("Error parsing query", e);
+    return [];
+  }
+};
+
+export const extractPersistableOperation = (
+  doc: DocumentNode,
+  operationDefinition: OperationDefinitionNode
+): string | null => {
+  // Visit the operationDefinition and find all fragments referenced, and include them all in a single printed document
+  const fragments = new Set<FragmentDefinitionNode>();
+
+  const fragmentExtractor: ASTVisitFn<FragmentSpreadNode> = (node) => {
+    const fragmentName = node.name.value;
+    // Find the fragment definition in the document
+    const fragmentDefinition = doc.definitions.find(
+      (def) =>
+        def.kind === Kind.FRAGMENT_DEFINITION && def.name.value === fragmentName
+    ) as FragmentDefinitionNode | undefined;
+
+    if (fragmentDefinition) {
+      fragments.add(fragmentDefinition);
+    } else {
+      console.warn(
+        "Could not find fragment definition for referenced fragment: ",
+        fragmentName
+      );
+    }
+
+    return node;
+  };
+
+  const newOperation = visit(operationDefinition, {
+    FragmentSpread: { enter: fragmentExtractor },
+    Directive: {
+      enter: (node) => {
+        if (["netlify", "netlifyCacheControl"].includes(node.name.value)) {
+          return null;
+        }
+      },
+    },
+  });
+
+  const fragmentStrings = Array.from(fragments)
+    .sort((a, b) => {
+      return a.name.value.localeCompare(b.name.value);
+    })
+    .map((fragment) => {
+      return print(fragment);
+    });
+
+  // Put the operation in the top to help a human looking at the doc identify the purpose quickly
+  const fullDoc = [print(newOperation), ...fragmentStrings].join("\n\n");
 
   return fullDoc;
 };

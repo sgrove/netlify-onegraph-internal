@@ -5,6 +5,11 @@ directive @netlify(
 
   """The uuid of the operation (normally auto-generated)"""
   id: String!
+
+  """The cache strategy for this operation"""
+  cacheStrategy: OneGraphPersistedQueryCacheStrategyArg!
+  """Whether to fallback to a previous successful response if the current request fails"""
+  fallbackOnError: Boolean!
 ) on QUERY | MUTATION | SUBSCRIPTION | FRAGMENT_DEFINITION
 
 input GitHubStatusEventSubscriptionInput {

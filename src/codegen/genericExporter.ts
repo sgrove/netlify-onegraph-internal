@@ -625,7 +625,7 @@ ${exp(netlifyGraphConfig, "handler")} = async (event) => {
   // accessToken = event.headers["authorization"]?.split(" ")[1]
 
   //// If you want to use the API with your own access token:
-  // accessToken = event.authlifyToken
+  // accessToken = event.netlifyGraphToken
       
   const eventBodyJson = JSON.parse(event.body || "{}");
 

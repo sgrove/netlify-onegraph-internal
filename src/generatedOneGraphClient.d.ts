@@ -376,7 +376,27 @@ export function executeCreateNewSchemaMutation(
 
 export type CreatePersistedQueryMutationInput = {
   nfToken: string;
-  appId: string;
+  cacheStrategy?: {
+    /**
+     * Number of seconds to cache the query result for.
+     */
+    timeToLiveSeconds: number;
+  };
+  /**
+   * Operation names to allow. If not provided, then all operations in the document are allowed.
+   */
+  allowedOperationNames: Array<string>;
+  /**
+ * If set to true, and there was a successful execution of the query in the last 30 days, then the last successful result will be returned if we encounter any error when executing the query. If we do not have a previous successful result, then the response with the error will be returned.
+
+Note that the fallback result will be returned even in the case of partial success.
+
+This parameter is useful when you expect that your queries might be rate-limited by the underlying service.
+
+The query must provide a cache strategy in order to use `fallbackOnError`.
+ */
+  fallbackOnError: boolean;
+  freeVariables: Array<string>;
   query: string;
   /**
    * List of tags to add to the persisted query. Tags are free-form text that can be used to categorize persisted queries. Each tag must be under 256 characters and there can be a maximum of 10 tags on a single persisted query.
@@ -385,7 +405,8 @@ export type CreatePersistedQueryMutationInput = {
   /**
    * A description for the persisted query. Maximum length is 2096 characters.
    */
-  description: string;
+  description?: string;
+  appId: string;
 };
 
 export type CreatePersistedQueryMutation = {
@@ -400,6 +421,30 @@ export type CreatePersistedQueryMutation = {
            * The persisted query's id.
            */
           id: string;
+          /**
+           * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
+           */
+          allowedOperationNames: Array<string>;
+          /**
+           * The user-defined description that was added to the query
+           */
+          description: string;
+          /**
+           * The default variables provided to the query.
+           */
+          fixedVariables: unknown;
+          /**
+           * The list of variables that the caller of the query is allowed to provide.
+           */
+          freeVariables: Array<string>;
+          /**
+           * The persisted query's query string.
+           */
+          query: string;
+          /**
+           * The list of user-defined tags that were added to the query
+           */
+          tags: Array<string>;
         };
       };
     };
@@ -1067,11 +1112,11 @@ export interface Functions {
    */
   executeCreateCLISessionMutation: typeof executeCreateCLISessionMutation;
   /**
-   * Create a new schema in OneGraph for the given site with the specified metadata (enabled services, etc.)
+   * Create a new schema in OneGraph for the given site with the specified metadata (enabled services; etc.)
    */
   executeCreateNewSchemaMutation: typeof executeCreateNewSchemaMutation;
   /**
-   * Create a persisted operations doc to be later retrieved, usually from a GUI
+   * Create a persisted operations doc to be later retrieved; usually from a GUI
    */
   executeCreatePersistedQueryMutation: typeof executeCreatePersistedQueryMutation;
   /**
@@ -1087,11 +1132,11 @@ export interface Functions {
    */
   executeUpdateCLISessionMetadataMutation: typeof executeUpdateCLISessionMetadataMutation;
   /**
-   * If a site does not exists upstream in OneGraph for the given site, create it
+   * If a site does not exists upstream in OneGraph for the given site; create it
    */
   executeUpsertAppForSiteMutation: typeof executeUpsertAppForSiteMutation;
   /**
-   * Fetch the schema metadata for a site (enabled services, id, etc.)
+   * Fetch the schema metadata for a site (enabled services; id; etc.)
    */
   fetchAppSchemaQuery: typeof fetchAppSchemaQuery;
   /**

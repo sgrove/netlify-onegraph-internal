@@ -2,7 +2,7 @@ import { buildClientSchema } from "graphql";
 import fetch = require("node-fetch");
 import { internalConsole } from "./internalConsole";
 import GeneratedClient from "./generatedOneGraphClient";
-import type { CreateNewSchemaMutationInput } from "./generatedOneGraphClient";
+// import type { CreateNewSchemaMutationInput } from "./generatedOneGraphClient";
 
 const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
 
@@ -249,43 +249,8 @@ export const ackCLISessionEvents = async (input: {
   return events;
 };
 
-/**
- * Create a persisted operations doc to be later retrieved, usually from a GUI
- * @param {string} netlifyToken The netlify token to use for authentication
- * @param {object} input
- * @param {string} input.appId The app to query against, typically the siteId
- * @param {string} input.document The GraphQL operations document to persist
- * @param {string} input.description A description of the operations doc
- * @param {string[]} input.tags A list of tags to attach to the operations doc
- * @returns
- */
-export const createPersistedQuery = async (
-  netlifyToken: string,
-  {
-    appId,
-    description,
-    document,
-    tags,
-  }: { appId: string; description: string; document: string; tags: string[] }
-) => {
-  const result = await GeneratedClient.executeCreatePersistedQueryMutation(
-    {
-      nfToken: netlifyToken,
-      appId,
-      query: document,
-      tags,
-      description,
-    },
-    {
-      siteId: appId,
-    }
-  );
-
-  const persistedQuery =
-    result.data?.oneGraph?.createPersistedQuery?.persistedQuery;
-
-  return persistedQuery;
-};
+export const executeCreatePersistedQueryMutation =
+  GeneratedClient.executeCreatePersistedQueryMutation;
 
 /**
  *
@@ -355,7 +320,7 @@ export const upsertAppForSite = async (authToken: string, siteId: string) => {
  */
 export const createNewAppSchema = async (
   nfToken: string,
-  input: CreateNewSchemaMutationInput["input"]
+  input //: CreateNewSchemaMutationInput["input"]
 ) => {
   const result = await GeneratedClient.executeCreateNewSchemaMutation(
     {

@@ -1,9 +1,15 @@
 mutation CreatePersistedQueryMutation(
   $nfToken: String!
-  $appId: String!
+  $cacheStrategy: OneGraphPersistedQueryCacheStrategyArg = {
+    timeToLiveSeconds: 1.5
+  }
+  $allowedOperationNames: [String!]!
+  $fallbackOnError: Boolean!
+  $freeVariables: [String!]!
   $query: String!
   $tags: [String!]!
-  $description: String!
+  $description: String
+  $appId: String!
 )
 @netlify(
   id: """
@@ -12,6 +18,10 @@ mutation CreatePersistedQueryMutation(
   doc: """
 Create a persisted operations doc to be later retrieved, usually from a GUI
   """
+  cacheStrategy: {
+    timeToLiveSeconds: 30
+  }
+  fallbackOnError: false
 ) {
   oneGraph(
     auths: { netlifyAuth: { oauthToken: $nfToken } }
@@ -20,12 +30,23 @@ Create a persisted operations doc to be later retrieved, usually from a GUI
       input: {
         query: $query
         appId: $appId
+        cacheStrategy: $cacheStrategy
+        allowedOperationNames: $allowedOperationNames
+        accessToken: ""
+        fallbackOnError: $fallbackOnError
+        freeVariables: $freeVariables
         tags: $tags
         description: $description
       }
     ) {
       persistedQuery {
         id
+        allowedOperationNames
+        description
+        fixedVariables
+        freeVariables
+        query
+        tags
       }
     }
   }

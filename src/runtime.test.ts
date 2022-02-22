@@ -4,7 +4,7 @@ import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
 
-const test = () => {
+const test = async () => {
   const sourceGraphQLFilename =
     "./tests/assets/netlifyGraphOperationsLibrary.graphql";
   const schemaGraphQLFilename = "./tests/assets/netlifyGraphSchema.graphql";
@@ -63,7 +63,7 @@ const test = () => {
     throw new Error("result is undefined");
   }
 
-  const { clientSource, typeDefinitionsSource } = result;
+  const { clientSource, typeDefinitionsSource } = await result;
 
   console.log(typeDefinitionsSource);
 

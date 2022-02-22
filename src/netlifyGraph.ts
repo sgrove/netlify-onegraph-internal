@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 
 import {
+  DirectiveNode,
   DocumentNode,
   FragmentDefinitionNode,
   GraphQLSchema,
@@ -13,6 +14,7 @@ import {
 
 import { internalConsole } from "./internalConsole";
 import {
+  extractPersistableOperation as extractPersistableOperationString,
   patchSubscriptionWebhookField,
   patchSubscriptionWebhookSecretField,
   typeScriptSignatureForFragment,
@@ -28,6 +30,7 @@ import {
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
 import { remixFunctionSnippet } from "./codegen/remixExporter";
 import { ExportedFile, FrameworkGenerator } from "./codegen/codegenHelpers";
+import { executeCreatePersistedQueryMutation } from "./oneGraphClient";
 
 export type State = {
   set: (key: string, value?: any) => any;
@@ -46,6 +49,9 @@ const replaceAll = (target, search, replace) => {
   return target.replace(new RegExp(simpleString, "g"), replace);
 };
 
+export const NETLIFY_DIRECTIVE_NAME = "netlify";
+export const NETLIFY_CACHE_CONTROL_DIRECTIVE_NAME = "netlifyCacheControl";
+
 export type NetlifyGraphConfig = {
   functionsPath: string[];
   webhookBasePath: string;
@@ -63,14 +69,25 @@ export type NetlifyGraphConfig = {
   runtimeTargetEnv: "node" | "browser";
 };
 
+export type ExecutionStrategy = "DYNAMIC" | "PERSISTED";
+
+export type CacheStrategy = {
+  enabled: boolean;
+  timeToLiveSeconds: number;
+};
+
 export type ExtractedFunction = {
   id: string;
   operationName: string;
   description: string;
   kind: OperationTypeNode;
+  executionStrategy: ExecutionStrategy;
+  cacheStrategy: CacheStrategy | undefined;
+  fallbackOnError: boolean;
   parsedOperation: OperationDefinitionNode;
   operationString: string;
   operationStringWithoutNetlifyDirective: string;
+  persistableOperationString: string;
 };
 
 export type ExtractedFragment = {
@@ -88,11 +105,16 @@ export type ParsedFunction = ExtractedFunction & {
   safeBody: string;
   returnSignature: string;
   variableSignature: string;
+  variableNames: string[];
 };
 
 export type ParsedFragment = ExtractedFragment & {
   safeBody: string;
   returnSignature: string;
+};
+
+export type PersistedFunction = ParsedFunction & {
+  persistedDocId: string;
 };
 
 export const defaultSourceOperationsFilename =
@@ -140,7 +162,9 @@ export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An
   __typename
 }`;
 
-const generatedNetlifyGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
+const generatedNetlifyGraphDynamicClient = (
+  netlifyGraphConfig: NetlifyGraphConfig
+) =>
   `${out(
     netlifyGraphConfig,
     ["node"],
@@ -199,45 +223,49 @@ const generatedNetlifyGraphClient = (netlifyGraphConfig: NetlifyGraphConfig) =>
 `
   )}
 ${out(
-  netlifyGraphConfig,
-  ["browser"],
-  `const httpFetch = (siteId, options) => {
-  const reqBody = options.body || null
-  const userHeaders = options.headers || {}
+    netlifyGraphConfig,
+    ["browser"],
+    `const httpFetch = (siteId, options) => {
+  const reqBody = options.body || null;
+  const userHeaders = options.headers || {};
   const headers = {
     ...userHeaders,
     'Content-Type': 'application/json',
-  }
+  };
 
-  const  reqOptions = {
+  const timeoutMs = 30_000;
+
+  const reqOptions = {
     method: 'POST',
     headers: headers,
-    timeout: 30000,
+    timeout: timeoutMs,
     body: reqBody
-  }
+  };
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId;
 
   return fetch(url, reqOptions).then(response => response.text());
 }`
-)}
+  )}
 
-const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
-  const query = input.query
-  const operationName = input.operationName
-  const variables = input.variables
+const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
+  const query = input.query;
+  const docId = input.doc_id;
+  const operationName = input.operationName;
+  const variables = input.variables;
 
-  const options = input.options || {}
-  const accessToken = options.accessToken
-  const siteId = options.siteId || process.env.SITE_ID
+  const options = input.options || {};
+  const accessToken = options.accessToken;
+  const siteId = options.siteId || process.env.SITE_ID;
 
   const payload = {
     query: query,
+    doc_id: docId,
     variables: variables,
     operationName: operationName,
-  }
+  };
 
-  const result = await httpFetch(
+  const response = httpFetch(
     siteId,
     {
       method: 'POST',
@@ -246,10 +274,210 @@ const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
       },
       body: JSON.stringify(payload),
     },
-  )
+  );
 
-  return JSON.parse(result)
+  return response.then(result => JSON.parse(result));
 }
+`;
+
+const generatedNetlifyGraphPersistedClient = (
+  netlifyGraphConfig: NetlifyGraphConfig
+) =>
+  `${out(
+    netlifyGraphConfig,
+    ["node"],
+    `const httpGet = (input) => {
+  const userHeaders = input.headers || {};
+  const fullHeaders = {
+    ...userHeaders,
+    'Content-Type': 'application/json'
+  };
+  const timeoutMs = 30_000
+  const reqOptions = {
+    method: 'GET',
+    headers: fullHeaders,
+    timeout: timeoutMs,
+  };
+
+  if (!input.docId) {
+    throw new Error('docId is required for GET requests: ' + input.operationName);
+  }
+
+  const encodedVariables = encodeURIComponent(input.variables || "null");
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + '&variables=' + encodedVariables;
+        
+  const respBody = []
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, reqOptions, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+        return reject(
+          new Error(
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode,
+          ),
+        )
+      }
+
+      res.on('data', (chunk) => respBody.push(chunk))
+
+      res.on('end', () => {
+        const resString = buffer.Buffer.concat(respBody).toString()
+        resolve(resString)
+      })
+    })
+
+    req.on('error', (error) => {
+      console.error('Error making request to Netlify Graph:', error)
+    })
+
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Request to Netlify Graph timed out'))
+    })
+
+    req.end()
+  })
+}
+
+const httpPost = (input) => {
+  const reqBody = input.body || null
+  const userHeaders = input.headers || {}
+  const headers = {
+    ...userHeaders,
+    'Content-Type': 'application/json',
+    'Content-Length': reqBody.length,
+  }
+
+  const timeoutMs = 30_000
+
+  const reqOptions = {
+    method: 'POST',
+    headers: headers,
+    timeout: timeoutMs,
+  }
+
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId
+  const respBody = []
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, reqOptions, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+        return reject(
+          new Error(
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode,
+          ),
+        )
+      }
+
+      res.on('data', (chunk) => respBody.push(chunk))
+
+      res.on('end', () => {
+        const resString = buffer.Buffer.concat(respBody).toString()
+        resolve(resString)
+      })
+    })
+
+    req.on('error', (error) => {
+      console.error('Error making request to Netlify Graph:', error)
+    })
+
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Request to Netlify Graph timed out'))
+    })
+
+    req.write(reqBody)
+    req.end()
+  })
+}`
+  )}
+
+${out(
+    netlifyGraphConfig,
+    ["browser"],
+    `const httpGet = (input) => {
+  const userHeaders = input.headers || {};
+  const fullHeaders = {
+    ...userHeaders,
+    'Content-Type': 'application/json',
+  };
+
+  const timeoutMs = 30_000;
+
+  const reqOptions = {
+    method: 'GET',
+    headers: fullHeaders,
+    timeout: timeoutMs,
+  };
+
+  const encodedVariables = encodeURIComponent(
+    JSON.stringify(input.variables || null)
+  );
+  const url =
+    'https://serve.onegraph.com/graphql?app_id=' +
+    input.siteId +
+    '&doc_id=' +
+    input.docId +
+    (input.operationName ? '&operationName=' + input.operationName : '') +
+    '&variables=' +
+    encodedVariables;
+
+  return fetch(url, reqOptions).then((response) => response.text());
+};
+
+const httpPost = (input) => {
+  const userHeaders = input.headers || {};
+  const fullHeaders = {
+    ...userHeaders,
+    'Content-Type': 'application/json',
+  };
+
+  const reqBody = JSON.stringify({
+    doc_id: input.docId,
+    query: input.query,
+    operationName: input.operationName,
+    variables: input.variables,
+  });
+
+  const timeoutMs = 30_000;
+
+  const reqOptions = {
+    method: 'POST',
+    headers: fullHeaders,
+    timeout: timeoutMs,
+    body: reqBody,
+  };
+
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId;
+
+  return fetch(url, reqOptions).then((response) => response.text());
+};`
+  )}
+
+const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
+  const docId = input.doc_id;
+  const operationName = input.operationName;
+  const variables = input.variables;
+
+  const options = input.options || {};
+  const accessToken = options.accessToken;
+  const siteId = options.siteId || process.env.SITE_ID;
+
+  const httpMethod = input.fetchStrategy === 'GET' ? httpGet : httpPost;
+
+  const response = httpMethod({
+    siteId: siteId,
+    docId: docId,
+    query: input.query,
+    headers: {
+      Authorization: accessToken ? 'Bearer ' + accessToken : '',
+    },
+    variables: variables,
+    operationName: operationName,
+  });
+
+  return response.then((result) => JSON.parse(result));
+};
 `;
 
 const subscriptionParserReturnName = (fn) => `${fn.operationName}Event`;
@@ -343,9 +571,8 @@ export function ${subscriptionFunctionName(fn)}(
    * Use this to keep track of which subscription you're receiving
    * events for.
    */
-  variables: ${
-    variableSignature === "{}" ? "Record<string, never>" : variableSignature
-  },
+  variables: ${variableSignature === "{}" ? "Record<string, never>" : variableSignature
+    },
   options?: {
     /**
      * The accessToken to use for the lifetime of the subscription.
@@ -370,19 +597,18 @@ export function ${subscriptionFunctionName(fn)}(
   }) : void
 
 export type ${subscriptionParserReturnName(
-    fn
-  )} = ${parsingFunctionReturnSignature}
+      fn
+    )} = ${parsingFunctionReturnSignature}
 
 /**
- * Verify the ${
-   fn.operationName
- } event body is signed securely, and then parse the result.
+ * Verify the ${fn.operationName
+    } event body is signed securely, and then parse the result.
  */
 export function ${subscriptionParserName(
-    fn
-  )} (/** A Netlify Handler Event */ event : WebhookEvent) : null | ${subscriptionParserReturnName(
-    fn
-  )}
+      fn
+    )} (/** A Netlify Handler Event */ event : WebhookEvent) : null | ${subscriptionParserReturnName(
+      fn
+    )}
 `;
 };
 
@@ -409,14 +635,13 @@ export const generateSubscriptionFunction = (
   const body = print(patched);
   const safeBody = replaceAll(body, "${", "\\${");
 
-  return `const ${subscriptionFunctionName(fn)} = async (
+  return `const ${subscriptionFunctionName(fn)} = (
   variables,
   rawOptions
   ) => {
     const options = rawOptions || {};
     const netlifyGraphWebhookId = options.netlifyGraphWebhookId;
-    const netlifyGraphWebhookUrl = options.webhookUrl || \`\${process.env.DEPLOY_URL}${
-      netlifyGraphConfig.webhookBasePath
+    const netlifyGraphWebhookUrl = options.webhookUrl || \`\${process.env.DEPLOY_URL}${netlifyGraphConfig.webhookBasePath
     }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`;
     const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
     const fullVariables = {...variables, netlifyGraphWebhookUrl: netlifyGraphWebhookUrl, netlifyGraphWebhookSecret: { hmacSha256Key: secret }}
@@ -428,6 +653,11 @@ export const generateSubscriptionFunction = (
       operationName: "${fn.operationName}",
       variables: fullVariables,
       options: options,
+      fetchStrategy: "${fn.executionStrategy === "PERSISTED" &&
+      (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+      ? "GET"
+      : "POST"
+    }",
   })
 }
 
@@ -454,6 +684,7 @@ const makeFunctionName = (kind, operationName) => {
 
 export const queryToFunctionDefinition = (
   fullSchema: GraphQLSchema,
+  parsedDoc: DocumentNode,
   persistedQuery: ExtractedFunction,
   enabledFragments: Record<string, ParsedFragment>
 ): ParsedFunction | undefined => {
@@ -466,7 +697,7 @@ export const queryToFunctionDefinition = (
   const body = basicFn.operationString;
   const safeBody = replaceAll(body, "${", "\\${");
 
-  const parsed = parse(body);
+  const parsed = parse(body, { noLocation: true });
   const operations = parsed.definitions.filter(
     (def) => def.kind === Kind.OPERATION_DEFINITION
   );
@@ -511,8 +742,7 @@ export const queryToFunctionDefinition = (
 
   if (!operationName) {
     internalConsole.error(
-      `Operation name is required in ${
-        basicFn.operationString
+      `Operation name is required in ${basicFn.operationString
       }\n\tfound: ${JSON.stringify(operation.name)}`
     );
     return;
@@ -521,9 +751,15 @@ export const queryToFunctionDefinition = (
   const operationWithoutNetlifyDirective = {
     ...operation,
     directives: (operation.directives || []).filter(
-      (directive) => directive.name.value !== "netlify"
+      (directive) => directive.name.value !== NETLIFY_DIRECTIVE_NAME
     ),
   };
+
+  const persistableOperationString =
+    extractPersistableOperationString(parsedDoc, operation) || print(operation);
+
+  const cacheControl = pluckNetlifyCacheControlDirective(operation);
+  const netlifyDirective = pluckNetlifyDirective(operation);
 
   const fn: ParsedFunction = {
     ...basicFn,
@@ -531,12 +767,17 @@ export const queryToFunctionDefinition = (
     safeBody,
     kind: operation.operation,
     variableSignature,
+    cacheStrategy: cacheControl.cacheStrategy,
+    fallbackOnError: cacheControl.fallbackOnError,
+    persistableOperationString,
     returnSignature,
     operationName,
     parsedOperation: operation,
     operationStringWithoutNetlifyDirective: print(
       operationWithoutNetlifyDirective
     ),
+    variableNames: variableNames,
+    executionStrategy: netlifyDirective?.executionStrategy || "DYNAMIC",
   };
 
   return fn;
@@ -555,7 +796,7 @@ export const fragmentToParsedFragmentDefinition = (
   const body = basicFn.operationString;
   const safeBody = replaceAll(body, "${", "\\${");
 
-  const parsed = parse(body);
+  const parsed = parse(body, { noLocation: true });
   const operations = parsed.definitions.filter(
     (def) => def.kind === Kind.OPERATION_DEFINITION
   );
@@ -601,8 +842,7 @@ export const fragmentToParsedFragmentDefinition = (
 
   if (!operationName) {
     internalConsole.error(
-      `Operation name is required in ${
-        basicFn.operationString
+      `Operation name is required in ${basicFn.operationString
       }\n\tfound: ${JSON.stringify(operation.name)}`
     );
     return;
@@ -611,7 +851,7 @@ export const fragmentToParsedFragmentDefinition = (
   const operationWithoutNetlifyDirective = {
     ...operation,
     directives: (operation.directives || []).filter(
-      (directive) => directive.name.value !== "netlify"
+      (directive) => directive.name.value !== NETLIFY_DIRECTIVE_NAME
     ),
   };
 
@@ -666,9 +906,15 @@ export const generateJavaScriptClient = (
       options
       ) => {
       return fetchNetlifyGraph({
-        query: \`${fn.safeBody}\`,
+        query: \`${fn.persistableOperationString}\`,
+        operationName: "${fn.operationName}",
         variables: variables,
-        options: options || {},
+        options: options,
+        fetchStrategy: "${fn.executionStrategy === "PERSISTED" &&
+        (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+        ? "GET"
+        : "POST"
+      }",
       })
     }`
     )}
@@ -683,10 +929,15 @@ export const generateJavaScriptClient = (
       options
     ) => {
       return fetchNetlifyGraph({
-        query: operationsDoc,
+        query: \`${fn.persistableOperationString}\`,
         operationName: "${fn.operationName}",
         variables: variables,
-        options: options || {},
+        options: options,
+        fetchStrategy: "${fn.executionStrategy === "PERSISTED" &&
+        (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+        ? "GET"
+        : "POST"
+      }",
       });
     }
 `
@@ -730,9 +981,8 @@ export const generateJavaScriptClient = (
       return `/**
   * ${jsDoc}
   */
-  ${fn.fnName}: ${
-        netlifyGraphConfig.moduleType === "commonjs" ? "exports." : ""
-      }${fn.fnName}`;
+  ${fn.fnName}: ${netlifyGraphConfig.moduleType === "commonjs" ? "exports." : ""
+        }${fn.fnName}`;
     })
     .filter(Boolean)
     .join(",\n  ");
@@ -759,10 +1009,10 @@ export const generateJavaScriptClient = (
   ${imp(netlifyGraphConfig, ["node"], "process", "process")}
 
 ${exp(
-  netlifyGraphConfig,
-  ["node"],
-  "verifySignature",
-  `(input) => {
+    netlifyGraphConfig,
+    ["node"],
+    "verifySignature",
+    `(input) => {
   const secret = input.secret
   const body = input.body
   const signature = input.signature
@@ -807,17 +1057,15 @@ ${exp(
 
   return true
 }`
-)}
+  )}
 
-const operationsDoc = \`${safeOperationsDoc}\`
-
-${generatedNetlifyGraphClient(netlifyGraphConfig)}
+${generatedNetlifyGraphDynamicClient(netlifyGraphConfig)}
 
 ${exp(
-  netlifyGraphConfig,
-  ["node"],
-  "verifyRequestSignature",
-  `(request, options) => {
+    netlifyGraphConfig,
+    ["node"],
+    "verifyRequestSignature",
+    `(request, options) => {
   const event = request.event
   const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
   const signature = event.headers['x-netlify-graph-signature']
@@ -832,7 +1080,7 @@ ${exp(
 
   return verifySignature({ secret, signature, body: body || '' })
 }`
-)}
+  )}
 
 ${functionDecls.join("\n\n")}
 
@@ -843,11 +1091,233 @@ const functions = {
   ${exportedFunctionsObjectProperties}
 }
 
-${
-  netlifyGraphConfig.moduleType === "commonjs"
-    ? "exports.default = functions"
-    : "export default functions"
+${netlifyGraphConfig.moduleType === "commonjs"
+      ? "exports.default = functions"
+      : "export default functions"
+    }
+
+${dummyHandler}`;
+
+  return source;
+};
+
+export const generateProductionJavaScriptClient = (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  schema: GraphQLSchema,
+  operationsDoc: string,
+  enabledFunctions: PersistedFunction[]
+) => {
+  const functionDecls = enabledFunctions.map((fn) => {
+    if (fn.kind === "subscription") {
+      const fragments = [];
+      return generateSubscriptionFunction(
+        schema,
+        fn,
+        fragments,
+        netlifyGraphConfig
+      );
+    }
+
+    const dynamicFunction = `${exp(
+      netlifyGraphConfig,
+      ["browser", "node"],
+      fn.fnName,
+      `(
+      variables,
+      options
+      ) => {
+      return fetchNetlifyGraph({
+        query: \`${replaceAll(fn.persistableOperationString, "`", "`")}\`,
+        operationName: "${fn.operationName}",
+        variables: variables,
+        options: options,
+        fetchStrategy: "${fn.executionStrategy === "PERSISTED" &&
+        (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+        ? "GET"
+        : "POST"
+      }",
+      })
+    }`
+    )}
+`;
+
+    const staticFunction = `${exp(
+      netlifyGraphConfig,
+      ["browser", "node"],
+      fn.fnName,
+      `(
+      variables,
+      options
+    ) => {
+      return fetchNetlifyGraph({
+        doc_id: "${fn.persistedDocId}",
+        operationName: "${fn.operationName}",
+        variables: variables,
+        options: options,
+        fetchStrategy: "${fn.executionStrategy === "PERSISTED" &&
+        (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+        ? "GET"
+        : "POST"
+      }",
+      });
+    }
+`
+    )}`;
+    return fn.executionStrategy === "DYNAMIC"
+      ? dynamicFunction
+      : staticFunction;
+  });
+
+  const exportedFunctionsObjectProperties = enabledFunctions
+    .sort((a, b) => {
+      return a.fnName.localeCompare(b.fnName);
+    })
+    .map((fn) => {
+      const isSubscription = fn.kind === "subscription";
+
+      if (isSubscription) {
+        if (netlifyGraphConfig.runtimeTargetEnv === "node") {
+          const subscriptionFnName = subscriptionFunctionName(fn);
+          const parserFnName = subscriptionParserName(fn);
+
+          const jsDoc = replaceAll(fn.description || "", "*/", "")
+            .split("\n")
+            .join("\n* ");
+
+          return `/**
+  * ${jsDoc}
+  */
+  ${subscriptionFnName}:${subscriptionFnName},
+  /**
+   * Verify the event body is signed securely, and then parse the result.
+   */
+  ${parserFnName}: ${parserFnName}`;
+        } else {
+          return;
+        }
+      }
+
+      const jsDoc = replaceAll(fn.description || "", "*/", "")
+        .split("\n")
+        .join("\n* ");
+
+      return `/**
+  * ${jsDoc}
+  */
+  ${fn.fnName}: ${netlifyGraphConfig.moduleType === "commonjs" ? "exports." : ""
+        }${fn.fnName}`;
+    })
+    .filter(Boolean)
+    .join(",\n  ");
+
+  const dummyHandler = exp(
+    netlifyGraphConfig,
+    ["node"],
+    "handler",
+    `() => {
+      // return a 401 json response
+      return {
+        statusCode: 401,
+        body: JSON.stringify({
+          message: 'Unauthorized',
+        }),
+      }
+    }`
+  );
+
+  const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+  ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
+  ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+  ${imp(netlifyGraphConfig, ["node"], "https", "https")}
+  ${imp(netlifyGraphConfig, ["node"], "process", "process")}
+
+${exp(
+    netlifyGraphConfig,
+    ["node"],
+    "verifySignature",
+    `(input) => {
+  const secret = input.secret
+  const body = input.body
+  const signature = input.signature
+
+  if (!signature) {
+    console.error('Missing signature')
+    return false
+  }
+
+  const sig = {}
+  for (const pair of signature.split(',')) {
+    const [key, value] = pair.split('=')
+    sig[key] = value
+  }
+
+  if (!sig.t || !sig.hmac_sha256) {
+    console.error('Invalid signature header')
+    return false
+  }
+
+  const hash = crypto
+    .createHmac('sha256', secret)
+    .update(sig.t)
+    .update('.')
+    .update(body)
+    .digest('hex')
+
+  if (
+    !crypto.timingSafeEqual(
+      Buffer.from(hash, 'hex'),
+      Buffer.from(sig.hmac_sha256, 'hex')
+    )
+  ) {
+    console.error('Invalid signature')
+    return false
+  }
+
+  if (parseInt(sig.t, 10) < Date.now() / 1000 - 300 /* 5 minutes */) {
+    console.error('Request is too old')
+    return false
+  }
+
+  return true
+}`
+  )}
+
+${generatedNetlifyGraphPersistedClient(netlifyGraphConfig)}
+
+${exp(
+    netlifyGraphConfig,
+    ["node"],
+    "verifyRequestSignature",
+    `(request, options) => {
+  const event = request.event
+  const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
+  const signature = event.headers['x-netlify-graph-signature']
+  const body = event.body
+
+  if (!secret) {
+    console.error(
+      'NETLIFY_GRAPH_WEBHOOK_SECRET is not set, cannot verify incoming webhook request'
+    )
+    return false
+  }
+
+  return verifySignature({ secret, signature, body: body || '' })
+}`
+  )}
+
+${functionDecls.join("\n\n")}
+
+/**
+ * The generated NetlifyGraph library with your operations
+ */
+const functions = {
+  ${exportedFunctionsObjectProperties}
 }
+
+${netlifyGraphConfig.moduleType === "commonjs"
+      ? "exports.default = functions"
+      : "export default functions"
+    }
 
 ${dummyHandler}`;
 
@@ -928,9 +1398,8 @@ export type ${returnSignatureName} = ${fn.returnSignature};
  * ${jsDoc}
  */
 export function ${fn.fnName}(
-  ${emptyVariablesGuideDocString}variables: ${
-      shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
-    },
+  ${emptyVariablesGuideDocString}variables: ${shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
+      },
   options?: NetlifyGraphFunctionOptions
 ): Promise<${returnSignatureName}>;`;
   });
@@ -968,7 +1437,7 @@ ${functionDecls.join("\n\n")}
   return source;
 };
 
-export const generateFunctionsSource = (
+export const generateFunctionsSource = async (
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
@@ -986,9 +1455,11 @@ export const generateFunctionsSource = (
     }
   }, {});
 
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
+
   const functionDefinitions: ParsedFunction[] = Object.values(queries)
     .map((query) =>
-      queryToFunctionDefinition(schema, query, fragmentDefinitions)
+      queryToFunctionDefinition(schema, parsedDoc, query, fragmentDefinitions)
     )
     .filter(Boolean) as ParsedFunction[];
 
@@ -1013,7 +1484,131 @@ export const generateFunctionsSource = (
   };
 };
 
-const pluckDirectiveArgValue = (directive, argName) => {
+export const generatePersistedFunctionsSource = async (
+  netlifyGraphConfig: NetlifyGraphConfig,
+  netlifyToken: string,
+  siteId: string,
+  schema: GraphQLSchema,
+  operationsDoc: string,
+  queries: Record<string, PersistedFunction>,
+  fragments: Record<string, ExtractedFragment>
+) => {
+  const fragmentDefinitions: Record<string, ParsedFragment> = Object.entries(
+    fragments
+  ).reduce((acc, [fragmentName, fragment]) => {
+    const parsed = fragmentToParsedFragmentDefinition(schema, fragment);
+    if (parsed) {
+      return { ...acc, [fragmentName]: parsed };
+    } else {
+      return acc;
+    }
+  }, {});
+
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
+
+  const functionDefinitions: ParsedFunction[] = Object.values(queries)
+    .map((query) =>
+      queryToFunctionDefinition(schema, parsedDoc, query, fragmentDefinitions)
+    )
+    .filter(Boolean) as ParsedFunction[];
+
+  let persistedFunctionDefinitions: PersistedFunction[] = [];
+
+  for (const fn of functionDefinitions) {
+    if (fn.executionStrategy === "DYNAMIC") {
+      console.log("Skipping dynamic operation", fn.operationName);
+      // @ts-ignore
+      persistedFunctionDefinitions.push({
+        ...fn,
+      });
+      continue;
+    }
+
+    console.log(
+      "Persisting: ",
+      fn.operationName,
+      fn.cacheStrategy
+    );
+
+    const result = await executeCreatePersistedQueryMutation(
+      {
+        nfToken: netlifyToken,
+        appId: siteId,
+        description: fn.description,
+        query: fn.persistableOperationString,
+        tags: ["dev"],
+        allowedOperationNames: [fn.operationName],
+        freeVariables: fn.variableNames,
+        fallbackOnError: fn.fallbackOnError,
+        cacheStrategy: fn.cacheStrategy,
+      },
+      {
+        siteId: siteId,
+        accessToken: netlifyToken,
+      }
+    );
+
+    const persistedFn =
+      result.data?.oneGraph?.createPersistedQuery?.persistedQuery;
+
+    if (persistedFn?.id) {
+      persistedFunctionDefinitions.push({
+        ...fn,
+        persistedDocId: persistedFn.id,
+      });
+    } else if (result.errors) {
+      console.warn(
+        "Failed to persist function",
+        fn.operationName,
+        result.errors
+      );
+    }
+  }
+
+  const clientSource = generateProductionJavaScriptClient(
+    netlifyGraphConfig,
+    schema,
+    operationsDoc,
+    persistedFunctionDefinitions
+  );
+
+  const typeDefinitionsSource = generateTypeScriptDefinitions(
+    netlifyGraphConfig,
+    schema,
+    functionDefinitions,
+    fragmentDefinitions
+  );
+
+  return {
+    clientSource,
+    typeDefinitionsSource,
+    functionDefinitions,
+  };
+};
+
+const pluckDirectiveArgEnumValue = (
+  directive: DirectiveNode,
+  argName: string
+) => {
+  const targetArg = directive?.arguments?.find(
+    (arg) => arg.name.value === argName
+  );
+
+  if (!(targetArg && targetArg.value)) {
+    return null;
+  }
+
+  if (targetArg.value.kind === Kind.ENUM) {
+    return targetArg.value.value;
+  }
+
+  return null;
+};
+
+const pluckDirectiveArgStringValue = (
+  directive: DirectiveNode,
+  argName: string
+) => {
   const targetArg = directive?.arguments?.find(
     (arg) => arg.name.value === argName
   );
@@ -1027,6 +1622,144 @@ const pluckDirectiveArgValue = (directive, argName) => {
   }
 
   return null;
+};
+
+const pluckDirectiveArgBooleanValue = (
+  directive: DirectiveNode,
+  argName: string
+) => {
+  const targetArg = directive?.arguments?.find(
+    (arg) => arg.name.value === argName
+  );
+
+  if (!(targetArg && targetArg.value)) {
+    return null;
+  }
+
+  if (targetArg.value.kind === Kind.BOOLEAN) {
+    return targetArg.value.value;
+  }
+
+  return null;
+};
+
+const pluckDirectiveArgObjectValue = (
+  directive: DirectiveNode,
+  argName: string
+) => {
+  const targetArg = directive?.arguments?.find(
+    (arg) => arg.name.value === argName
+  );
+
+  if (!(targetArg && targetArg.value)) {
+    return null;
+  }
+
+  if (targetArg.value.kind === Kind.OBJECT) {
+    return targetArg.value;
+  }
+
+  return null;
+};
+
+export const pluckNetlifyDirective = (
+  definitionNode: OperationDefinitionNode | FragmentDefinitionNode
+): {
+  id: string;
+  description: string;
+  executionStrategy: ExecutionStrategy;
+} | null => {
+  const directive = definitionNode.directives?.find(
+    (localDirective) => localDirective.name.value === NETLIFY_DIRECTIVE_NAME
+  );
+
+  if (!directive) {
+    return null;
+  }
+
+  const docString = pluckDirectiveArgStringValue(directive, "doc") || "";
+  let id = pluckDirectiveArgStringValue(directive, "id");
+  let executionStrategy = pluckDirectiveArgEnumValue(
+    directive,
+    "executionStrategy"
+  ) as null | ExecutionStrategy;
+
+  if (id === null) {
+    id = uuidv4() as string;
+  }
+
+  if (
+    executionStrategy === null ||
+    !["DYNAMIC", "PERSISTED"].includes(executionStrategy)
+  ) {
+    executionStrategy = "DYNAMIC";
+  }
+
+  return {
+    id,
+    description: docString,
+    executionStrategy,
+  };
+};
+
+export const pluckNetlifyCacheControlDirective = (
+  definitionNode: OperationDefinitionNode
+): {
+  cacheStrategy: CacheStrategy | undefined;
+  fallbackOnError: boolean;
+} => {
+  const defaultStrategy = {
+    cacheStrategy: undefined,
+    fallbackOnError: false,
+  };
+
+  const directive = definitionNode.directives?.find((localDirective) => {
+    return localDirective.name.value === NETLIFY_CACHE_CONTROL_DIRECTIVE_NAME;
+  });
+
+  if (!directive) {
+    return defaultStrategy;
+  }
+
+  const rawFallbackOnError = pluckDirectiveArgBooleanValue(
+    directive,
+    "fallbackOnError"
+  );
+
+  const fallbackOnError =
+    typeof rawFallbackOnError === "boolean" ? rawFallbackOnError : false;
+
+  let rawCacheStrategy =
+    pluckDirectiveArgObjectValue(directive, "cacheStrategy") || undefined;
+
+  let cacheStrategy: CacheStrategy | undefined = undefined;
+
+  if (rawCacheStrategy) {
+
+    const enabledArg = pluckDirectiveArgBooleanValue(directive, "enabled")
+
+    const enabled = enabledArg || false
+
+
+    const field = rawCacheStrategy.fields.find(
+      (field) => field.name.value === "timeToLiveSeconds"
+    );
+
+    if (field?.value.kind === Kind.FLOAT || field?.value.kind === Kind.INT) {
+      cacheStrategy = {
+        enabled: enabled,
+        timeToLiveSeconds: parseFloat(field.value.value),
+      };
+    }
+  }
+
+
+  const finalStrategy = {
+    cacheStrategy: cacheStrategy,
+    fallbackOnError: fallbackOnError,
+  };
+
+  return finalStrategy;
 };
 
 /**
@@ -1053,34 +1786,29 @@ export const extractFunctionsFromOperationDoc = (
 
     const key = next.name?.value || "unknown";
 
-    const directive = next.directives?.find(
-      (localDirective) => localDirective.name.value === "netlify"
-    );
+    const netlifyDirective = pluckNetlifyDirective(next);
 
-    if (!directive) {
+    if (netlifyDirective === null) {
       return null;
-    }
-
-    const docString = pluckDirectiveArgValue(directive, "doc") || "";
-    let id = pluckDirectiveArgValue(directive, "id");
-
-    if (!id) {
-      id = uuidv4();
     }
 
     const nextWithoutNetlifyDirective = {
       ...next,
       directives: (next.directives || []).filter(
-        (directive) => directive.name.value !== "netlify"
+        (directive) =>
+          ![
+            NETLIFY_DIRECTIVE_NAME,
+            NETLIFY_CACHE_CONTROL_DIRECTIVE_NAME,
+          ].includes(directive.name.value)
       ),
     };
 
     if (next.kind === Kind.FRAGMENT_DEFINITION) {
       next.name?.value;
       const operation: ExtractedFragment = {
-        id,
+        id: netlifyDirective.id,
         fragmentName: key,
-        description: docString,
+        description: netlifyDirective.description,
         parsedOperation: next,
         kind: "fragment",
         operationString: print(next),
@@ -1089,23 +1817,37 @@ export const extractFunctionsFromOperationDoc = (
         ),
       };
 
-      fragments[id] = operation;
+      fragments[netlifyDirective.id] = operation;
     } else if (next.kind === Kind.OPERATION_DEFINITION) {
+      const isQuery = next.operation === "query";
       const fnName = makeFunctionName(next.operation, key);
 
+      const cacheControl = isQuery
+        ? pluckNetlifyCacheControlDirective(next)
+        : { cacheStrategy: undefined, fallbackOnError: false };
+
+      const persistableOperationString = extractPersistableOperationString(
+        parsedDoc,
+        next
+      );
+
       const operation: ExtractedFunction = {
-        id,
+        id: netlifyDirective.id,
         operationName: key,
-        description: docString,
+        description: netlifyDirective.description,
+        cacheStrategy: cacheControl.cacheStrategy,
+        fallbackOnError: cacheControl.fallbackOnError,
+        persistableOperationString: persistableOperationString || print(next),
         parsedOperation: next,
         kind: next.operation,
         operationString: print(next),
         operationStringWithoutNetlifyDirective: print(
           nextWithoutNetlifyDirective
         ),
+        executionStrategy: netlifyDirective.executionStrategy,
       };
 
-      functions[id] = operation;
+      functions[netlifyDirective.id] = operation;
     }
   });
 
@@ -1137,12 +1879,12 @@ export const generateHandlerSource = ({
   schema: GraphQLSchema;
 }):
   | {
-      exportedFiles: ExportedFile[];
-      operation: OperationDefinitionNode;
-    }
+    exportedFiles: ExportedFile[];
+    operation: OperationDefinitionNode;
+  }
   | undefined => {
   console.log("Generating handler source for operation", operationId);
-  const parsedDoc = parse(operationsDoc);
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
   const functions = operations.functions;
   const fn = functions[operationId];
@@ -1193,11 +1935,11 @@ export const generateCustomHandlerSource = ({
   generate: FrameworkGenerator;
 }):
   | {
-      exportedFiles: ExportedFile[];
-      operation: OperationDefinitionNode;
-    }
+    exportedFiles: ExportedFile[];
+    operation: OperationDefinitionNode;
+  }
   | undefined => {
-  const parsedDoc = parse(operationsDoc);
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
   const fn = operations.functions[operationId];
 
