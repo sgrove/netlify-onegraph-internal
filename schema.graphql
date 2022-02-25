@@ -5,12 +5,18 @@ directive @netlify(
 
   """The uuid of the operation (normally auto-generated)"""
   id: String!
-
-  """The cache strategy for this operation"""
-  cacheStrategy: OneGraphPersistedQueryCacheStrategyArg!
-  """Whether to fallback to a previous successful response if the current request fails"""
-  fallbackOnError: Boolean!
 ) on QUERY | MUTATION | SUBSCRIPTION | FRAGMENT_DEFINITION
+
+"""An internal directive used by Netlify Graph to handle caching"""
+directive @netlifyCacheControl(
+  """
+  Whether to fallback to a previous successful response if the current request fails
+  """
+  fallbackOnError: Boolean
+
+  """The cache strategy for this operation."""
+  cacheStrategy: OneGraphPersistedQueryCacheStrategyArg
+) on QUERY
 
 input GitHubStatusEventSubscriptionInput {
   """The owner of the repo, the `octocat` in `octocat/Hello-World`."""
@@ -1273,6 +1279,30 @@ type GithubSubscriptionRoot {
   statusEvent(input: GitHubStatusEventSubscriptionInput!): GitHubStatusEventSubscriptionPayload!
 }
 
+input OneGraphSubscriptionPollScheduleRepeatInput {
+  """How many minutes to wait before re-running the underlying query"""
+  minutes: Int!
+}
+
+input OneGraphSubscriptionPollScheduleInput {
+  """"""
+  every: OneGraphSubscriptionPollScheduleRepeatInput!
+}
+
+type OneGraphSubscriptionPollingQueryDiffPrevious {
+  payload: JSON
+  createdAt: String
+}
+
+type OneGraphSubscriptionPollingQueryDiff {
+  previous: OneGraphSubscriptionPollingQueryDiffPrevious
+}
+
+type PollingQuery {
+  query: Query!
+  diff: OneGraphSubscriptionPollingQueryDiff!
+}
+
 """
 Whether to include information about the API requests that OneGraph made to fulfill the query in the `extensions` field.
 """
@@ -1285,16 +1315,6 @@ enum OneGraphSubscriptionShowMetricsEnum {
 
   """Include summary metrics and full requests."""
   FULL_REQUESTS
-}
-
-input OneGraphSubscriptionPollScheduleRepeatInput {
-  """How many minutes to wait before re-running the underlying query"""
-  minutes: Int!
-}
-
-input OneGraphSubscriptionPollScheduleInput {
-  """"""
-  every: OneGraphSubscriptionPollScheduleRepeatInput!
 }
 
 """
@@ -1329,21 +1349,51 @@ input OneGraphSubscriptionAuthArg {
   gmail: OneGraphSubscriptionGmailAuthArg
 }
 
-type OneGraphSubscriptionPollingQueryDiffPrevious {
-  payload: JSON
-  createdAt: String
+input NpmPackagePublishedArg {
+  """
+  The names of packages to be notified about when published, e.g. ["graphql", "express", "fela"]
+  """
+  names: [String!]!
 }
 
-type OneGraphSubscriptionPollingQueryDiff {
-  previous: OneGraphSubscriptionPollingQueryDiffPrevious
+type NpmNewPackagePublishedSubscriptionPayload {
+  """Package being published"""
+  package: NpmPackage!
 }
 
-type PollingQuery {
-  query: Query!
-  diff: OneGraphSubscriptionPollingQueryDiff!
+"""Namespace for npm subscriptions."""
+type NpmSubscriptionRoot {
+  """Get notified when *any* package is published or updated on npm"""
+  allPublishActivity: NpmNewPackagePublishedSubscriptionPayload
+
+  """Get notified when a package is published or updated on npm"""
+  packagePublished(input: NpmPackagePublishedArg!): NpmNewPackagePublishedSubscriptionPayload
 }
 
 type Subscription {
+  npm(
+    """
+    Whether to include information about the API requests that OneGraph made to fulfill the query in the `extensions` field.
+    """
+    showMetrics: OneGraphSubscriptionShowMetricsEnum
+    secret: OneGraphSubscriptionSecretInput
+    auth: OneGraphSubscriptionAuthArg
+
+    """
+    Set to true when creating a subscription over a websocket that should only be retained and not sent over the websocket or a webhook. If set to true, `retainPayloads` must not be set to false.
+    """
+    retainedOnly: Boolean
+
+    """
+    Set to true to have OneGraph store payloads for this subscription. They payloads are available on the OneGraph dashboard from the app's `Subscription` page.
+    """
+    retainPayloads: Boolean
+
+    """
+    Webhook URL that will receive a POST request every time there is new data for the subscription. The endpoint should return a 200 within 30 seconds to be considered successful. If the request does not succeed, it will be retried.
+    """
+    webhookUrl: String
+  ): NpmSubscriptionRoot!
   poll(
     """
     Whether to include information about the API requests that OneGraph made to fulfill the query in the `extensions` field.
@@ -6928,6 +6978,24 @@ type SignoutServicesResponsePayload {
   me: Viewer!
 }
 
+input OneGraphCreateSharedDocumentInput {
+  """A description for the operation. Maximum length is 2096 characters."""
+  description: String
+
+  """
+  The Netlify siteId that this operation should be associated with. The currently-authenticated user must have access to this site in Netlify.
+  """
+  siteId: String
+
+  """The shared operation text. Maximum length is 1mb."""
+  body: String!
+}
+
+type OneGraphCreateSharedDocumentResponsePayload {
+  """The shared document that was created."""
+  sharedDocument: OneGraphSharedDocument!
+}
+
 input OneGraphCreateNetlifyTestEventDataInput {
   payload: JSON!
 }
@@ -7017,6 +7085,71 @@ type OneGraphCreateModifySchemaTokenResponsePayload {
   accessToken: OneGraphAccessToken!
 }
 
+input OneGraphForkGraphQLSchemaEnabledServicesChangesInput {
+  """
+  Replace services with the given list of services. Can not be combined with add or remove.
+  """
+  replace: [OneGraphServiceEnumArg!]
+
+  """Services to remove from the schema."""
+  remove: [OneGraphServiceEnumArg!]
+
+  """Services to add to the schema."""
+  add: [OneGraphServiceEnumArg!]
+}
+
+input OneGraphForkGraphQLSchemaExternalGraphQLSchemaChangesInput {
+  """The external GraphQL schemas to remove from the GraphQL schema."""
+  remove: [OneGraphGraphQLSchemaExternalGraphQLSchemaInput!]
+
+  """The external GraphQL schemas to add to the GraphQL schema."""
+  add: [OneGraphGraphQLSchemaExternalGraphQLSchemaInput!]
+}
+
+input OneGraphForkGraphQLSchemaSalesforceChangesInput {
+  """
+  Whether to create a GraphQL schema with the custom salesforce schema removed. Can not be true if `setSalesforceSchemaId` is non-null.
+  """
+  removeCustomSalesforceSchema: Boolean
+
+  """The id of a Salesforce schema to attach to the GraphQL schema."""
+  setSalesforceSchemaId: String
+}
+
+input OneGraphForkGraphQLSchemaChangesInput {
+  enabledServices: OneGraphForkGraphQLSchemaEnabledServicesChangesInput
+  externalGraphQLSchemas: OneGraphForkGraphQLSchemaExternalGraphQLSchemaChangesInput
+  salesforceSchema: OneGraphForkGraphQLSchemaSalesforceChangesInput
+}
+
+input OneGraphForkGraphQLSchemaInput {
+  """The changes to apply to the schema."""
+  changes: OneGraphForkGraphQLSchemaChangesInput!
+
+  """
+  Whether to set this schema as the default for the app. Defaults to false.
+  """
+  setAsDefaultForApp: Boolean = false
+
+  """
+  Whether to fork the default schema for the app. If `parentId is provided, this arg will be ignored.
+  """
+  forkAppDefaultSchema: Boolean = true
+
+  """
+  The optional id of the GraphQL schema to fork. If not provided, and `forkAppDefaultSchema` is set to true, the current default graphQLSchema for the app will be used. If there is no current default, then a global default graphQLSchema will be created and this schema will have no parent.
+  """
+  parentId: String
+
+  """The id of the app that the schema should belong to."""
+  appId: String!
+}
+
+type OneGraphForkGraphQLSchemaResponsePayload {
+  graphQLSchema: OneGraphGraphQLSchema!
+  app: OneGraphApp!
+}
+
 input OneGraphGraphQLSchemaExternalGraphQLSchemaInput {
   """The id of the external GraphQL schema."""
   externalGraphQLSchemaId: String!
@@ -7031,7 +7164,7 @@ input OneGraphCreateGraphQLSchemaInput {
   """External GraphQL schemas to add"""
   externalGraphQLSchemas: [OneGraphGraphQLSchemaExternalGraphQLSchemaInput!]
 
-  """Optional id of a Salesforce schema to attach to the app."""
+  """Optional id of a Salesforce schema to attach to the GraphQL schema."""
   salesforceSchemaId: String
 
   """The optional id of the GraphQL schema that this was derived from."""
@@ -7047,7 +7180,8 @@ input OneGraphCreateGraphQLSchemaInput {
 }
 
 type OneGraphCreateGraphQLSchemaResponsePayload {
-  graphqlSchema: OneGraphGraphQLSchema!
+  graphqlSchema: OneGraphGraphQLSchema! @deprecated(reason: "use graphQLSchema")
+  graphQLSchema: OneGraphGraphQLSchema!
   app: OneGraphApp!
 }
 
@@ -7254,8 +7388,13 @@ type OneGraphAddGoogleSiteVerificationPayload {
   googleSiteVerification: OneGraphGoogleSiteVerification!
 }
 
+type OneGraphAddSalesforceSchemaForSalesforceViewerPayload {
+  """The salesforce schema that was created."""
+  salesforceSchema: OneGraphSalesforceSchema!
+}
+
 type OneGraphAddPreviewSalesforceSchemaForSalesforceViewerPayload {
-  """The preview salesforce schema that was created."""
+  """The salesforce schema that was created."""
   salesforceSchema: OneGraphSalesforceSchema!
 }
 
@@ -7327,10 +7466,10 @@ type OneGraphAddPreviewSalesforceSchemaPayload {
   salesforceSchema: OneGraphSalesforceSchema!
 
   """The GraphQL schema for the app after the preview schema is applied."""
-  previewSchema: JSON!
+  previewSchema: JSON! @deprecated(reason: "Use `createGraphQLSchema`, then fetch the new schema with a http call to `/schema?schema_id={schemaId}`")
 
   """The current GraphQL schema for the app."""
-  currentSchema: JSON!
+  currentSchema: JSON! @deprecated(reason: "Use a http call to `/schema`")
 }
 
 input OneGraphRemoveExternalGraphQLSchemaInput {
@@ -8395,14 +8534,15 @@ type OneGraphMutation {
   resetPassword(passwordConfirm: String!, password: String!, token: String!): Boolean!
   enableGitHubAppWebhook(input: OneGraphEnableGitHubAppWebhookInput!): OneGraphEnableGitHubAppWebhookResponsePayload!
   addExternalGraphQLSchema(input: OneGraphAddExternalGraphQLSchemaInput!): OneGraphAddExternalGraphQLSchemaPayload!
-  updateExternalGraphQLSchema(input: OneGraphUpdateExternalGraphQLSchemaInput!): OneGraphUpdateExternalGraphQLSchemaPayload!
-  removeExternalGraphQLSchema(input: OneGraphRemoveExternalGraphQLSchemaInput!): OneGraphRemoveExternalGraphQLSchemaPayload!
-  addPreviewSalesforceSchema(input: OneGraphAddPreviewSalesforceSchemaInput!): OneGraphAddPreviewSalesforceSchemaPayload!
-  promotePreviewSalesforceSchema(input: OneGraphPromotePreviewSalesforceSchemaInput!): OneGraphPromotePreviewSalesforceSchemaPayload!
+  updateExternalGraphQLSchema(input: OneGraphUpdateExternalGraphQLSchemaInput!): OneGraphUpdateExternalGraphQLSchemaPayload! @deprecated(reason: "use `createExternalGraphQLSchema` first, then `createGraphQLSchema` with the result")
+  removeExternalGraphQLSchema(input: OneGraphRemoveExternalGraphQLSchemaInput!): OneGraphRemoveExternalGraphQLSchemaPayload! @deprecated(reason: "Use createGraphQLSchema")
+  addPreviewSalesforceSchema(input: OneGraphAddPreviewSalesforceSchemaInput!): OneGraphAddPreviewSalesforceSchemaPayload! @deprecated(reason: "Use `addSalesforceSchema`, then `createGraphQLSchema`.")
+  promotePreviewSalesforceSchema(input: OneGraphPromotePreviewSalesforceSchemaInput!): OneGraphPromotePreviewSalesforceSchemaPayload! @deprecated(reason: "")
   addSalesforceSchema(input: OneGraphAddSalesforceSchemaInput!): OneGraphAddSalesforceSchemaPayload!
   updateSalesforceSchema(input: OneGraphUpdateSalesforceSchemaInput!): OneGraphUpdateSalesforceSchemaPayload!
   removeSalesforceSchema(input: OneGraphRemoveSalesforceSchemaInput!): OneGraphRemoveSalesforceSchemaPayload!
-  addPreviewSalesforceSchemaForSalesforceViewer: OneGraphAddPreviewSalesforceSchemaForSalesforceViewerPayload!
+  addPreviewSalesforceSchemaForSalesforceViewer: OneGraphAddPreviewSalesforceSchemaForSalesforceViewerPayload! @deprecated(reason: "use `addSalesforceSchemaForSalesforceViewer`, then `createGraphQLSchema`.")
+  addSalesforceSchemaForSalesforceViewer: OneGraphAddSalesforceSchemaForSalesforceViewerPayload!
   addGoogleSiteVerification(input: OneGraphAddGoogleSiteVerificationInput!): OneGraphAddGoogleSiteVerificationPayload!
   removeGoogleSiteVerification(input: OneGraphRemoveGoogleSiteVerificationInput!): OneGraphRemoveGoogleSiteVerificationPayload!
   addSlackEventWebhook(input: OneGraphAddSlackEventWebhookInput!): OneGraphAddSlackEventWebhookPayload!
@@ -8418,6 +8558,7 @@ type OneGraphMutation {
   """Creates an empty personal token with a Netlify site anchor"""
   createPersonalTokenWithNetlifySiteAnchor(input: OneGraphCreatePersonalTokenWithNetlifySiteAnchorInput!): OneGraphCreatePersonalTokenWithNetlifySiteAnchorResponsePayload!
   createGraphQLSchema(input: OneGraphCreateGraphQLSchemaInput!): OneGraphCreateGraphQLSchemaResponsePayload!
+  forkGraphQLSchema(input: OneGraphForkGraphQLSchemaInput!): OneGraphForkGraphQLSchemaResponsePayload!
   createModifySchemaToken(input: OneGraphModifySchemaTokenInput!): OneGraphCreateModifySchemaTokenResponsePayload!
 
   """
@@ -8435,9 +8576,88 @@ type OneGraphMutation {
   deleteNetlifyCliSession(input: OneGraphDeleteNetlifyCliSessionInput!): OneGraphDeleteNetlifyCliSessionResponsePayload!
   createNetlifyCliLogEvent(input: OneGraphCreateNetlifyLogEvent!): OneGraphCreateNetlifyLogResponsePayload!
   createNetlifyCliTestEvent(input: OneGraphCreateNetlifyTestEvent!): OneGraphCreateNetlifyTestResponsePayload!
+
+  """Create a shared document"""
+  createSharedDocument(input: OneGraphCreateSharedDocumentInput!): OneGraphCreateSharedDocumentResponsePayload!
+}
+
+enum NpmPublishPackagAccessEnumArg {
+  """
+  The package will only be visible to users with appropriate permissions (as decided by the registry).
+  """
+  PRIVATE
+
+  """The package will be publicly visible and installable by anyone."""
+  PUBLIC
+}
+
+enum NpmPublishPackageRegistryEnumArg {
+  """Publish to the npm registry"""
+  NPM
+
+  """
+  Publish to your GitHub package registry. Set your scope to the GitHub repository owner, and the name to repository name. For more info, see [GitHub's Package Repository](https://github.com/features/packages).
+  """
+  GITHUB
+}
+
+input OneGraphNpmPublishPackageFileArg {
+  contents: String!
+  path: String!
+}
+
+input NpmPublishPackageInputArg {
+  """Whether the package is public or private."""
+  access: NpmPublishPackagAccessEnumArg!
+
+  """
+  Which registry to publish to: npm, or a GitHub repository package repository.
+  """
+  registry: NpmPublishPackageRegistryEnumArg
+
+  """The list of files to include in the package"""
+  files: [OneGraphNpmPublishPackageFileArg!]!
+
+  """
+  package.json of your package. Must include `name` and `version` as strings fields at a minimum.
+  """
+  packageJson: JSON!
+}
+
+"""Results from running the publishPackage mutation"""
+type NpmPublishPackageResult {
+  """
+  Whether the package was successfully uploaded to npm. Note that due to the delay between uploading and indexing, you maybe have to wait until npm reflects the new version.OneGraphNpmPackage
+  
+  You can also use the `packagePublished` npm subscription to be notified when the new version of your package has been published.
+  """
+  successfullyUploaded: Boolean
+}
+
+"""The root for Npm mutations."""
+type NpmMutation {
+  """Publish a package to npm or GitHub package registry"""
+  publishPackage(
+    """Input for package publishing"""
+    input: NpmPublishPackageInputArg!
+  ): NpmPublishPackageResult
 }
 
 type Mutation {
+  """The root for npm mutations"""
+  npm(
+    """
+    Instruct OneGraph to use the auth associated with a particular user.
+    
+    Note that the user must have gone through the OneGraph oauth flow and logged in with an account with the userId provided in the auth. If there is no user with the account, you may get an auth/auth-missing error.
+    
+    The userIds for logged-in services can be found under `me.serviceMetadata.loggedInServices.foreignUserId`.
+    """
+    userIds: OneGraphServiceUserIds
+
+    """Optional OAuth tokens used to execute the query"""
+    auths: OneGraphServiceAuths
+  ): NpmMutation!
   oneGraph(
     """
     Instruct OneGraph to use the auth associated with a particular user.
@@ -9136,6 +9356,60 @@ type GitHubQuery {
   makeRestCall: GithubPassthroughQuery!
 }
 
+input OneGraphSharedDocumentsModerationStatusFilter {
+  equalTo: OneGraphSharedDocumentModerationStatusEnum
+}
+
+input OneGraphSharedDocumentsServicesFilter {
+  in: [OneGraphServiceEnumArg!]
+  equalTo: OneGraphServiceEnumArg
+}
+
+input OneGraphSharedDocumentsFilter {
+  moderationStatus: OneGraphSharedDocumentsModerationStatusFilter
+  services: OneGraphSharedDocumentsServicesFilter
+}
+
+"""A list of shared documents"""
+type OneGraphSharedDocumentConnection {
+  nodes: [OneGraphSharedDocument!]!
+}
+
+"""Moderation status"""
+enum OneGraphSharedDocumentModerationStatusEnum {
+  PUBLISHED
+  UNPUBLISHED
+}
+
+type OneGraphSharedDocument {
+  """The id of the shared document"""
+  id: String!
+
+  """The siteId that the shared document originated from"""
+  siteId: String
+
+  """The text of the GraphQL document"""
+  body: String!
+
+  """Services that appear in the query"""
+  services: [OneGraphServiceInfo!]!
+
+  """Operation name"""
+  operationName: String
+
+  """Document description"""
+  description: String
+
+  """Current moderation status of the query"""
+  moderationStatus: OneGraphSharedDocumentModerationStatusEnum!
+
+  """Timestamp the document was created, in rfc3339 format."""
+  createdAt: String!
+
+  """Timestamp the document was last updated, in rfc3339 format."""
+  updatedAt: String!
+}
+
 """The status of a cli session"""
 enum OneGraphNetlifyCliSessionStatus {
   ACTIVE
@@ -9473,7 +9747,7 @@ type OneGraphSalesforceSchema {
   salesforceOrgId: String
 
   """Whether this is a preview of a change to a Salesforce schema."""
-  isPreview: Boolean!
+  isPreview: Boolean! @deprecated(reason: "There is no longer a distinction between preview and non-preview salesforce schemas. Use `createGraphQLSchema` with `salesforceSchemaId` to get a schema you can test with.")
 
   """The previous salesforce schema, if there was one."""
   previousSalesforceSchema: OneGraphSalesforceSchema
@@ -9946,6 +10220,11 @@ type OneGraphAdrollServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Asana"""
@@ -9992,6 +10271,11 @@ type OneGraphAsanaServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Box"""
@@ -10038,6 +10322,11 @@ type OneGraphBoxServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Contentful"""
@@ -10084,6 +10373,11 @@ type OneGraphContentfulServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Dev.to"""
@@ -10130,6 +10424,11 @@ type OneGraphDevToServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Docusign"""
@@ -10176,6 +10475,11 @@ type OneGraphDocusignServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Dribbble"""
@@ -10222,6 +10526,11 @@ type OneGraphDribbbleServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Dropbox"""
@@ -10268,6 +10577,11 @@ type OneGraphDropboxServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Egghead.io"""
@@ -10314,6 +10628,11 @@ type OneGraphEggheadioServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Eventil"""
@@ -10360,6 +10679,11 @@ type OneGraphEventilServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Facebook"""
@@ -10406,6 +10730,11 @@ type OneGraphFacebookServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Firebase"""
@@ -10452,6 +10781,11 @@ type OneGraphFirebaseServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 type OneGraphGitHubAppWebhook {
@@ -10503,6 +10837,11 @@ type OneGraphGitHubServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
   gitHubAppWebhook: OneGraphGitHubAppWebhook
 }
 
@@ -10550,6 +10889,11 @@ type OneGraphGmailServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Gong"""
@@ -10596,6 +10940,11 @@ type OneGraphGongServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google"""
@@ -10642,6 +10991,11 @@ type OneGraphGoogleServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Ads"""
@@ -10688,6 +11042,11 @@ type OneGraphGoogleAdsServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Analytics"""
@@ -10734,6 +11093,11 @@ type OneGraphGoogleAnalyticsServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Calendar"""
@@ -10780,6 +11144,11 @@ type OneGraphGoogleCalendarServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Compute"""
@@ -10826,6 +11195,11 @@ type OneGraphGoogleComputeServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Docs"""
@@ -10872,6 +11246,11 @@ type OneGraphGoogleDocsServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Search Console"""
@@ -10918,6 +11297,11 @@ type OneGraphGoogleSearchConsoleServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Google Translate"""
@@ -10964,6 +11348,11 @@ type OneGraphGoogleTranslateServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Hubspot"""
@@ -11010,6 +11399,11 @@ type OneGraphHubspotServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Intercom"""
@@ -11056,6 +11450,11 @@ type OneGraphIntercomServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Mailchimp"""
@@ -11102,6 +11501,11 @@ type OneGraphMailchimpServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Meetup"""
@@ -11148,6 +11552,11 @@ type OneGraphMeetupServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Netlify"""
@@ -11194,6 +11603,11 @@ type OneGraphNetlifyServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Notion"""
@@ -11240,6 +11654,11 @@ type OneGraphNotionServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Outreach"""
@@ -11286,6 +11705,11 @@ type OneGraphOutreachServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Product Hunt"""
@@ -11332,6 +11756,11 @@ type OneGraphProductHuntServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for QuickBooks"""
@@ -11378,6 +11807,11 @@ type OneGraphQuickbooksServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Salesforce"""
@@ -11424,6 +11858,11 @@ type OneGraphSalesforceServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Sanity"""
@@ -11470,6 +11909,11 @@ type OneGraphSanityServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Slack Event Webhook for an app."""
@@ -11546,6 +11990,11 @@ type OneGraphSlackServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
   slackEventWebhook: OneGraphSlackEventWebhook
 }
 
@@ -11593,6 +12042,11 @@ type OneGraphSpotifyServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Stripe"""
@@ -11639,6 +12093,11 @@ type OneGraphStripeServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Trello"""
@@ -11685,6 +12144,11 @@ type OneGraphTrelloServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Twilio"""
@@ -11731,6 +12195,11 @@ type OneGraphTwilioServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Twitter"""
@@ -11777,6 +12246,11 @@ type OneGraphTwitterServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Twitch"""
@@ -11823,6 +12297,11 @@ type OneGraphTwitchTvServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for You Need a Budget"""
@@ -11869,6 +12348,11 @@ type OneGraphYnabServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for YouTube"""
@@ -11915,6 +12399,11 @@ type OneGraphYoutubeServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Vercel"""
@@ -11961,6 +12450,11 @@ type OneGraphZeitServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for Zendesk"""
@@ -12007,6 +12501,11 @@ type OneGraphZendeskServiceAuth implements OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """Custom OAuth client for a service"""
@@ -12053,6 +12552,11 @@ interface OneGraphServiceAuth {
 
   """Custom CNAME host."""
   cname: String
+
+  """
+  The redirect url that the user should add in the OAuth config on the service's settings page (external to Netlify).
+  """
+  redirectUri: String!
 }
 
 """A OneGraph Org"""
@@ -12161,10 +12665,10 @@ type OneGraphApp {
   authGuardianSlackIntegrationEnabled: Boolean!
 
   """External GraphQL schemas for the app."""
-  externalGraphQLSchemas: OneGraphExternalGraphQLSchemaConnection!
+  externalGraphQLSchemas: OneGraphExternalGraphQLSchemaConnection! @deprecated(reason: "use graphQLSchema.externalGraphQLSchemas")
 
-  """Custom Salesforce schema for the app."""
-  salesforceSchema: OneGraphSalesforceSchema
+  """Custom Salesforce schema on the app's default graphQLSchema."""
+  salesforceSchema: OneGraphSalesforceSchema @deprecated(reason: "use graphQLSchema.salesforceSchema")
 
   """
   The domain that must be authorized to receive push notifications from Google for Google Calendar subscriptions.
@@ -12338,6 +12842,380 @@ type OneGraphServiceQuery {
 
   """Get a Netlify CLI session by its id."""
   netlifyCliSession(id: String!): OneGraphNetlifyCliSession!
+
+  """Get a sharedDocument by its id"""
+  sharedDocument(id: String!): OneGraphSharedDocument!
+
+  """Get sharedDocument"""
+  sharedDocuments(
+    """
+    The number of shared documents to fetch. Defaults to 10, maximum of 100.
+    """
+    first: Int = 10
+    filter: OneGraphSharedDocumentsFilter
+  ): OneGraphSharedDocumentConnection!
+}
+
+"""Download data for npm overall"""
+type NpmOverallDownloadPeriodData {
+  """The start date of download stats"""
+  start: String!
+
+  """The end date of download stats"""
+  end: String!
+
+  """
+  The download stats for all over npm for the given range. Check out explanation of how [npm download counts work](http://blog.npmjs.org/post/92574016600/numeric-precision-matters-how-npm-download-counts), including "what counts as a download?"
+  """
+  count: Int!
+
+  """
+  "Download data for all of npm for a given period in a daily breakdown"
+  """
+  perDay: [NpmDownloadsPerDay!]!
+}
+
+"""Information about download stats related to a package"""
+type NpmOverallDownloadData {
+  """The download status for all of npm over the last day"""
+  lastDay: NpmOverallDownloadPeriodData
+
+  """The download status for all of npm over the last week"""
+  lastWeek: NpmOverallDownloadPeriodData
+
+  """The download status for all of npm over the last month"""
+  lastMonth: NpmOverallDownloadPeriodData
+
+  """The download status for all of npm for a specific period"""
+  period(
+    """
+    The later date for download stats, e.g. 2018-12-07. Must be after `startDate`
+    """
+    endDate: String!
+
+    """
+    The earlier date for download stats, e.g. 2018-12-06. Must be before `endDate`
+    """
+    startDate: String!
+  ): NpmOverallDownloadPeriodData
+
+  """The download status for all of npm for a specific day"""
+  day(
+    """The specific date for download stats, e.g. 2018-12-06"""
+    date: String!
+  ): NpmOverallDownloadPeriodData
+}
+
+type NpmPackageMetadataDistTagEntry {
+  """The name of the tag"""
+  tag: String!
+
+  """The version as a string for this tag"""
+  versionString: String!
+
+  """The full version for this tag"""
+  version: NpmPackageVersion
+}
+
+type NpmPackageMetadataDistTagLatestEntry {
+  """The version as a string for this tag"""
+  versionString: String
+
+  """The full version for the `latest` tag"""
+  version: NpmPackageVersion
+}
+
+"""
+Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary.
+"""
+type NpmPackageDistTags {
+  """
+  By default, the latest tag is used by npm to identify the current version of a package
+  """
+  latest: NpmPackageMetadataDistTagLatestEntry
+
+  """Any custom tags used by the package maintainers"""
+  custom: [NpmPackageMetadataDistTagEntry!]!
+}
+
+type NpmDownloadsPerDay {
+  """The download count"""
+  count: Int
+
+  """"""
+  day: String
+}
+
+"""Download data for a given package"""
+type NpmPackageDownloadPeriodData {
+  """The start date of download stats"""
+  start: String!
+
+  """The end date of download stats"""
+  end: String!
+
+  """
+  The download stats for the given package and range. Check out explanation of how [npm download counts work](http://blog.npmjs.org/post/92574016600/numeric-precision-matters-how-npm-download-counts), including "what counts as a download?"
+  """
+  count: Int!
+
+  """
+  "Download data for this package and period in a daily breakdown"
+  """
+  perDay: [NpmDownloadsPerDay!]!
+}
+
+"""Information about download stats related to a package"""
+type NpmPackageDownloadData {
+  """The download status for this package over the last day"""
+  lastDay: NpmPackageDownloadPeriodData
+
+  """The download status for this package over the last week"""
+  lastWeek: NpmPackageDownloadPeriodData
+
+  """The download status for this package over the last month"""
+  lastMonth: NpmPackageDownloadPeriodData
+
+  """The download status for this package for a specific period"""
+  period(
+    """
+    The later date for download stats, e.g. 2018-12-07. Must be after `startDate`
+    """
+    endDate: String!
+
+    """
+    The earlier date for download stats, e.g. 2018-12-06. Must be before `endDate`
+    """
+    startDate: String!
+  ): NpmPackageDownloadPeriodData
+
+  """The download status for this package for a specific day"""
+  day(
+    """The specific date for download stats, e.g. 2018-12-06"""
+    date: String!
+  ): NpmPackageDownloadPeriodData
+}
+
+"""A npm package license"""
+type NpmPackageLicense {
+  """
+  The [SPDX identifier](https://spdx.org/licenses/) of the package's license
+  """
+  type: String
+
+  """A url for the full license"""
+  url: String
+}
+
+"""
+A mapping of other packages this version depends on to the required semver ranges
+"""
+type NpmPackageVersionDependency {
+  """The package name of the dependency"""
+  name: String
+
+  """The version of the package dependency"""
+  version: String
+}
+
+"""The dist object is generated by npm and may be relied upon"""
+type NpmPackageDist {
+  """"""
+  tarball: String
+
+  """"""
+  shasum: String
+}
+
+"""A npm package version"""
+type NpmPackageVersion {
+  """
+  `true` if this version is known to have a shrinkwrap that must be used to install it; false if this version is known not to have a shrinkwrap. If this field is undefined, the client must determine through other means if a shrinkwrap exists.
+  """
+  hasShrinkwrap: Boolean
+
+  """"""
+  from: String
+
+  """`package@version`, such as `npm@1.0.0`"""
+  id: String
+
+  """The version of node used to publish this"""
+  nodeVersion: String
+
+  """The version of the npm client used to publish this"""
+  npmVersion: String
+
+  """The dist object is generated by npm and may be relied upon."""
+  dist: NpmPackageDist
+
+  """The SHA-1 sum of the tarball"""
+  shasum: String
+
+  """A short description of the package at this version"""
+  description: String
+
+  """The package's entry point (e.g., `index.js` or `main.js`)"""
+  main: String
+
+  """The package name"""
+  name: String
+
+  """Deprecation warnings message of this version"""
+  deprecated: String
+
+  """The version string for this version"""
+  version: String
+
+  """"""
+  maintainers: [NpmPackageMaintainer!]
+
+  """
+  A mapping of other packages this version depends on to the required semver ranges
+  """
+  dependencies: [NpmPackageVersionDependency!]!
+
+  """
+  A mapping of package names to the required semver ranges of _development_ dependencies
+  """
+  devDependencies: [NpmPackageVersionDependency!]!
+
+  """
+  A mapping of package names to the required semver ranges of _optional_ dependencies
+  """
+  optionalDependencies: [NpmPackageVersionDependency!]!
+
+  """
+  A mapping of package names to the required semver ranges of _peer_ dependencies
+  """
+  peerDependencies: [NpmPackageVersionDependency!]!
+
+  """The license for this package"""
+  license: NpmPackageLicense!
+}
+
+"""Information on where bugs are filed for this package"""
+type NpmPackageBugs {
+  """"""
+  url: String
+}
+
+"""
+Specifies the repository where the source for this package might be found
+"""
+type NpmPackageRepository {
+  """"""
+  url: String
+
+  """"""
+  type: String
+  sourceRepository: NpmPackageSourceRepository
+}
+
+"""A package publishing time for a given version"""
+type NpmPackageTimeVersion {
+  """The package version"""
+  version: String
+
+  """The date this version was published"""
+  date: String
+}
+
+"""
+Information about when a package was created and last modified, as well as the publishing date for each version
+"""
+type NpmPackageTime {
+  """"""
+  created: String
+
+  """"""
+  modified: String
+
+  """Publishing information for each version of a package"""
+  versions: [NpmPackageTimeVersion!]!
+}
+
+"""A npm package maintainer"""
+type NpmPackageMaintainer {
+  """The package maintainer's email"""
+  email: String
+
+  """"""
+  name: String
+}
+
+"""A npm package"""
+type NpmPackage {
+  """The package name, used as an ID in CouchDB"""
+  id: String
+
+  """The revision number of this version of the document in CouchDB"""
+  rev: String
+
+  """The primary author of the npm package"""
+  author: NpmPackageMaintainer
+
+  """
+  A mapping of versions to the time published, along with created and modified timestamps
+  """
+  time: NpmPackageTime
+
+  """The package name"""
+  name: String
+
+  """A short description of the package"""
+  description: String
+
+  """
+  The first 64K of the README data for the most-recently published version of the package
+  """
+  readme: String
+
+  """"""
+  homepage: String
+
+  """The repository url as given in package.json, for the latest version"""
+  repository: NpmPackageRepository
+
+  """"""
+  keywords: [String!]
+
+  """"""
+  bugs: NpmPackageBugs
+
+  """The name of the file from which the readme data was taken"""
+  readmeFilename: String
+
+  """
+  People with permission to publish this package (NB: Not authoritative, but informational)
+  """
+  maintainers: [NpmPackageMaintainer!]
+
+  """A mapping of semver-compliant version numbers to version data"""
+  versions: [NpmPackageVersion!]!
+
+  """Summary download stats for a package"""
+  downloads: NpmPackageDownloadData!
+
+  """The license for this package"""
+  license: NpmPackageLicense!
+
+  """
+  Tags can be used to provide an alias instead of version numbers. For example, a project might choose to have multiple streams of development and use a different tag for each stream, e.g., stable, beta, dev, canary.
+  """
+  distTags: NpmPackageDistTags
+}
+
+"""The root for Npm."""
+type NpmQuery {
+  """Find a npm package member by its npm name, e.g. `"fela"`"""
+  package(
+    """Find the package by its name"""
+    name: String!
+  ): NpmPackage
+
+  """Overall download stats in the npm ecosystem"""
+  downloads: NpmOverallDownloadData
 }
 
 input OneGraphServiceUserIds {
@@ -14717,6 +15595,8 @@ interface GitHubContribution {
   """
   user: GitHubUser!
 }
+
+union NpmPackageSourceRepository = GitHubRepository
 
 """Information about pagination in a connection."""
 type PageInfo {
@@ -36419,6 +37299,11 @@ type OneGraphServiceInfo implements OneGraphNode {
 
   """Whether Netlify Graph is enabled for this service"""
   netlifyGraphEnabled: Boolean!
+
+  """
+  The prefix that all GraphQL types addded by this service will have, e.g. `GitHub`.
+  """
+  typePrefix: String!
   oneGraphLinkedNodes(
     """Filter the connected nodes that are returned by service or typename."""
     filter: OneGraphLinkedNodesConnectionFilter
@@ -36638,6 +37523,21 @@ type Query {
     """Optional OAuth tokens used to execute the query"""
     auths: OneGraphServiceAuths
   ): OneGraphNode
+
+  """The root for npm queries"""
+  npm(
+    """
+    Instruct OneGraph to use the auth associated with a particular user.
+    
+    Note that the user must have gone through the OneGraph oauth flow and logged in with an account with the userId provided in the auth. If there is no user with the account, you may get an auth/auth-missing error.
+    
+    The userIds for logged-in services can be found under `me.serviceMetadata.loggedInServices.foreignUserId`.
+    """
+    userIds: OneGraphServiceUserIds
+
+    """Optional OAuth tokens used to execute the query"""
+    auths: OneGraphServiceAuths
+  ): NpmQuery!
   oneGraph(
     """
     Instruct OneGraph to use the auth associated with a particular user.

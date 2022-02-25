@@ -281,7 +281,8 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
 `;
 
 const generatedNetlifyGraphPersistedClient = (
-  netlifyGraphConfig: NetlifyGraphConfig
+  netlifyGraphConfig: NetlifyGraphConfig,
+  schemaId: string
 ) =>
   `${out(
     netlifyGraphConfig,
@@ -303,8 +304,12 @@ const generatedNetlifyGraphPersistedClient = (
     throw new Error('docId is required for GET requests: ' + input.operationName);
   }
 
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
   const encodedVariables = encodeURIComponent(input.variables || "null");
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + '&variables=' + encodedVariables;
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
         
   const respBody = []
 
@@ -955,7 +960,7 @@ export const generateJavaScriptClient = (
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .sort((a, b) => {
-      return a.fnName.localeCompare(b.fnName);
+      return a.id.localeCompare(b.id);
     })
     .map((fn) => {
       const isSubscription = fn.kind === "subscription";
@@ -1115,7 +1120,8 @@ export const generateProductionJavaScriptClient = (
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
-  enabledFunctions: PersistedFunction[]
+  enabledFunctions: PersistedFunction[],
+  schemaId
 ) => {
   const functionDecls = enabledFunctions.map((fn) => {
     if (fn.kind === "subscription") {
@@ -1182,7 +1188,7 @@ export const generateProductionJavaScriptClient = (
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .sort((a, b) => {
-      return a.fnName.localeCompare(b.fnName);
+      return a.id.localeCompare(b.id);
     })
     .map((fn) => {
       const isSubscription = fn.kind === "subscription";
@@ -1295,7 +1301,7 @@ ${exp(
 }`
 )}
 
-${generatedNetlifyGraphPersistedClient(netlifyGraphConfig)}
+${generatedNetlifyGraphPersistedClient(netlifyGraphConfig, schemaId)}
 
 ${exp(
   netlifyGraphConfig,
@@ -1419,6 +1425,47 @@ export function ${fn.fnName}(
 ): Promise<${returnSignatureName}>;`;
   });
 
+  const exportedFunctionsObjectProperties = enabledFunctions
+    .sort((a, b) => {
+      return a.id.localeCompare(b.id);
+    })
+    .map((fn) => {
+      const isSubscription = fn.kind === "subscription";
+
+      if (isSubscription) {
+        if (netlifyGraphConfig.runtimeTargetEnv === "node") {
+          const subscriptionFnName = subscriptionFunctionName(fn);
+          const parserFnName = subscriptionParserName(fn);
+
+          const jsDoc = replaceAll(fn.description || "", "*/", "")
+            .split("\n")
+            .join("\n* ");
+
+          return `/**
+* ${jsDoc}
+*/
+${subscriptionFnName}:${subscriptionFnName},
+/**
+ * Verify the event body is signed securely, and then parse the result.
+ */
+${parserFnName}: typeof ${parserFnName}`;
+        } else {
+          return;
+        }
+      }
+
+      const jsDoc = replaceAll(fn.description || "", "*/", "")
+        .split("\n")
+        .join("\n* ");
+
+      return `/**
+* ${jsDoc}
+*/
+${fn.fnName}: typeof ${fn.fnName}`;
+    })
+    .filter(Boolean)
+    .join(",\n  ");
+
   const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
@@ -1447,6 +1494,18 @@ export type GraphQLError = {
 ${fragmentDecls.join("\n\n")}
 
 ${functionDecls.join("\n\n")}
+
+export interface Functions {
+  ${
+    exportedFunctionsObjectProperties === ""
+      ? "Record<string, never>"
+      : exportedFunctionsObjectProperties
+  }
+}
+
+export const functions: Functions;
+
+export default functions;
 `;
 
   return source;
@@ -1506,7 +1565,8 @@ export const generatePersistedFunctionsSource = async (
   schema: GraphQLSchema,
   operationsDoc: string,
   queries: Record<string, PersistedFunction>,
-  fragments: Record<string, ExtractedFragment>
+  fragments: Record<string, ExtractedFragment>,
+  schemaId: string
 ) => {
   const fragmentDefinitions: Record<string, ParsedFragment> = Object.entries(
     fragments
@@ -1589,7 +1649,8 @@ export const generatePersistedFunctionsSource = async (
     netlifyGraphConfig,
     schema,
     operationsDoc,
-    persistedFunctionDefinitions
+    persistedFunctionDefinitions,
+    schemaId
   );
 
   const typeDefinitionsSource = generateTypeScriptDefinitions(

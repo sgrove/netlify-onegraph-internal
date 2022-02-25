@@ -1,8 +1,46 @@
+mutation CreateGraphQLSchemaMutation(
+  $input: OneGraphCreateGraphQLSchemaInput!
+) @netlify(
+  id: """
+  12b5bd78-9222-4124-a731-5e697b155001
+  """
+  doc: """
+Create a GraphQL Schema by specifying its inputs (services, external GraphQL schemas, etc.)
+  """
+) {
+  oneGraph {
+    createGraphQLSchema(input: $input) {
+      graphQLSchema {
+        id
+        externalGraphQLSchemas {
+          nodes {
+            id
+            endpoint
+            service
+            createdAt
+            updatedAt
+          }
+        }
+        parentGraphQLSchemaId
+        salesforceSchema {
+          id
+          createdAt
+          updatedAt
+        }
+        services {
+          slug
+        }
+        updatedAt
+        createdAt
+        appId
+      }
+    }
+  }
+}
+
 mutation CreatePersistedQueryMutation(
   $nfToken: String!
-  $cacheStrategy: OneGraphPersistedQueryCacheStrategyArg = {
-    timeToLiveSeconds: 1.5
-  }
+  $cacheStrategy: OneGraphPersistedQueryCacheStrategyArg
   $allowedOperationNames: [String!]!
   $fallbackOnError: Boolean!
   $freeVariables: [String!]!
@@ -18,10 +56,6 @@ mutation CreatePersistedQueryMutation(
   doc: """
 Create a persisted operations doc to be later retrieved, usually from a GUI
   """
-  cacheStrategy: {
-    timeToLiveSeconds: 30
-  }
-  fallbackOnError: false
 ) {
   oneGraph(
     auths: { netlifyAuth: { oauthToken: $nfToken } }
@@ -32,7 +66,6 @@ Create a persisted operations doc to be later retrieved, usually from a GUI
         appId: $appId
         cacheStrategy: $cacheStrategy
         allowedOperationNames: $allowedOperationNames
-        accessToken: ""
         fallbackOnError: $fallbackOnError
         freeVariables: $freeVariables
         tags: $tags
@@ -52,6 +85,28 @@ Create a persisted operations doc to be later retrieved, usually from a GUI
   }
 }
 
+mutation CreatePersistQueryTokenMutation($nfToken: String!, $input: OneGraphPersistedQueryTokenInput!)
+@netlify(
+  id: """
+  12b5bdea-9bab-4122-a991-5e697b155004
+  """
+  doc: """
+Create a token belonging to a specific siteId to persist operations later
+  """
+) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createPersitQueryToken(input: $input) {
+      accessToken {
+        token
+        expireDate
+        name
+        appId
+        netlifyId
+      }
+    }
+  }
+}
+
 query ListPersistedQueries(
   $appId: String!
   $first: Int!
@@ -63,7 +118,7 @@ query ListPersistedQueries(
   12b5bdea-9bab-4124-a731-5e697b155002
   """
   doc: """
-
+Fetch a paginated list of persisted queries belonging to an app
   """
 ) {
   oneGraph {
@@ -86,37 +141,6 @@ query ListPersistedQueries(
           allowedOperationNames
           tags
           description
-        }
-      }
-    }
-  }
-}
-
-query PersistedQueriesQuery(
-  $nfToken: String!
-  $appId: String!
-)
-@netlify(
-  id: """
-  12b5bdea-9bab-4124-a731-5e697b155004
-  """
-  doc: """
-
-  """
-) {
-  oneGraph(
-    auths: { netlifyAuth: { oauthToken: $nfToken } }
-  ) {
-    app(id: $appId) {
-      persistedQueries {
-        nodes {
-          id
-          query
-          allowedOperationNames
-          description
-          freeVariables
-          fixedVariables
-          tags
         }
       }
     }
@@ -225,7 +249,7 @@ mutation CreateCLISessionEventMutation(
   12b5bdea-9bab-4124-a731-5e697b155008
   """
   doc: """
-
+Create a new event for a CLI session to consume
   """
 ) {
   oneGraph(
@@ -256,7 +280,7 @@ query CLISessionQuery(
   12b5bdea-9bab-4124-a731-5e697b155009
   """
   doc: """
-
+Fetch a single CLI session by its id
   """
 ) {
   oneGraph(
