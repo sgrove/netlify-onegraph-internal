@@ -119,22 +119,28 @@ export const executeCreatePersistedQueryMutation = (variables, options) => {
   });
 };
 
-export const executeCreatePersistQueryTokenMutation = (variables, options) => {
+export const executeCreateApiTokenMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreatePersistQueryTokenMutation($nfToken: String!, $input: OneGraphPersistedQueryTokenInput!) {
+    query: `mutation CreateApiTokenMutation($input: OneGraphCreateApiTokenTokenInput!, $nfToken: String!) {
   oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
-    createPersitQueryToken(input: $input) {
+    createApiToken(input: $input) {
       accessToken {
         token
+        userAuths {
+          service
+          foreignUserId
+          scopes
+        }
+        appId
         expireDate
         name
-        appId
         netlifyId
+        anchor
       }
     }
   }
 }`,
-    operationName: "CreatePersistQueryTokenMutation",
+    operationName: "CreateApiTokenMutation",
     variables: variables,
     options: options,
     fetchStrategy: "POST",
@@ -465,10 +471,9 @@ const functions = {
    */
   executeCreateGraphQLSchemaMutation: executeCreateGraphQLSchemaMutation,
   /**
-   * Create a token belonging to a specific siteId to persist operations later
+   * Create a token belonging to a specific siteId to persist operations and create GraphQL schemas later
    */
-  executeCreatePersistQueryTokenMutation:
-    executeCreatePersistQueryTokenMutation,
+  executeCreateApiTokenMutation: executeCreateApiTokenMutation,
   /**
    * Create a persisted operations doc to be later retrieved, usually from a GUI
    */

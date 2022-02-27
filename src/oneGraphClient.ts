@@ -467,8 +467,8 @@ export const executeMarkCliSessionInactive = async (
   return { errors: result.errors, data: session };
 };
 
-export const executeCreatePersistQueryTokenMutation =
-  GeneratedClient.executeCreatePersistQueryTokenMutation;
+export const executeCreateApiTokenMutation =
+  GeneratedClient.executeCreateApiTokenMutation;
 
 export const executeCreateGraphQLSchemaMutation =
   GeneratedClient.executeCreateGraphQLSchemaMutation;

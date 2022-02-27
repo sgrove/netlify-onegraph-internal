@@ -205,31 +205,122 @@ export function executeCreateGraphQLSchemaMutation(
   options?: NetlifyGraphFunctionOptions
 ): Promise<CreateGraphQLSchemaMutation>;
 
-export type CreatePersistQueryTokenMutationInput = {
-  nfToken: string;
+export type CreateApiTokenMutationInput = {
   input: {
+    scopes: Array<"MODIFY_SCHEMA" | "PERSIST_QUERY">
     /**
-     * Id for the app that you want to persist queries on.
-     */
+     * Id for the app that you will be accessible through the token.
+     */;
     appId: string;
   };
+  nfToken: string;
 };
 
-export type CreatePersistQueryTokenMutation = {
+export type CreateApiTokenMutation = {
   /**
    * Any data from the function will be returned here
    */
   data: {
     oneGraph: {
-      createPersitQueryToken: {
+      createApiToken: {
         /**
-         * The access token that can be used to persist queries
+         * The access token that was created
          */
         accessToken: {
           /**
            * Bearer token
            */
           token: string;
+          /**
+           * User auths for the access token
+           */
+          userAuths: Array<{
+            /**
+             * Service that the auth belongs to.
+             */
+            service:
+              | "ADROLL"
+              | "ASANA"
+              | "BOX"
+              | "CONTENTFUL"
+              | "DEV_TO"
+              | "DOCUSIGN"
+              | "DRIBBBLE"
+              | "DROPBOX"
+              | "EGGHEADIO"
+              | "EVENTIL"
+              | "FACEBOOK"
+              | "FIREBASE"
+              | "GITHUB"
+              | "GMAIL"
+              | "GONG"
+              | "GOOGLE"
+              | "GOOGLE_ADS"
+              | "GOOGLE_ANALYTICS"
+              | "GOOGLE_CALENDAR"
+              | "GOOGLE_COMPUTE"
+              | "GOOGLE_DOCS"
+              | "GOOGLE_SEARCH_CONSOLE"
+              | "GOOGLE_TRANSLATE"
+              | "HUBSPOT"
+              | "INTERCOM"
+              | "MAILCHIMP"
+              | "MEETUP"
+              | "NETLIFY"
+              | "NOTION"
+              | "OUTREACH"
+              | "PRODUCT_HUNT"
+              | "QUICKBOOKS"
+              | "SALESFORCE"
+              | "SANITY"
+              | "SLACK"
+              | "SPOTIFY"
+              | "STRIPE"
+              | "TRELLO"
+              | "TWILIO"
+              | "TWITTER"
+              | "TWITCH_TV"
+              | "YNAB"
+              | "YOUTUBE"
+              | "ZEIT"
+              | "ZENDESK"
+              | "AIRTABLE"
+              | "APOLLO"
+              | "BREX"
+              | "BUNDLEPHOBIA"
+              | "CHARGEBEE"
+              | "CLEARBIT"
+              | "CLOUDFLARE"
+              | "CRUNCHBASE"
+              | "DESCURI"
+              | "FEDEX"
+              | "GOOGLE_MAPS"
+              | "GRAPHCMS"
+              | "IMMIGRATION_GRAPH"
+              | "LOGDNA"
+              | "MIXPANEL"
+              | "MUX"
+              | "NPM"
+              | "ONEGRAPH"
+              | "ORBIT"
+              | "OPEN_COLLECTIVE"
+              | "RSS"
+              | "UPS"
+              | "USPS"
+              | "WORDPRESS";
+            /**
+             * Unique id for the logged-in entity on the service.
+             */
+            foreignUserId: string;
+            /**
+             * Scopes granted for the service.
+             */
+            scopes: Array<string>;
+          }>;
+          /**
+           * AppId that the token belongs to
+           */
+          appId: string;
           /**
            * Time that the the token expires, measured in seconds since the Unix epoch
            */
@@ -239,13 +330,13 @@ export type CreatePersistQueryTokenMutation = {
            */
           name: string;
           /**
-           * AppId that the token belongs to
-           */
-          appId: string;
-          /**
            * Netlify-specific ID for the token
            */
           netlifyId: string;
+          /**
+           * The anchor is like two-factor auth for the token. It ensures that the person who adds auth to the token is the same as the person who created the token.
+           */
+          anchor: "ONEGRAPH_USER" | "NETLIFY_USER" | "NETLIFY_SITE";
         };
       };
     };
@@ -257,12 +348,12 @@ export type CreatePersistQueryTokenMutation = {
 };
 
 /**
- * Create a token belonging to a specific siteId to persist operations later
+ * Create a token belonging to a specific siteId to persist operations and create GraphQL schemas later
  */
-export function executeCreatePersistQueryTokenMutation(
-  variables: CreatePersistQueryTokenMutationInput,
+export function executeCreateApiTokenMutation(
+  variables: CreateApiTokenMutationInput,
   options?: NetlifyGraphFunctionOptions
-): Promise<CreatePersistQueryTokenMutation>;
+): Promise<CreateApiTokenMutation>;
 
 export type CreatePersistedQueryMutationInput = {
   nfToken: string;
@@ -1277,9 +1368,9 @@ export interface Functions {
    */
   executeCreateGraphQLSchemaMutation: typeof executeCreateGraphQLSchemaMutation;
   /**
-   * Create a token belonging to a specific siteId to persist operations later
+   * Create a token belonging to a specific siteId to persist operations and create GraphQL schemas later
    */
-  executeCreatePersistQueryTokenMutation: typeof executeCreatePersistQueryTokenMutation;
+  executeCreateApiTokenMutation: typeof executeCreateApiTokenMutation;
   /**
    * Create a persisted operations doc to be later retrieved, usually from a GUI
    */
