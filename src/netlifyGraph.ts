@@ -361,7 +361,12 @@ const httpPost = (input) => {
     timeout: timeoutMs,
   }
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
+              (schemaId ? ('&schemaId=' + schemaId) : '');
   const respBody = []
 
   return new Promise((resolve, reject) => {
@@ -418,12 +423,21 @@ ${out(
   const encodedVariables = encodeURIComponent(
     JSON.stringify(input.variables || null)
   );
+
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
+  const encodedVariables = encodeURIComponent(input.variables || "null");
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
+
   const url =
     'https://serve.onegraph.com/graphql?app_id=' +
     input.siteId +
     '&doc_id=' +
     input.docId +
     (input.operationName ? '&operationName=' + input.operationName : '') +
+    (schemaId ? ('&schemaId=' + schemaId) : '') +
     '&variables=' +
     encodedVariables;
 
@@ -453,7 +467,12 @@ const httpPost = (input) => {
     body: reqBody,
   };
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId;
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
+  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
+              (schemaId ? ('&schemaId=' + schemaId) : '');
 
   return fetch(url, reqOptions).then((response) => response.text());
 };`
