@@ -429,7 +429,6 @@ ${out(
   };
 
   const encodedVariables = encodeURIComponent(input.variables || "null");
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
 
   const url =
     'https://serve.onegraph.com/graphql?app_id=' +
