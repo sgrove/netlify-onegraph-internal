@@ -1,10 +1,123 @@
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-const fetch = require('node-fetch')
-const internalConsole = require("./internalConsole").internalConsole;
+import buffer from "buffer";
+import crypto from "crypto";
+import https from "https";
+import process from "process";
 
-const httpFetch = async (siteId, options) => {
-  const reqBody = options.body || null;
-  const userHeaders = options.headers || {};
+export const verifySignature = (input) => {
+  const secret = input.secret;
+  const body = input.body;
+  const signature = input.signature;
+
+  if (!signature) {
+    console.error("Missing signature");
+    return false;
+  }
+
+  const sig = {};
+  for (const pair of signature.split(",")) {
+    const [key, value] = pair.split("=");
+    sig[key] = value;
+  }
+
+  if (!sig.t || !sig.hmac_sha256) {
+    console.error("Invalid signature header");
+    return false;
+  }
+
+  const hash = crypto
+    .createHmac("sha256", secret)
+    .update(sig.t)
+    .update(".")
+    .update(body)
+    .digest("hex");
+
+  if (
+    !crypto.timingSafeEqual(
+      Buffer.from(hash, "hex"),
+      Buffer.from(sig.hmac_sha256, "hex")
+    )
+  ) {
+    console.error("Invalid signature");
+    return false;
+  }
+
+  if (parseInt(sig.t, 10) < Date.now() / 1000 - 300 /* 5 minutes */) {
+    console.error("Request is too old");
+    return false;
+  }
+
+  return true;
+};
+
+const httpGet = (input) => {
+  const userHeaders = input.headers || {};
+  const fullHeaders = {
+    ...userHeaders,
+    "Content-Type": "application/json",
+  };
+  const timeoutMs = 30_000;
+  const reqOptions = {
+    method: "GET",
+    headers: fullHeaders,
+    timeout: timeoutMs,
+  };
+
+  if (!input.docId) {
+    throw new Error(
+      "docId is required for GET requests: " + input.operationName
+    );
+  }
+
+  const schemaId = input.schemaId || undefined;
+
+  const encodedVariables = encodeURIComponent(input.variables || "null");
+  const url =
+    "https://serve.onegraph.com/graphql?app_id=" +
+    input.siteId +
+    "&doc_id=" +
+    input.docId +
+    (input.operationName ? "&operationName=" + input.operationName : "") +
+    (schemaId ? "&schemaId=" + schemaId : "") +
+    "&variables=" +
+    encodedVariables;
+
+  const respBody = [];
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, reqOptions, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+        return reject(
+          new Error(
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode
+          )
+        );
+      }
+
+      res.on("data", (chunk) => respBody.push(chunk));
+
+      res.on("end", () => {
+        const resString = buffer.Buffer.concat(respBody).toString();
+        resolve(resString);
+      });
+    });
+
+    req.on("error", (error) => {
+      console.error("Error making request to Netlify Graph:", error);
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Request to Netlify Graph timed out"));
+    });
+
+    req.end();
+  });
+};
+
+const httpPost = (input) => {
+  const reqBody = input.body || null;
+  const userHeaders = input.headers || {};
   const headers = {
     ...userHeaders,
     "Content-Type": "application/json",
@@ -17,17 +130,49 @@ const httpFetch = async (siteId, options) => {
     method: "POST",
     headers: headers,
     timeout: timeoutMs,
-    body: reqBody
   };
 
-  const url = "https://serve.onegraph.com/graphql?app_id=" + siteId;
+  const schemaId = input.schemaId || undefined;
 
-  const resp = await fetch(url, reqOptions);
-  return resp.text();
+  const url =
+    "https://serve.onegraph.com/graphql?app_id=" +
+    input.siteId +
+    (schemaId ? "&schemaId=" + schemaId : "");
+  const respBody = [];
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, reqOptions, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+        return reject(
+          new Error(
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode
+          )
+        );
+      }
+
+      res.on("data", (chunk) => respBody.push(chunk));
+
+      res.on("end", () => {
+        const resString = buffer.Buffer.concat(respBody).toString();
+        resolve(resString);
+      });
+    });
+
+    req.on("error", (error) => {
+      console.error("Error making request to Netlify Graph:", error);
+    });
+
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Request to Netlify Graph timed out"));
+    });
+
+    req.write(reqBody);
+    req.end();
+  });
 };
 
-const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
-  const query = input.query;
+const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
   const docId = input.doc_id;
   const operationName = input.operationName;
   const variables = input.variables;
@@ -36,22 +181,37 @@ const fetchNetlifyGraph = async function fetchNetlifyGraph(input) {
   const accessToken = options.accessToken;
   const siteId = options.siteId || process.env.SITE_ID;
 
-  const payload = {
-    query: query,
-    doc_id: docId,
-    variables: variables,
-    operationName: operationName,
-  };
+  const httpMethod = input.fetchStrategy === "GET" ? httpGet : httpPost;
 
-  const response = httpFetch(siteId, {
-    method: "POST",
+  const response = httpMethod({
+    siteId: siteId,
+    docId: docId,
+    query: input.query,
     headers: {
       Authorization: accessToken ? "Bearer " + accessToken : "",
     },
-    body: JSON.stringify(payload),
+    variables: variables,
+    operationName: operationName,
   });
 
   return response.then((result) => JSON.parse(result));
+};
+
+export const verifyRequestSignature = (request, options) => {
+  const event = request.event;
+  const secret =
+    options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET;
+  const signature = event.headers["x-netlify-graph-signature"];
+  const body = event.body;
+
+  if (!secret) {
+    console.error(
+      "NETLIFY_GRAPH_WEBHOOK_SECRET is not set, cannot verify incoming webhook request"
+    );
+    return false;
+  }
+
+  return verifySignature({ secret, signature, body: body || "" });
 };
 
 export const executeCreateGraphQLSchemaMutation = (variables, options) => {

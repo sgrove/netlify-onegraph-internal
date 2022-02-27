@@ -308,6 +308,8 @@ const generatedNetlifyGraphPersistedClient = (
     schemaId ? `"${schemaId}"` : "undefined"
   };
 
+  console.log("httpGet node schemaId: ", schemaId);
+
   const encodedVariables = encodeURIComponent(input.variables || "null");
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
         
@@ -364,6 +366,9 @@ const httpPost = (input) => {
   const schemaId = input.schemaId || ${
     schemaId ? `"${schemaId}"` : "undefined"
   };
+
+  console.log("httpPost node schemaId: ", schemaId);
+
 
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
@@ -428,6 +433,8 @@ ${out(
     schemaId ? `"${schemaId}"` : "undefined"
   };
 
+  console.log("httpGet browser schemaId: ", schemaId);
+
   const encodedVariables = encodeURIComponent(input.variables || "null");
 
   const url =
@@ -469,6 +476,8 @@ const httpPost = (input) => {
   const schemaId = input.schemaId || ${
     schemaId ? `"${schemaId}"` : "undefined"
   };
+
+  console.log("httpPost browser schemaId: ", schemaId);
 
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
