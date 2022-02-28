@@ -365,8 +365,6 @@ const httpPost = (input) => {
     schemaId ? `"${schemaId}"` : "undefined"
   };
 
-  console.log("httpPost node schemaId: ", schemaId);
-
 
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
@@ -470,8 +468,6 @@ const httpPost = (input) => {
   const schemaId = input.schemaId || ${
     schemaId ? `"${schemaId}"` : "undefined"
   };
-
-  console.log("httpPost browser schemaId: ", schemaId);
 
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');

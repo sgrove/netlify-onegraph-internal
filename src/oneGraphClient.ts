@@ -6,6 +6,8 @@ import GeneratedClient from "./generatedOneGraphClient";
 
 const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
 
+const netlifyGraphHost = "serve.onegraph.com";
+
 /**
  * Given an appId and desired services, fetch the schema (in json form) for that app
  * @param {string} appId
@@ -16,7 +18,7 @@ export const fetchOneGraphSchemaJson = async (
   appId: string,
   enabledServices: string[]
 ) => {
-  const url = `https://serve.onegraph.com/schema?app_id=${appId}&services=${enabledServices.join(
+  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&services=${enabledServices.join(
     ","
   )}`;
   const headers = {};

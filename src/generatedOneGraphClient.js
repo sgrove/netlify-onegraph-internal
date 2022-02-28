@@ -2,6 +2,8 @@
 const fetch = require('node-fetch')
 const internalConsole = require("./internalConsole").internalConsole;
 
+const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "serve.onegraph.com"
+
 const httpFetch = async (siteId, options) => {
   const reqBody = options.body || null;
   const userHeaders = options.headers || {};
@@ -20,7 +22,7 @@ const httpFetch = async (siteId, options) => {
     body: reqBody
   };
 
-  const url = "https://serve.onegraph.com/graphql?app_id=" + siteId;
+  const url = "https://" + netlifyGraphHost + "/graphql?app_id=" + siteId;
 
   const resp = await fetch(url, reqOptions);
   return resp.text();
