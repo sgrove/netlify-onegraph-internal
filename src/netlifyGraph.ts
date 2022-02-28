@@ -1492,7 +1492,6 @@ ${fn.fnName}: typeof ${fn.fnName}`;
     .join(",\n  ");
 
   const source = `/* eslint-disable */
-// @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
