@@ -308,8 +308,6 @@ const generatedNetlifyGraphPersistedClient = (
     schemaId ? `"${schemaId}"` : "undefined"
   };
 
-  console.log("httpGet node schemaId: ", schemaId);
-
   const encodedVariables = encodeURIComponent(input.variables || "null");
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
         
@@ -432,10 +430,6 @@ ${out(
   const schemaId = input.schemaId || ${
     schemaId ? `"${schemaId}"` : "undefined"
   };
-
-  console.log("httpGet browser schemaId: ", schemaId);
-
-  const encodedVariables = encodeURIComponent(input.variables || "null");
 
   const url =
     'https://serve.onegraph.com/graphql?app_id=' +
@@ -1043,7 +1037,9 @@ export const generateJavaScriptClient = (
     }`
   );
 
-  const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+  const source = `/* eslint-disable */
+// @ts-nocheck
+// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
   ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
   ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
   ${imp(netlifyGraphConfig, ["node"], "https", "https")}
@@ -1271,7 +1267,9 @@ export const generateProductionJavaScriptClient = (
     }`
   );
 
-  const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+  const source = `/* eslint-disable */
+// @ts-nocheck
+// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
   ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
   ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
   ${imp(netlifyGraphConfig, ["node"], "https", "https")}
@@ -1493,7 +1491,9 @@ ${fn.fnName}: typeof ${fn.fnName}`;
     .filter(Boolean)
     .join(",\n  ");
 
-  const source = `// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+  const source = `/* eslint-disable */
+// @ts-nocheck
+// GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
   /**
