@@ -1626,7 +1626,7 @@ export const generatePersistedFunctionsSource = async (
       continue;
     }
 
-    console.log("Persisting: ", fn.operationName, fn.cacheStrategy);
+    console.log("Persisting: ", fn.operationName);
 
     const result = await executeCreatePersistedQueryMutation(
       {
@@ -1984,7 +1984,6 @@ export const generateHandlerSource = ({
       operation: OperationDefinitionNode;
     }
   | undefined => {
-  console.log("Generating handler source for operation", operationId);
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(parsedDoc);
   const functions = operations.functions;
