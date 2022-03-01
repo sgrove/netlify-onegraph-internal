@@ -305,14 +305,14 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
   const cachedResultPair = getFromCache(cache, cacheKey);
 
   let conditionalHeaders = {
-    'If-None-Match': undefined
+    'If-None-Match': ''
   };
   let cachedResultValue;
 
   if (cachedResultPair) {
     const [etag, previousResult] = cachedResultPair;
     conditionalHeaders = {
-      'If-None-Match': etag,
+      'If-None-Match': etag
     };
     cachedResultValue = previousResult;
   }
@@ -334,7 +334,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
     }
     else if (result.status === 200) {
       // Update the cache with the new etag and result
-      const etag = result.headers.get('ng-etag');
+      const etag = result.headers.get('etag');
       const resultJson = result.json();
       resultJson.then((json) => {
         if (etag) {
@@ -592,14 +592,14 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
       const cachedResultPair = getFromCache(cache, cacheKey);
 
       let conditionalHeaders = {
-        'If-None-Match': undefined
+        'If-None-Match': ''
       };
       let cachedResultValue;
 
       if (cachedResultPair) {
         const [etag, previousResult] = cachedResultPair;
         conditionalHeaders = {
-          'If-None-Match': etag,
+          'If-None-Match': etag
         };
         cachedResultValue = previousResult;
       }
@@ -624,7 +624,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
         }
         else if (result.status === 200) {
           // Update the cache with the new etag and result
-          const etag = result.headers.get('ng-etag');
+          const etag = result.headers.get('etag');
           const resultJson = result.json();
           resultJson.then((json) => {
             if (etag) {
