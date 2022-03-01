@@ -547,7 +547,7 @@ const httpPost = (input) => {
   const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
 
-  return fetch(url, reqOptions).then((response) => response.text());
+  return fetch(url, reqOptions);
 };`
 )}
 
@@ -589,7 +589,9 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
       // Check the cache for a previous result
       const cachedResultPair = getFromCache(cache, cacheKey);
 
-      let conditionalHeaders = {};
+      let conditionalHeaders = {
+        'If-None-Match': undefined,
+      };
       let cachedResultValue;
 
       if (cachedResultPair) {
