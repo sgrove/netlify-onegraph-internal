@@ -576,6 +576,13 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
       operationName: operationName,
     }).then((result) => JSON.parse(result));
   } else {
+    const payload = {
+      query: input.query,
+      doc_id: docId,
+      variables: variables,
+      operationName: operationName,
+    };
+
     let cachedOrLiveValue = new Promise((resolve) => {
       const cacheKey = calculateCacheKey(payload);
 
