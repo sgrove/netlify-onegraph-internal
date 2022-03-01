@@ -628,7 +628,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
           });
         }
       });
-    };
+    });
 
     response = cachedOrLiveValue;
   }
@@ -1174,10 +1174,10 @@ export const generateJavaScriptClient = (
   const source = `/* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-  ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
-  ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
-  ${imp(netlifyGraphConfig, ["node"], "https", "https")}
-  ${imp(netlifyGraphConfig, ["node"], "process", "process")}
+${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
+${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+${imp(netlifyGraphConfig, ["node"], "https", "https")}
+${imp(netlifyGraphConfig, ["node"], "process", "process")}
 
 ${exp(
   netlifyGraphConfig,
