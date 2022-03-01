@@ -41,10 +41,10 @@ export type NetlifySite = {
   id: string;
 };
 
-const capitalizeFirstLetter = (string) =>
+const capitalizeFirstLetter = (string: string) =>
   string.charAt(0).toUpperCase() + string.slice(1);
 
-const replaceAll = (target, search, replace) => {
+const replaceAll = (target: string, search: string, replace: string) => {
   const simpleString = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return target.replace(new RegExp(simpleString, "g"), replace);
 };
@@ -162,13 +162,46 @@ export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An
   __typename
 }`;
 
+const lruCacheImplementation = `// Basic LRU cache implementation
+const makeLRUCache = (max) => {
+  return { max: max, cache: new Map() };
+};
+
+const getFromCache = (lru, key) => {
+  const item = lru.cache.get(key);
+  if (item) {
+    lru.cache.delete(key);
+    lru.cache.set(key, item);
+  }
+  return item;
+};
+
+const setInCache = (lru, key, value) => {
+  if (lru.cache.has(key)) {
+    lru.cache.delete(key);
+  }
+  if (lru.cache.size == lru.max) {
+    lru.cache.delete(lru.first());
+  }
+  lru.cache.set(key, value);
+};
+
+// Cache the results of the Netlify Graph API for conditional requests
+const cache = makeLRUCache(100);
+
+const calculateCacheKey = (payload) => {
+  return JSON.stringify(payload);
+};`;
+
 const generatedNetlifyGraphDynamicClient = (
   netlifyGraphConfig: NetlifyGraphConfig
 ) =>
-  `${out(
-    netlifyGraphConfig,
-    ["node"],
-    `const httpFetch = (siteId, options) => {
+  `${lruCacheImplementation}
+
+${out(
+  netlifyGraphConfig,
+  ["node"],
+  `const httpFetch = (siteId, options) => {
       const reqBody = options.body || null
       const userHeaders = options.headers || {}
       const headers = {
@@ -221,7 +254,7 @@ const generatedNetlifyGraphDynamicClient = (
   })
 }
 `
-  )}
+)}
 ${out(
   netlifyGraphConfig,
   ["browser"],
@@ -265,18 +298,58 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
     operationName: operationName,
   };
 
-  const response = httpFetch(
-    siteId,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: accessToken ? "Bearer " + accessToken : '',
-      },
-      body: JSON.stringify(payload),
-    },
-  );
+  let cachedOrLiveValue = new Promise((resolve) => {
+  const cacheKey = calculateCacheKey(payload);
 
-  return response.then(result => JSON.parse(result));
+  // Check the cache for a previous result
+  const cachedResultPair = getFromCache(cache, cacheKey);
+
+  let conditionalHeaders = {};
+  let cachedResultValue;
+
+  if (cachedResultPair) {
+    const [etag, previousResult] = cachedResultPair;
+    conditionalHeaders = {
+      'If-None-Match': etag,
+    };
+    cachedResultValue = previousResult;
+  }
+
+  const response = httpFetch(siteId, {
+    method: 'POST',
+    headers: {
+      ...conditionalHeaders,
+      Authorization: accessToken ? 'Bearer ' + accessToken : '',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  response.then((result) => {
+    // Check response headers for a 304 Not Modified
+    if (result.status === 304) {
+      // Return the cached result
+      resolve(cachedResultValue);
+    }
+    else if (result.status === 200) {
+      // Update the cache with the new etag and result
+      const etag = result.headers.get('ng-etag');
+      const resultJson = result.json();
+      resultJson.then((json) => {
+        if (etag) {
+          // Make a not of the new etag for the given payload
+          setInCache(cache, cacheKey, [etag, json])
+        };
+        resolve(json);
+      });
+    } else {
+      return result.json().then((json) => {
+        resolve(json);
+      });
+    }
+  });
+  });
+
+  return cachedOrLiveValue
 }
 `;
 
@@ -284,10 +357,12 @@ const generatedNetlifyGraphPersistedClient = (
   netlifyGraphConfig: NetlifyGraphConfig,
   schemaId: string
 ) =>
-  `${out(
-    netlifyGraphConfig,
-    ["node"],
-    `const httpGet = (input) => {
+  `${lruCacheImplementation}
+
+${out(
+  netlifyGraphConfig,
+  ["node"],
+  `const httpGet = (input) => {
   const userHeaders = input.headers || {};
   const fullHeaders = {
     ...userHeaders,
@@ -401,7 +476,7 @@ const httpPost = (input) => {
     req.end()
   })
 }`
-  )}
+)}
 
 ${out(
   netlifyGraphConfig,
@@ -487,26 +562,89 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
 
   const httpMethod = input.fetchStrategy === 'GET' ? httpGet : httpPost;
 
-  const response = httpMethod({
-    siteId: siteId,
-    docId: docId,
-    query: input.query,
-    headers: {
-      Authorization: accessToken ? 'Bearer ' + accessToken : '',
-    },
-    variables: variables,
-    operationName: operationName,
-  });
+  let response;
 
-  return response.then((result) => JSON.parse(result));
+  if (input.fetchStrategy === 'GET') {
+    response = httpMethod({
+      siteId: siteId,
+      docId: docId,
+      query: input.query,
+      headers: {
+        Authorization: accessToken ? 'Bearer ' + accessToken : '',
+      },
+      variables: variables,
+      operationName: operationName,
+    }).then((result) => JSON.parse(result));
+  } else {
+    let cachedOrLiveValue = new Promise((resolve) => {
+      const cacheKey = calculateCacheKey(payload);
+
+      // Check the cache for a previous result
+      const cachedResultPair = getFromCache(cache, cacheKey);
+
+      let conditionalHeaders = {};
+      let cachedResultValue;
+
+      if (cachedResultPair) {
+        const [etag, previousResult] = cachedResultPair;
+        conditionalHeaders = {
+          'If-None-Match': etag,
+        };
+        cachedResultValue = previousResult;
+      }
+
+      const persistedResponse = httpMethod({
+        siteId: siteId,
+        docId: docId,
+        query: input.query,
+        headers: {
+          ...conditionalHeaders,
+          Authorization: accessToken ? 'Bearer ' + accessToken : '',
+        },
+        variables: variables,
+        operationName: operationName,
+      });
+
+      persistedResponse.then((result) => {
+        // Check response headers for a 304 Not Modified
+        if (result.status === 304) {
+          // Return the cached result
+          resolve(cachedResultValue);
+        }
+        else if (result.status === 200) {
+          // Update the cache with the new etag and result
+          const etag = result.headers.get('ng-etag');
+          const resultJson = result.json();
+          resultJson.then((json) => {
+            if (etag) {
+              // Make a not of the new etag for the given payload
+              setInCache(cache, cacheKey, [etag, json])
+            };
+            resolve(json);
+          });
+        } else {
+          return result.json().then((json) => {
+            resolve(json);
+          });
+        }
+      });
+    };
+
+    response = cachedOrLiveValue;
+  }
+
+  return response;
 };
 `;
 
-const subscriptionParserReturnName = (fn) => `${fn.operationName}Event`;
+const subscriptionParserReturnName = (fn: ParsedFunction) =>
+  `${fn.operationName}Event`;
 
-const subscriptionParserName = (fn) => `parseAndVerify${fn.operationName}Event`;
+const subscriptionParserName = (fn: ParsedFunction) =>
+  `parseAndVerify${fn.operationName}Event`;
 
-const subscriptionFunctionName = (fn) => `subscribeTo${fn.operationName}`;
+const subscriptionFunctionName = (fn: ParsedFunction) =>
+  `subscribeTo${fn.operationName}`;
 
 const out = (
   netlifyGraphConfig: NetlifyGraphConfig,
@@ -638,9 +776,9 @@ export function ${subscriptionParserName(
 
 // TODO: Handle fragments
 export const generateSubscriptionFunction = (
-  schema,
-  fn,
-  fragments,
+  schema: GraphQLSchema,
+  fn: ParsedFunction,
+  fragments: never[],
   netlifyGraphConfig: NetlifyGraphConfig
 ) => {
   const patchedWithWebhookUrl = patchSubscriptionWebhookField({
@@ -697,7 +835,7 @@ const ${subscriptionParserName(fn)} = (event, options) => {
 }`;
 };
 
-const makeFunctionName = (kind, operationName) => {
+const makeFunctionName = (kind: string, operationName: string) => {
   if (kind === "query") {
     return `fetch${capitalizeFirstLetter(operationName)}`;
   }
@@ -1140,7 +1278,7 @@ export const generateProductionJavaScriptClient = (
   schema: GraphQLSchema,
   operationsDoc: string,
   enabledFunctions: PersistedFunction[],
-  schemaId
+  schemaId: string
 ) => {
   const functionDecls = enabledFunctions.map((fn) => {
     if (fn.kind === "subscription") {
@@ -1488,6 +1626,7 @@ ${fn.fnName}: typeof ${fn.fnName}`;
     .join(",\n  ");
 
   const source = `/* eslint-disable */
+// @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
