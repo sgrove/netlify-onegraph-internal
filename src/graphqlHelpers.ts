@@ -40,6 +40,7 @@ import {
 import { Maybe } from "graphql/jsutils/Maybe";
 
 import { OperationData } from "./codegen/codegenHelpers";
+import { internalConsole } from "./internalConsole";
 
 export default function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -255,9 +256,17 @@ export function typeScriptSignatureForOperationVariables(
           existingDescription.add(argument.description);
         }
 
+        if (!existingRecord) {
+          internalConsole.warn(
+            `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
+          );
+
+          return node;
+        }
+
         variableRecords[node.value.name.value] = {
           ...existingRecord,
-          usageCount: existingRecord.usageCount + 1,
+          usageCount: existingRecord?.usageCount + 1,
         };
       }
       return node;
@@ -278,6 +287,14 @@ export function typeScriptSignatureForOperationVariables(
 
           if (existingDescription && field?.description) {
             existingDescription.add(field.description);
+          }
+
+          if (!existingRecord) {
+            internalConsole.warn(
+              `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
+            );
+
+            return node;
           }
 
           variableRecords[node.value.name.value] = {
