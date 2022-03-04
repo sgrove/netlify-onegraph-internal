@@ -57,10 +57,11 @@ export type NetlifyGraphConfig = {
   webhookBasePath: string;
   netlifyGraphImplementationFilename: string[];
   netlifyGraphTypeDefinitionsFilename: string[];
-  graphQLOperationsSourceFilename: string[];
+  graphQLOperationsSourceDirectory: string[];
   graphQLSchemaFilename: string[];
   netlifyGraphRequirePath: string[];
   netlifyGraphPath: string[];
+  graphQLOperationsSourceFilename?: string[];
   graphQLConfigJsonFilename: string[];
   framework: string;
   extension: string;
@@ -117,6 +118,8 @@ export type PersistedFunction = ParsedFunction & {
   persistedDocId: string;
 };
 
+export const defaultSourceOperationsDirectoryName = ["operations"];
+
 export const defaultSourceOperationsFilename =
   "netlifyGraphOperationsLibrary.graphql";
 export const defaultGraphQLSchemaFilename = "netlifyGraphSchema.graphql";
@@ -139,11 +142,11 @@ export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
     "netlifyGraph",
     "index.d.ts",
   ],
-  graphQLOperationsSourceFilename: [
+  graphQLOperationsSourceDirectory: [
     "netlify",
     "functions",
     "netlifyGraph",
-    defaultSourceOperationsFilename,
+    "operations",
   ],
   graphQLSchemaFilename: [
     "netlify",
@@ -1658,9 +1661,9 @@ export type WebhookEvent = {
 };
 
 export type GraphQLError = {
-  "path": Array<string | number>,
-  "message": string,
-  "extensions": Record<string, unknown>
+  "path": Array<string | number>;
+  "message": string;
+  "extensions": Record<string, unknown>;
 };
 
 ${fragmentDecls.join("\n\n")}

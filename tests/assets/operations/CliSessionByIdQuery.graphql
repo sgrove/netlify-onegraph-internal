@@ -1,0 +1,17 @@
+query CliSessionByIdQuery($nfToken: String!, $id: String!) @netlify(id: """6f9a0536-25f7-4b8f-ad1f-5a39edd923bb""", doc: """Get a Netlify CLI session by its id""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    netlifyCliSession(id: $id) {
+      id
+      name
+      netlifyUserId
+      events {
+        createdAt
+      }
+      status
+      createdAt
+      lastEventAt
+      updatedAt
+      metadata
+    }
+  }
+}

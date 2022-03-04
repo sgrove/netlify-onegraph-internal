@@ -1,0 +1,7 @@
+fragment ServiceAuthFragment on OneGraphServiceAuth @netlify(id: """12b5bdea-9bab-4164-a731-5e697b1553be""", doc: """Basic info on a Service Auth""") {
+  id
+  service
+  clientId
+  revealTokens
+  scopes
+}

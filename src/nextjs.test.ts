@@ -19,13 +19,14 @@ const test = () => {
     webhookBasePath: "/api",
     framework: "Next.js",
     functionsPath: ["pages", "api"],
-    graphQLOperationsSourceFilename: [
+    graphQLOperationsSourceDirectory: ["..", "..", "lib", "netlifyGraph"],
+    graphQLSchemaFilename: [
       "..",
       "..",
       "lib",
-      "netlifyGraphOperationsLibrary.graphql",
+      "netlifyGraph",
+      "netlifyGraphSchema.graphql",
     ],
-    graphQLSchemaFilename: ["..", "..", "lib", "netlifyGraphSchema.graphql"],
     netlifyGraphImplementationFilename: ["..", "..", "lib", "index.js"],
     netlifyGraphTypeDefinitionsFilename: ["..", "..", "lib", "index.d.ts"],
     netlifyGraphRequirePath: ["..", "..", "lib", "netlifyGraph"],

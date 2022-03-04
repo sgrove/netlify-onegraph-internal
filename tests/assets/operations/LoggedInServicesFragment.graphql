@@ -1,0 +1,22 @@
+fragment LoggedInServicesFragment on OneGraphServiceMetadata @netlify(id: """12b5bdea-9bab-4124-a731-5e697b1553be""", doc: """Subset of LoggedInServices""") {
+  friendlyServiceName
+  service
+  isLoggedIn
+  usedTestFlow
+  serviceInfo {
+    logoUrl(style: ROUNDED_RECTANGLE)
+    availableScopes {
+      category
+      scope
+      display
+      isDefault
+      isRequired
+      description
+      title
+    }
+  }
+  grantedScopes {
+    scope
+  }
+  foreignUserId
+}

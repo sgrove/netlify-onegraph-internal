@@ -1,0 +1,11 @@
+mutation DeleteServiceAuthMutation($siteId: String!, $serviceAuthId: String!, $nfToken: String!) @netlify(id: """5c7bb879-a810-4a7e-8aec-55d05fd9c172""", doc: """Delete a custom service auth""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    destroyServiceAuth(data: {appId: $siteId, serviceAuthId: $serviceAuthId}) {
+      app {
+        serviceAuths {
+          ...ServiceAuthFragment
+        }
+      }
+    }
+  }
+}

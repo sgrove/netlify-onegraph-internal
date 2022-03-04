@@ -1,0 +1,15 @@
+mutation UpdateCLISessionMetadataMutation($nfToken: String!, $sessionId: String!, $metadata: JSON!) @netlify(id: """16a58acb-8188-4a47-bc93-1f4a5ef805c0""", doc: """Modify the metadata of an existing CLI session (an intentionally untype bag of `JSON`).""", executionStrategy: PERSISTED) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    updateNetlifyCliSession(input: {id: $sessionId, metadata: $metadata}) {
+      session {
+        id
+        name
+        metadata
+        status
+        createdAt
+        updatedAt
+        lastEventAt
+      }
+    }
+  }
+}

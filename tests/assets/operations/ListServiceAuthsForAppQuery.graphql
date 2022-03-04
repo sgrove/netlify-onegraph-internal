@@ -1,0 +1,9 @@
+query ListServiceAuthsForAppQuery($nfToken: String!, $siteId: String!) @netlify(id: """e2394c86-260c-4646-88df-7bc7370de778""", doc: """Fetch any custom service auths that may be installed for a site.""", executionStrategy: DYNAMIC) @netlifyCacheControl(enabled: false, cacheStrategy: {timeToLiveSeconds: 1}, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    app(id: $siteId) {
+      serviceAuths {
+        ...ServiceAuthFragment
+      }
+    }
+  }
+}

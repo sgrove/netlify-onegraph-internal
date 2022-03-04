@@ -1,0 +1,12 @@
+mutation AddAuthsMutation($siteId: String!, $authlifyTokenId: String, $sToken: String!, $nfToken: String!) @netlify(id: """47c6abec-7e34-4ec1-ae7d-b3303828b0ce""", doc: """Update a service's (i.e. GitHub) enabled scope permissions""", executionStrategy: DYNAMIC) {
+  oneGraph {
+    addAuthsToPersonalToken(
+      input: {anchorAuth: {netlifyAuth: {oauthToken: $nfToken}}, sacrificialToken: $sToken, authlifyTokenId: $authlifyTokenId, appId: $siteId}
+    ) {
+      accessToken {
+        netlifyId
+        token
+      }
+    }
+  }
+}

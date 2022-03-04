@@ -1,0 +1,9 @@
+mutation RemoveCORSOriginMutation($nfToken: String!, $input: OneGraphRemoveCORSOriginFromAppInput!) @netlify(id: """e3d4bb8b-2fb5-48d8-b051-db6027224112""", doc: """Remove the given CORS origins for calls to a site's Graph.""", executionStrategy: PERSISTED) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    removeCORSOriginFromApp(input: $input) {
+      app {
+        ...AppCORSOriginFragment
+      }
+    }
+  }
+}

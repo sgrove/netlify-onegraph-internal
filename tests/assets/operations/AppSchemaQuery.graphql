@@ -1,0 +1,38 @@
+query AppSchemaQuery($nfToken: String!, $appId: String!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """30aeff10-e743-473e-bae0-438a48074edc""", doc: """
+Get the _metadata_ about a site's current GraphQL schema:
+
+- enabled services
+- schema id
+- creation date
+
+etc.
+""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    app(id: $appId) {
+      graphQLSchema {
+        appId
+        createdAt
+        id
+        externalGraphQLSchemas {
+          nodes {
+            id
+            service
+            endpoint
+          }
+        }
+        services {
+          friendlyServiceName
+          logoUrl(style: $logoStyle)
+          service
+          slug
+          supportsCustomRedirectUri
+          supportsCustomServiceAuth
+          supportsOauthLogin
+          netlifyGraphEnabled
+          netlifyApiAuthenticationEnabled
+        }
+        updatedAt
+      }
+    }
+  }
+}

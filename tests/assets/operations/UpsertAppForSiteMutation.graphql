@@ -1,0 +1,20 @@
+mutation UpsertAppForSiteMutation($nfToken: String!, $siteId: String!) @netlify(id: """e3d3bb8b-2fb5-48d8-b051-db602722419f""", doc: """Ensure that an app resource exists on the OneGraph servers for a given site.""", executionStrategy: PERSISTED) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    upsertAppForNetlifySite(input: {netlifySiteId: $siteId}) {
+      org {
+        id
+        name
+      }
+      app {
+        id
+        name
+        corsOrigins
+        customCorsOrigins {
+          friendlyServiceName
+          displayName
+          encodedValue
+        }
+      }
+    }
+  }
+}

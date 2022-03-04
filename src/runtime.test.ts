@@ -24,11 +24,7 @@ const test = async () => {
     framework: "custom",
     webhookBasePath: "/api",
     functionsPath: ["pages", "api"],
-    graphQLOperationsSourceFilename: [
-      "functions",
-      "netlifyGraph",
-      "netlifyGraphOperationsLibrary.graphql",
-    ],
+    graphQLOperationsSourceDirectory: ["functions", "netlifyGraph"],
     graphQLSchemaFilename: [
       "functions",
       "netlifyGraph",

@@ -54,7 +54,7 @@ const test = () => {
       "netlifyGraph",
       "index.d.ts",
     ],
-    graphQLOperationsSourceFilename: [
+    graphQLOperationsSourceDirectory: [
       "/",
       "Users",
       "s",
@@ -63,7 +63,6 @@ const test = () => {
       "netlify",
       "functions",
       "netlifyGraph",
-      "netlifyGraphOperationsLibrary.graphql",
     ],
     graphQLSchemaFilename: [
       "/",

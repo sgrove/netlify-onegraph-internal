@@ -1,0 +1,7 @@
+query AuthlifyTokenIdForPersonalToken($personalToken: String!) @netlify(id: """da5acd46-f2f1-4f24-aff9-1fe36d9c999b""", doc: null, executionStrategy: DYNAMIC) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph {
+    personalToken(accessToken: $personalToken) {
+      netlifyId
+    }
+  }
+}

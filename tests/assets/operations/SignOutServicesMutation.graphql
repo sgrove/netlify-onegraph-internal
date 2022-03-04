@@ -1,0 +1,13 @@
+mutation SignOutServicesMutation($services: [OneGraphServiceEnum!]!, $nfToken: String!, $authlifyTokenId: String!) @netlify(id: """3d069fc8-3a03-40c8-8637-ddcf33692c99""", doc: """Sign out of a service associated with a Authlify token""", executionStrategy: DYNAMIC) {
+  signoutServices(
+    data: {services: $services, anchorAuth: {netlifyAuth: {oauthToken: $nfToken}}, authlifyTokenId: $authlifyTokenId}
+  ) {
+    me {
+      serviceMetadata {
+        loggedInServices {
+          ...LoggedInServicesFragment
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+query PersistedQueryQuery($nfToken: String!, $appId: String!, $id: String!) @netlify(id: """dfbf037c-a603-46a9-8ca2-ac0069c05db2""", doc: """Retrieve a previously persisted operations doc""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    persistedQuery(appId: $appId, id: $id) {
+      id
+      query
+      allowedOperationNames
+      description
+      freeVariables
+      fixedVariables
+      tags
+    }
+  }
+}

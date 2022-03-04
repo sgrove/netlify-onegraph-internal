@@ -1,0 +1,14 @@
+mutation CreateEmptyPersonalTokenMutation($nfToken: String!, $siteId: String!) @netlify(id: """a64681f1-014c-4413-8a7d-b188c4dd5f55""", doc: """Create a new OneGraph personal token for a user's site""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createPersonalTokenWithNetlifySiteAnchor(
+      input: {name: "Netlify AuthManager Token", netlifySiteId: $siteId}
+    ) {
+      accessToken {
+        token
+        name
+        anchor
+        netlifyId
+      }
+    }
+  }
+}

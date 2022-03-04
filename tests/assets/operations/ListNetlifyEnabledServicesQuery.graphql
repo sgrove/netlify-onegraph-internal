@@ -1,0 +1,17 @@
+query ListNetlifyEnabledServicesQuery($logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE, $betaServices: [OneGraphServiceEnumArg!] = []) @netlify(id: """a6969eb4-5e17-43fb-a325-11566f7d1db3""", doc: """Retrieve a list of _all_ supported services from OneGraph""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: true, cacheStrategy: {timeToLiveSeconds: 300}, fallbackOnError: true) {
+  oneGraph {
+    services(
+      filter: {or: [{service: {in: $betaServices}}, {supportsNetlifyGraph: true}, {supportsNetlifyApiAuthentication: true}]}
+    ) {
+      friendlyServiceName
+      logoUrl(style: $logoStyle)
+      service
+      slug
+      supportsCustomRedirectUri
+      supportsCustomServiceAuth
+      supportsOauthLogin
+      netlifyGraphEnabled
+      netlifyApiAuthenticationEnabled
+    }
+  }
+}

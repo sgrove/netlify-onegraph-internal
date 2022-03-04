@@ -1,0 +1,17 @@
+query CliSessionsByAppIdQuery($nfToken: String!, $appId: String!) @netlify(id: """e09d703b-468c-4c94-b098-f1ba09fdf692""", doc: """List all the CLI sessions belonging to a site""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    netlifyCliSessionsByAppId(appId: $appId, first: 10) {
+      id
+      name
+      netlifyUserId
+      events {
+        createdAt
+      }
+      status
+      createdAt
+      updatedAt
+      lastEventAt
+      metadata
+    }
+  }
+}

@@ -1,0 +1,23 @@
+mutation CreateNewSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQLSchemaInput!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """4fc2298a-225b-4329-b3f3-a8f8bc0513a8""", doc: """Create a new GraphQL schema for an app with a set of services enabled. Note that this just makes the schema _available_ for the app to use, it doesn't set it as the default for all queries to use.""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createGraphQLSchema(input: $input) {
+      app {
+        graphQLSchema {
+          id
+        }
+      }
+      graphQLSchema {
+        id
+        services {
+          friendlyServiceName
+          logoUrl(style: $logoStyle)
+          service
+          slug
+          supportsCustomRedirectUri
+          supportsCustomServiceAuth
+          supportsOauthLogin
+        }
+      }
+    }
+  }
+}

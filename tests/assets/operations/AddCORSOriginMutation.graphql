@@ -1,0 +1,9 @@
+mutation AddCORSOriginMutation($nfToken: String!, $input: OneGraphAddCORSOriginToAppInput!) @netlify(id: """e3d4bb8b-2fb5-48d8-b051-db6027224101""", doc: """Add additional allowed CORS origins for calls to a site's Graph.""", executionStrategy: PERSISTED) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    addCORSOriginToApp(input: $input) {
+      app {
+        ...AppCORSOriginFragment
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+mutation CreatePersistedQueryMutation($nfToken: String!, $appId: String!, $query: String!, $tags: [String!]!, $description: String!, $parent: OneGraphCreatePersistedQueryParentInput) @netlify(id: """5e855574-a316-4060-955c-85b1f8898c29""", doc: """Given a document with GraphQL operations, persist them to OneGraph (with not specific metadata, e.g. cache TTL or auth) for later retrieval _or_ execution.""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createPersistedQuery(
+      input: {query: $query, appId: $appId, tags: $tags, description: $description, parent: $parent}
+    ) {
+      persistedQuery {
+        id
+      }
+    }
+  }
+}

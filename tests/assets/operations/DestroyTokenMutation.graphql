@@ -1,0 +1,5 @@
+mutation DestroyTokenMutation($nfToken: String!, $token: String, $authlifyTokenId: String) @netlify(id: """3d069fc8-3a03-40c8-8637-ddcf33692c34""", doc: """Delete a OneGraph personal token for a user's site""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    destroyToken(token: $token, authlifyTokenId: $authlifyTokenId)
+  }
+}

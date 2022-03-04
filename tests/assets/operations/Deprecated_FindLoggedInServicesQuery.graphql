@@ -1,0 +1,9 @@
+query Deprecated_FindLoggedInServicesQuery @netlify(id: """9ffe3872-4ae8-4f86-b5b7-ffcdfe7843fd""", doc: """(Deprecated) Find logged in services""", executionStrategy: DYNAMIC) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  me {
+    serviceMetadata {
+      loggedInServices {
+        ...LoggedInServicesFragment
+      }
+    }
+  }
+}

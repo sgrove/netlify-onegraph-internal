@@ -1,0 +1,13 @@
+query FindLoggedInServicesQuery($nfToken: String!, $authlifyTokenId: String!) @netlify(id: """68c383e7-2e2f-4e6c-9a72-a5d095498ba3""", doc: """Fetch all logged-in OneGraph services (GitHub, Spotify, etc.) for a user's site""", executionStrategy: DYNAMIC) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    authlifyToken(authlifyTokenId: $authlifyTokenId) {
+      serviceMetadata {
+        loggedInServices {
+          usedTestFlow
+          friendlyServiceName
+          ...LoggedInServicesFragment
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+query CORSOriginsQuery($siteId: String!, $nfToken: String!) @netlify(id: """e3d4bb8b-2fb5-48d8-b051-db6027224190""", doc: """List the allowed CORS origins for calls to a site's Graph.""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: false, fallbackOnError: false) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    app(id: $siteId) {
+      ...AppCORSOriginFragment
+    }
+  }
+}

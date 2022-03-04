@@ -1,0 +1,13 @@
+mutation SetServiceAuthMutation($service: OneGraphCustomServiceAuthServiceEnum!, $clientId: String!, $clientSecret: String!, $siteId: String!, $nfToken: String!) @netlify(id: """694dfc01-3844-431d-9e56-7089c101fe08""", doc: """Create a custom service auth""", executionStrategy: DYNAMIC) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createServiceAuth(
+      data: {service: $service, clientId: $clientId, clientSecret: $clientSecret, appId: $siteId, revealTokens: true}
+    ) {
+      app {
+        serviceAuths {
+          ...ServiceAuthFragment
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+query ListOAuthServicesQuery($logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """e2394c86-260c-4646-88df-7bc7370de666""", doc: """Fetch all available OneGraph services (GitHub, Spotify, etc.).""", executionStrategy: PERSISTED) @netlifyCacheControl(enabled: true, cacheStrategy: {timeToLiveSeconds: 500}, fallbackOnError: true) {
+  oneGraph {
+    services(filter: {supportsOauthLogin: true}) {
+      friendlyServiceName
+      service
+      slug
+      logoUrl(style: $logoStyle)
+      availableScopes {
+        category
+        scope
+        display
+        isDefault
+        isRequired
+        description
+        title
+      }
+      netlifyGraphEnabled
+      netlifyApiAuthenticationEnabled
+    }
+  }
+}

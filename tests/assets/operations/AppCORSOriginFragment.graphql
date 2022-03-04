@@ -1,0 +1,10 @@
+fragment AppCORSOriginFragment on OneGraphApp @netlify(id: """e3d4bb8b-2fb5-48d8-b051-db6027224145""", doc: """Allowed CORS origins for calls to a site's Graph.""") {
+  id
+  corsOrigins
+  customCorsOrigins {
+    friendlyServiceName
+    displayName
+    encodedValue
+  }
+  netlifySiteNames
+}
