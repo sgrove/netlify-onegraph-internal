@@ -1,0 +1,13 @@
+mutation CreateCLISessionEventMutation($nfToken: String!, $sessionId: String!, $payload: JSON!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155008""", doc: """Create a new event for a CLI session to consume""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createNetlifyCliTestEvent(
+      input: {data: {payload: $payload}, sessionId: $sessionId}
+    ) {
+      event {
+        id
+        createdAt
+        sessionId
+      }
+    }
+  }
+}

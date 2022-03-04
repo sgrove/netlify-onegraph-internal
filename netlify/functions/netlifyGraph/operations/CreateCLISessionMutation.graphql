@@ -1,0 +1,15 @@
+mutation CreateCLISessionMutation($nfToken: String!, $appId: String!, $name: String!, $metadata: JSON) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155006""", doc: """Register a new CLI session with OneGraph""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createNetlifyCliSession(
+      input: {appId: $appId, name: $name, metadata: $metadata}
+    ) {
+      session {
+        id
+        appId
+        netlifyUserId
+        name
+        cliHeartbeatIntervalMs
+      }
+    }
+  }
+}

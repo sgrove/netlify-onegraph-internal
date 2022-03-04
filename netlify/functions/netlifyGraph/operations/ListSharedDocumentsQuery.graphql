@@ -1,0 +1,25 @@
+query ListSharedDocumentsQuery($nfToken: String!, $first: Int = 10, $status: OneGraphSharedDocumentModerationStatusEnum, $services: [OneGraphServiceEnumArg!]!, $style: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """12b5fdea-9ccd-1253-a731-5e697b155015""", doc: """List shared documents given a set of filters""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    sharedDocuments(
+      first: $first
+      filter: {moderationStatus: {equalTo: $status}, services: {in: $services}}
+    ) {
+      nodes {
+        description
+        body
+        createdAt
+        id
+        moderationStatus
+        operationName
+        siteId
+        updatedAt
+        services {
+          friendlyServiceName
+          logoUrl(style: $style)
+          service
+          slug
+        }
+      }
+    }
+  }
+}

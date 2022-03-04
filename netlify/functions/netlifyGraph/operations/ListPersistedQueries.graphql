@@ -1,0 +1,22 @@
+query ListPersistedQueries($appId: String!, $first: Int!, $after: String, $tags: [String!]!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155002""", doc: """Fetch a paginated list of persisted queries belonging to an app""") {
+  oneGraph {
+    app(id: $appId) {
+      id
+      persistedQueries(first: $first, after: $after, tags: $tags) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          query
+          fixedVariables
+          freeVariables
+          allowedOperationNames
+          tags
+          description
+        }
+      }
+    }
+  }
+}

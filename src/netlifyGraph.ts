@@ -1066,22 +1066,26 @@ export const generateJavaScriptClient = (
     "`",
     "\\`"
   );
-  const functionDecls = enabledFunctions.map((fn) => {
-    if (fn.kind === "subscription") {
-      const fragments = [];
-      return generateSubscriptionFunction(
-        schema,
-        fn,
-        fragments,
-        netlifyGraphConfig
-      );
-    }
+  const functionDecls = enabledFunctions
+    .sort((a, b) => {
+      return a.id.localeCompare(b.id);
+    })
+    .map((fn) => {
+      if (fn.kind === "subscription") {
+        const fragments = [];
+        return generateSubscriptionFunction(
+          schema,
+          fn,
+          fragments,
+          netlifyGraphConfig
+        );
+      }
 
-    const dynamicFunction = `${exp(
-      netlifyGraphConfig,
-      ["browser", "node"],
-      fn.fnName,
-      `(
+      const dynamicFunction = `${exp(
+        netlifyGraphConfig,
+        ["browser", "node"],
+        fn.fnName,
+        `(
       variables,
       options
       ) => {
@@ -1098,14 +1102,14 @@ export const generateJavaScriptClient = (
         }",
       })
     }`
-    )}
+      )}
 `;
 
-    const staticFunction = `${exp(
-      netlifyGraphConfig,
-      ["browser", "node"],
-      fn.fnName,
-      `(
+      const staticFunction = `${exp(
+        netlifyGraphConfig,
+        ["browser", "node"],
+        fn.fnName,
+        `(
       variables,
       options
     ) => {
@@ -1123,9 +1127,9 @@ export const generateJavaScriptClient = (
       });
     }
 `
-    )}`;
-    return fn.id ? staticFunction : dynamicFunction;
-  });
+      )}`;
+      return fn.id ? staticFunction : dynamicFunction;
+    });
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .sort((a, b) => {
@@ -1294,22 +1298,26 @@ export const generateProductionJavaScriptClient = (
   enabledFunctions: PersistedFunction[],
   schemaId: string
 ) => {
-  const functionDecls = enabledFunctions.map((fn) => {
-    if (fn.kind === "subscription") {
-      const fragments = [];
-      return generateSubscriptionFunction(
-        schema,
-        fn,
-        fragments,
-        netlifyGraphConfig
-      );
-    }
+  const functionDecls = enabledFunctions
+    .sort((a, b) => {
+      return a.id.localeCompare(b.id);
+    })
+    .map((fn) => {
+      if (fn.kind === "subscription") {
+        const fragments = [];
+        return generateSubscriptionFunction(
+          schema,
+          fn,
+          fragments,
+          netlifyGraphConfig
+        );
+      }
 
-    const dynamicFunction = `${exp(
-      netlifyGraphConfig,
-      ["browser", "node"],
-      fn.fnName,
-      `(
+      const dynamicFunction = `${exp(
+        netlifyGraphConfig,
+        ["browser", "node"],
+        fn.fnName,
+        `(
       variables,
       options
       ) => {
@@ -1326,14 +1334,14 @@ export const generateProductionJavaScriptClient = (
         }",
       })
     }`
-    )}
+      )}
 `;
 
-    const staticFunction = `${exp(
-      netlifyGraphConfig,
-      ["browser", "node"],
-      fn.fnName,
-      `(
+      const staticFunction = `${exp(
+        netlifyGraphConfig,
+        ["browser", "node"],
+        fn.fnName,
+        `(
       variables,
       options
     ) => {
@@ -1351,11 +1359,11 @@ export const generateProductionJavaScriptClient = (
       });
     }
 `
-    )}`;
-    return fn.executionStrategy === "DYNAMIC"
-      ? dynamicFunction
-      : staticFunction;
-  });
+      )}`;
+      return fn.executionStrategy === "DYNAMIC"
+        ? dynamicFunction
+        : staticFunction;
+    });
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .sort((a, b) => {
@@ -1544,47 +1552,55 @@ export const generateTypeScriptDefinitions = (
   enabledFunctions: ParsedFunction[],
   enabledFragments: Record<string, ParsedFragment>
 ) => {
-  const fragmentDecls = Object.values(enabledFragments).map((fragment) => {
-    return generateFragmentTypeScriptDefinition(
-      netlifyGraphConfig,
-      schema,
-      fragment
-    );
-  });
-
-  const functionDecls = enabledFunctions.map((fn) => {
-    const isSubscription = fn.kind === "subscription";
-
-    if (isSubscription) {
-      return generateSubscriptionFunctionTypeDefinition(
+  const fragmentDecls = Object.values(enabledFragments)
+    .sort((a, b) => {
+      return a.id.localeCompare(b.id);
+    })
+    .map((fragment) => {
+      return generateFragmentTypeScriptDefinition(
+        netlifyGraphConfig,
         schema,
-        fn,
-        enabledFragments
+        fragment
       );
-    }
+    });
 
-    const jsDoc = replaceAll(fn.description || ``, "*/", "")
-      .split("\n")
-      .join("\n* ");
+  const functionDecls = enabledFunctions
+    .sort((a, b) => {
+      return a.id.localeCompare(b.id);
+    })
+    .map((fn) => {
+      const isSubscription = fn.kind === "subscription";
 
-    const baseName = fn.operationName;
+      if (isSubscription) {
+        return generateSubscriptionFunctionTypeDefinition(
+          schema,
+          fn,
+          enabledFragments
+        );
+      }
 
-    const returnSignatureName = capitalizeFirstLetter(baseName);
-    const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
-    const shouldExportInputSignature = fn.variableSignature !== "{}";
-    const emptyVariablesGuideDocString =
-      fn.variableSignature === "{}"
-        ? `/**
+      const jsDoc = replaceAll(fn.description || ``, "*/", "")
+        .split("\n")
+        .join("\n* ");
+
+      const baseName = fn.operationName;
+
+      const returnSignatureName = capitalizeFirstLetter(baseName);
+      const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
+      const shouldExportInputSignature = fn.variableSignature !== "{}";
+      const emptyVariablesGuideDocString =
+        fn.variableSignature === "{}"
+          ? `/**
   * Pass \`{}\` as no variables are defined for this function.
   */
   `
-        : ``;
-    const inputSignatureExport = shouldExportInputSignature
-      ? `export type ${inputSignatureName} = ${fn.variableSignature};
+          : ``;
+      const inputSignatureExport = shouldExportInputSignature
+        ? `export type ${inputSignatureName} = ${fn.variableSignature};
 `
-      : "";
+        : "";
 
-    return `${inputSignatureExport}
+      return `${inputSignatureExport}
 export type ${returnSignatureName} = ${fn.returnSignature};
 
 /**
@@ -1592,11 +1608,13 @@ export type ${returnSignatureName} = ${fn.returnSignature};
  */
 export function ${fn.fnName}(
   ${emptyVariablesGuideDocString}variables: ${
-      shouldExportInputSignature ? inputSignatureName : "Record<string, never>"
-    },
+        shouldExportInputSignature
+          ? inputSignatureName
+          : "Record<string, never>"
+      },
   options?: NetlifyGraphFunctionOptions
 ): Promise<${returnSignatureName}>;`;
-  });
+    });
 
   const exportedFunctionsObjectProperties = enabledFunctions
     .sort((a, b) => {
@@ -1710,7 +1728,10 @@ export const generateFunctionsSource = async (
     .map((query) =>
       queryToFunctionDefinition(schema, parsedDoc, query, fragmentDefinitions)
     )
-    .filter(Boolean) as ParsedFunction[];
+    .filter(Boolean)
+    .sort((a: ParsedFunction, b: ParsedFunction) => {
+      return a.id.localeCompare(b.id);
+    }) as ParsedFunction[];
 
   const clientSource = generateJavaScriptClient(
     netlifyGraphConfig,

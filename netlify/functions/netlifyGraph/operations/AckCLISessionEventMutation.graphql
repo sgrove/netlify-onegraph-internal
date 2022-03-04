@@ -1,0 +1,9 @@
+mutation AckCLISessionEventMutation($nfToken: String!, $sessionId: String!, $eventIds: [String!]!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155010""", doc: """Acknowledge CLI events that have been processed and delete them from the upstream queue""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    ackNetlifyCliEvents(input: {eventIds: $eventIds, sessionId: $sessionId}) {
+      events {
+        id
+      }
+    }
+  }
+}

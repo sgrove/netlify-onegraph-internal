@@ -1,0 +1,19 @@
+mutation CreateApiTokenMutation($input: OneGraphCreateApiTokenTokenInput!, $nfToken: String!) @netlify(id: """12b5bdea-9bab-4122-a991-5e697b155004""", doc: """Create a token belonging to a specific siteId to persist operations and create GraphQL schemas later""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    createApiToken(input: $input) {
+      accessToken {
+        token
+        userAuths {
+          service
+          foreignUserId
+          scopes
+        }
+        appId
+        expireDate
+        name
+        netlifyId
+        anchor
+      }
+    }
+  }
+}

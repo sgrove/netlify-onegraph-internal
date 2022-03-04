@@ -1,0 +1,13 @@
+mutation MarkCLISessionInactive($nfToken: String!, $id: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155015""", doc: """Mark a CLI session as inactive""") {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    updateNetlifyCliSession(input: {status: INACTIVE, id: $id}) {
+      session {
+        id
+        status
+        createdAt
+        updatedAt
+        cliHeartbeatIntervalMs
+      }
+    }
+  }
+}
