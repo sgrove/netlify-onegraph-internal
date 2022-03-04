@@ -6,7 +6,7 @@ import GeneratedClient from "./generatedOneGraphClient";
 
 const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
 
-const netlifyGraphHost = "serve.onegraph.com";
+const netlifyGraphHost = "graph.netlify.com";
 
 /**
  * Given an appId and desired services, fetch the schema (in json form) for that app
@@ -469,8 +469,30 @@ export const executeMarkCliSessionInactive = async (
   return { errors: result.errors, data: session };
 };
 
-export const executeCreateApiTokenMutation =
+export const executeCreateApiTokenMutation: typeof GeneratedClient.executeCreateApiTokenMutation =
   GeneratedClient.executeCreateApiTokenMutation;
 
-export const executeCreateGraphQLSchemaMutation =
+export const executeCreateGraphQLSchemaMutation: typeof GeneratedClient.executeCreateGraphQLSchemaMutation =
   GeneratedClient.executeCreateGraphQLSchemaMutation;
+
+/**
+ * List shared documents given a set of filters
+ */
+export const fetchListSharedDocumentsQuery: typeof GeneratedClient.fetchListSharedDocumentsQuery =
+  GeneratedClient.fetchListSharedDocumentsQuery;
+/**
+ * Create a document with a shared operation for others to import and use
+ */
+export const executeCreateSharedDocumentMutation: typeof GeneratedClient.executeCreateSharedDocumentMutation =
+  GeneratedClient.executeCreateSharedDocumentMutation;
+/**
+ * Find a shared document given its id
+ */
+export const fetchSharedDocumentQuery: typeof GeneratedClient.fetchSharedDocumentQuery =
+  GeneratedClient.fetchSharedDocumentQuery;
+
+/**
+ * Find a shared document given its id
+ */
+export const fetchListNetlifyEnabledServicesQuery: typeof GeneratedClient.fetchListNetlifyEnabledServicesQuery =
+  GeneratedClient.fetchListNetlifyEnabledServicesQuery;

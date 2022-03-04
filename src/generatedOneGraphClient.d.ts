@@ -1,3 +1,5 @@
+/* eslint-disable */
+// @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
 
 export type NetlifyGraphFunctionOptions = {
@@ -205,95 +207,6 @@ export function executeCreateGraphQLSchemaMutation(
   options?: NetlifyGraphFunctionOptions
 ): Promise<CreateGraphQLSchemaMutation>;
 
-export type CreatePersistedQueryMutationInput = {
-  nfToken: string;
-  cacheStrategy?: {
-    /**
-     * Number of seconds to cache the query result for.
-     */
-    timeToLiveSeconds: number;
-  };
-  /**
-   * Operation names to allow. If not provided, then all operations in the document are allowed.
-   */
-  allowedOperationNames: Array<string>;
-  /**
- * If set to true, and there was a successful execution of the query in the last 30 days, then the last successful result will be returned if we encounter any error when executing the query. If we do not have a previous successful result, then the response with the error will be returned.
-
-Note that the fallback result will be returned even in the case of partial success.
-
-This parameter is useful when you expect that your queries might be rate-limited by the underlying service.
-
-The query must provide a cache strategy in order to use `fallbackOnError`.
- */
-  fallbackOnError: boolean;
-  freeVariables: Array<string>;
-  query: string;
-  /**
-   * List of tags to add to the persisted query. Tags are free-form text that can be used to categorize persisted queries. Each tag must be under 256 characters and there can be a maximum of 10 tags on a single persisted query.
-   */
-  tags: Array<string>;
-  /**
-   * A description for the persisted query. Maximum length is 2096 characters.
-   */
-  description?: string;
-  appId: string;
-};
-
-export type CreatePersistedQueryMutation = {
-  /**
-   * Any data from the function will be returned here
-   */
-  data: {
-    oneGraph: {
-      createPersistedQuery: {
-        persistedQuery: {
-          /**
-           * The persisted query's id.
-           */
-          id: string;
-          /**
-           * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
-           */
-          allowedOperationNames: Array<string>;
-          /**
-           * The user-defined description that was added to the query
-           */
-          description: string;
-          /**
-           * The default variables provided to the query.
-           */
-          fixedVariables: unknown;
-          /**
-           * The list of variables that the caller of the query is allowed to provide.
-           */
-          freeVariables: Array<string>;
-          /**
-           * The persisted query's query string.
-           */
-          query: string;
-          /**
-           * The list of user-defined tags that were added to the query
-           */
-          tags: Array<string>;
-        };
-      };
-    };
-  };
-  /**
-   * Any errors from the function will be returned here
-   */
-  errors: Array<GraphQLError>;
-};
-
-/**
- * Create a persisted operations doc to be later retrieved, usually from a GUI
- */
-export function executeCreatePersistedQueryMutation(
-  variables: CreatePersistedQueryMutationInput,
-  options?: NetlifyGraphFunctionOptions
-): Promise<CreatePersistedQueryMutation>;
-
 export type CreateApiTokenMutationInput = {
   input: {
     scopes: Array<"MODIFY_SCHEMA" | "PERSIST_QUERY">
@@ -443,6 +356,95 @@ export function executeCreateApiTokenMutation(
   variables: CreateApiTokenMutationInput,
   options?: NetlifyGraphFunctionOptions
 ): Promise<CreateApiTokenMutation>;
+
+export type CreatePersistedQueryMutationInput = {
+  nfToken: string;
+  cacheStrategy?: {
+    /**
+     * Number of seconds to cache the query result for.
+     */
+    timeToLiveSeconds: number;
+  };
+  /**
+   * Operation names to allow. If not provided, then all operations in the document are allowed.
+   */
+  allowedOperationNames: Array<string>;
+  /**
+ * If set to true, and there was a successful execution of the query in the last 30 days, then the last successful result will be returned if we encounter any error when executing the query. If we do not have a previous successful result, then the response with the error will be returned.
+
+Note that the fallback result will be returned even in the case of partial success.
+
+This parameter is useful when you expect that your queries might be rate-limited by the underlying service.
+
+The query must provide a cache strategy in order to use `fallbackOnError`.
+ */
+  fallbackOnError: boolean;
+  freeVariables: Array<string>;
+  query: string;
+  /**
+   * List of tags to add to the persisted query. Tags are free-form text that can be used to categorize persisted queries. Each tag must be under 256 characters and there can be a maximum of 10 tags on a single persisted query.
+   */
+  tags: Array<string>;
+  /**
+   * A description for the persisted query. Maximum length is 2096 characters.
+   */
+  description?: string;
+  appId: string;
+};
+
+export type CreatePersistedQueryMutation = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      createPersistedQuery: {
+        persistedQuery: {
+          /**
+           * The persisted query's id.
+           */
+          id: string;
+          /**
+           * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
+           */
+          allowedOperationNames: Array<string>;
+          /**
+           * The user-defined description that was added to the query
+           */
+          description: string;
+          /**
+           * The default variables provided to the query.
+           */
+          fixedVariables: unknown;
+          /**
+           * The list of variables that the caller of the query is allowed to provide.
+           */
+          freeVariables: Array<string>;
+          /**
+           * The persisted query's query string.
+           */
+          query: string;
+          /**
+           * The list of user-defined tags that were added to the query
+           */
+          tags: Array<string>;
+        };
+      };
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors: Array<GraphQLError>;
+};
+
+/**
+ * Create a persisted operations doc to be later retrieved, usually from a GUI
+ */
+export function executeCreatePersistedQueryMutation(
+  variables: CreatePersistedQueryMutationInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<CreatePersistedQueryMutation>;
 
 export type ListPersistedQueriesInput = {
   /**
@@ -1362,6 +1364,641 @@ export function executeMarkCLISessionInactive(
   options?: NetlifyGraphFunctionOptions
 ): Promise<MarkCLISessionInactive>;
 
+export type ListSharedDocumentsQueryInput = {
+  nfToken: string;
+  /**
+   * The number of shared documents to fetch. Defaults to 10, maximum of 100.
+   */
+  first?: number;
+  status?: "PUBLISHED" | "UNPUBLISHED";
+  services: Array<
+    | "ADROLL"
+    | "ASANA"
+    | "BOX"
+    | "CONTENTFUL"
+    | "DEV_TO"
+    | "DOCUSIGN"
+    | "DRIBBBLE"
+    | "DROPBOX"
+    | "EGGHEADIO"
+    | "EVENTIL"
+    | "FACEBOOK"
+    | "FIREBASE"
+    | "GITHUB"
+    | "GMAIL"
+    | "GONG"
+    | "GOOGLE"
+    | "GOOGLE_ADS"
+    | "GOOGLE_ANALYTICS"
+    | "GOOGLE_CALENDAR"
+    | "GOOGLE_COMPUTE"
+    | "GOOGLE_DOCS"
+    | "GOOGLE_SEARCH_CONSOLE"
+    | "GOOGLE_TRANSLATE"
+    | "HUBSPOT"
+    | "INTERCOM"
+    | "MAILCHIMP"
+    | "MEETUP"
+    | "NETLIFY"
+    | "NOTION"
+    | "OUTREACH"
+    | "PRODUCT_HUNT"
+    | "QUICKBOOKS"
+    | "SALESFORCE"
+    | "SANITY"
+    | "SLACK"
+    | "SPOTIFY"
+    | "STRIPE"
+    | "TRELLO"
+    | "TWILIO"
+    | "TWITTER"
+    | "TWITCH_TV"
+    | "YNAB"
+    | "YOUTUBE"
+    | "ZEIT"
+    | "ZENDESK"
+    | "AIRTABLE"
+    | "APOLLO"
+    | "BREX"
+    | "BUNDLEPHOBIA"
+    | "CHARGEBEE"
+    | "CLEARBIT"
+    | "CLOUDFLARE"
+    | "CRUNCHBASE"
+    | "DESCURI"
+    | "FEDEX"
+    | "GOOGLE_MAPS"
+    | "GRAPHCMS"
+    | "IMMIGRATION_GRAPH"
+    | "LOGDNA"
+    | "MIXPANEL"
+    | "MUX"
+    | "NPM"
+    | "ONEGRAPH"
+    | "ORBIT"
+    | "OPEN_COLLECTIVE"
+    | "RSS"
+    | "UPS"
+    | "USPS"
+    | "WORDPRESS"
+  >;
+  style?: "DEFAULT" | "ROUNDED_RECTANGLE";
+};
+
+export type ListSharedDocumentsQuery = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      /**
+       * Get sharedDocument
+       */
+      sharedDocuments: {
+        nodes: Array<{
+          /**
+           * Document description
+           */
+          description: string;
+          /**
+           * The text of the GraphQL document
+           */
+          body: string;
+          /**
+           * Timestamp the document was created, in rfc3339 format.
+           */
+          createdAt: string;
+          /**
+           * The id of the shared document
+           */
+          id: string;
+          /**
+           * Current moderation status of the query
+           */
+          moderationStatus: "PUBLISHED" | "UNPUBLISHED";
+          /**
+           * Operation name
+           */
+          operationName: string;
+          /**
+           * The siteId that the shared document originated from
+           */
+          siteId: string;
+          /**
+           * Timestamp the document was last updated, in rfc3339 format.
+           */
+          updatedAt: string;
+          /**
+           * Services that appear in the query
+           */
+          services: Array<{
+            friendlyServiceName: string;
+            /**
+             * A short-lived svg image url of the logo for the service. May be null.
+             */
+            logoUrl: string;
+            service:
+              | "ADROLL"
+              | "ASANA"
+              | "BOX"
+              | "CONTENTFUL"
+              | "DEV_TO"
+              | "DOCUSIGN"
+              | "DRIBBBLE"
+              | "DROPBOX"
+              | "EGGHEADIO"
+              | "EVENTIL"
+              | "FACEBOOK"
+              | "FIREBASE"
+              | "GITHUB"
+              | "GMAIL"
+              | "GONG"
+              | "GOOGLE"
+              | "GOOGLE_ADS"
+              | "GOOGLE_ANALYTICS"
+              | "GOOGLE_CALENDAR"
+              | "GOOGLE_COMPUTE"
+              | "GOOGLE_DOCS"
+              | "GOOGLE_SEARCH_CONSOLE"
+              | "GOOGLE_TRANSLATE"
+              | "HUBSPOT"
+              | "INTERCOM"
+              | "MAILCHIMP"
+              | "MEETUP"
+              | "NETLIFY"
+              | "NOTION"
+              | "OUTREACH"
+              | "PRODUCT_HUNT"
+              | "QUICKBOOKS"
+              | "SALESFORCE"
+              | "SANITY"
+              | "SLACK"
+              | "SPOTIFY"
+              | "STRIPE"
+              | "TRELLO"
+              | "TWILIO"
+              | "TWITTER"
+              | "TWITCH_TV"
+              | "YNAB"
+              | "YOUTUBE"
+              | "ZEIT"
+              | "ZENDESK"
+              | "AIRTABLE"
+              | "APOLLO"
+              | "BREX"
+              | "BUNDLEPHOBIA"
+              | "CHARGEBEE"
+              | "CLEARBIT"
+              | "CLOUDFLARE"
+              | "CRUNCHBASE"
+              | "DESCURI"
+              | "FEDEX"
+              | "GOOGLE_MAPS"
+              | "GRAPHCMS"
+              | "IMMIGRATION_GRAPH"
+              | "LOGDNA"
+              | "MIXPANEL"
+              | "MUX"
+              | "NPM"
+              | "ONEGRAPH"
+              | "ORBIT"
+              | "OPEN_COLLECTIVE"
+              | "RSS"
+              | "UPS"
+              | "USPS"
+              | "WORDPRESS";
+            /**
+             * Service string that can be provided in the URL when going through the oauth flow.
+             */
+            slug: string;
+          }>;
+        }>;
+      };
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors: Array<GraphQLError>;
+};
+
+/**
+ * List shared documents given a set of filters
+ */
+export function fetchListSharedDocumentsQuery(
+  variables: ListSharedDocumentsQueryInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<ListSharedDocumentsQuery>;
+
+export type CreateSharedDocumentMutationInput = {
+  nfToken: string;
+  input: {
+    /**
+     * A description for the operation. Maximum length is 2096 characters.
+     */
+    description?: string
+    /**
+     * The Netlify siteId that this operation should be associated with. The currently-authenticated user must have access to this site in Netlify.
+     */;
+    siteId?: string
+    /**
+     * The shared operation text. Maximum length is 1mb.
+     */;
+    body: string;
+  };
+};
+
+export type CreateSharedDocumentMutation = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      /**
+       * Create a shared document
+       */
+      createSharedDocument: {
+        /**
+         * The shared document that was created.
+         */
+        sharedDocument: {
+          /**
+           * The id of the shared document
+           */
+          id: string;
+          /**
+           * Current moderation status of the query
+           */
+          moderationStatus: "PUBLISHED" | "UNPUBLISHED";
+          /**
+           * Operation name
+           */
+          operationName: string;
+          /**
+           * Services that appear in the query
+           */
+          services: Array<{
+            friendlyServiceName: string;
+          }>;
+          /**
+           * Document description
+           */
+          description: string;
+        };
+      };
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors: Array<GraphQLError>;
+};
+
+/**
+ * Create a document with a shared operation for others to import and use
+ */
+export function executeCreateSharedDocumentMutation(
+  variables: CreateSharedDocumentMutationInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<CreateSharedDocumentMutation>;
+
+export type SharedDocumentQueryInput = {
+  nfToken: string;
+  id: string;
+  logoStyle?: "DEFAULT" | "ROUNDED_RECTANGLE";
+};
+
+export type SharedDocumentQuery = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      /**
+       * Get a sharedDocument by its id
+       */
+      sharedDocument: {
+        /**
+         * The text of the GraphQL document
+         */
+        body: string;
+        /**
+         * Timestamp the document was created, in rfc3339 format.
+         */
+        createdAt: string;
+        /**
+         * Document description
+         */
+        description: string;
+        /**
+         * The id of the shared document
+         */
+        id: string;
+        /**
+         * Current moderation status of the query
+         */
+        moderationStatus: "PUBLISHED" | "UNPUBLISHED";
+        /**
+         * Operation name
+         */
+        operationName: string;
+        /**
+         * Timestamp the document was last updated, in rfc3339 format.
+         */
+        updatedAt: string;
+        /**
+         * Services that appear in the query
+         */
+        services: Array<{
+          /**
+           * A short-lived svg image url of the logo for the service. May be null.
+           */
+          logoUrl: string;
+          friendlyServiceName: string;
+          service:
+            | "ADROLL"
+            | "ASANA"
+            | "BOX"
+            | "CONTENTFUL"
+            | "DEV_TO"
+            | "DOCUSIGN"
+            | "DRIBBBLE"
+            | "DROPBOX"
+            | "EGGHEADIO"
+            | "EVENTIL"
+            | "FACEBOOK"
+            | "FIREBASE"
+            | "GITHUB"
+            | "GMAIL"
+            | "GONG"
+            | "GOOGLE"
+            | "GOOGLE_ADS"
+            | "GOOGLE_ANALYTICS"
+            | "GOOGLE_CALENDAR"
+            | "GOOGLE_COMPUTE"
+            | "GOOGLE_DOCS"
+            | "GOOGLE_SEARCH_CONSOLE"
+            | "GOOGLE_TRANSLATE"
+            | "HUBSPOT"
+            | "INTERCOM"
+            | "MAILCHIMP"
+            | "MEETUP"
+            | "NETLIFY"
+            | "NOTION"
+            | "OUTREACH"
+            | "PRODUCT_HUNT"
+            | "QUICKBOOKS"
+            | "SALESFORCE"
+            | "SANITY"
+            | "SLACK"
+            | "SPOTIFY"
+            | "STRIPE"
+            | "TRELLO"
+            | "TWILIO"
+            | "TWITTER"
+            | "TWITCH_TV"
+            | "YNAB"
+            | "YOUTUBE"
+            | "ZEIT"
+            | "ZENDESK"
+            | "AIRTABLE"
+            | "APOLLO"
+            | "BREX"
+            | "BUNDLEPHOBIA"
+            | "CHARGEBEE"
+            | "CLEARBIT"
+            | "CLOUDFLARE"
+            | "CRUNCHBASE"
+            | "DESCURI"
+            | "FEDEX"
+            | "GOOGLE_MAPS"
+            | "GRAPHCMS"
+            | "IMMIGRATION_GRAPH"
+            | "LOGDNA"
+            | "MIXPANEL"
+            | "MUX"
+            | "NPM"
+            | "ONEGRAPH"
+            | "ORBIT"
+            | "OPEN_COLLECTIVE"
+            | "RSS"
+            | "UPS"
+            | "USPS"
+            | "WORDPRESS";
+          /**
+           * Service string that can be provided in the URL when going through the oauth flow.
+           */
+          slug: string;
+        }>;
+      };
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors: Array<GraphQLError>;
+};
+
+/**
+ * Find a shared document given its id
+ */
+export function fetchSharedDocumentQuery(
+  variables: SharedDocumentQueryInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<SharedDocumentQuery>;
+
+export type ListNetlifyEnabledServicesQueryInput = {
+  logoStyle?: "DEFAULT" | "ROUNDED_RECTANGLE";
+  /**
+   * Filter for services that are in the list of services
+   */
+  betaServices?: Array<
+    | "ADROLL"
+    | "ASANA"
+    | "BOX"
+    | "CONTENTFUL"
+    | "DEV_TO"
+    | "DOCUSIGN"
+    | "DRIBBBLE"
+    | "DROPBOX"
+    | "EGGHEADIO"
+    | "EVENTIL"
+    | "FACEBOOK"
+    | "FIREBASE"
+    | "GITHUB"
+    | "GMAIL"
+    | "GONG"
+    | "GOOGLE"
+    | "GOOGLE_ADS"
+    | "GOOGLE_ANALYTICS"
+    | "GOOGLE_CALENDAR"
+    | "GOOGLE_COMPUTE"
+    | "GOOGLE_DOCS"
+    | "GOOGLE_SEARCH_CONSOLE"
+    | "GOOGLE_TRANSLATE"
+    | "HUBSPOT"
+    | "INTERCOM"
+    | "MAILCHIMP"
+    | "MEETUP"
+    | "NETLIFY"
+    | "NOTION"
+    | "OUTREACH"
+    | "PRODUCT_HUNT"
+    | "QUICKBOOKS"
+    | "SALESFORCE"
+    | "SANITY"
+    | "SLACK"
+    | "SPOTIFY"
+    | "STRIPE"
+    | "TRELLO"
+    | "TWILIO"
+    | "TWITTER"
+    | "TWITCH_TV"
+    | "YNAB"
+    | "YOUTUBE"
+    | "ZEIT"
+    | "ZENDESK"
+    | "AIRTABLE"
+    | "APOLLO"
+    | "BREX"
+    | "BUNDLEPHOBIA"
+    | "CHARGEBEE"
+    | "CLEARBIT"
+    | "CLOUDFLARE"
+    | "CRUNCHBASE"
+    | "DESCURI"
+    | "FEDEX"
+    | "GOOGLE_MAPS"
+    | "GRAPHCMS"
+    | "IMMIGRATION_GRAPH"
+    | "LOGDNA"
+    | "MIXPANEL"
+    | "MUX"
+    | "NPM"
+    | "ONEGRAPH"
+    | "ORBIT"
+    | "OPEN_COLLECTIVE"
+    | "RSS"
+    | "UPS"
+    | "USPS"
+    | "WORDPRESS"
+  >;
+};
+
+export type ListNetlifyEnabledServicesQuery = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      services: Array<{
+        friendlyServiceName: string;
+        /**
+         * A short-lived svg image url of the logo for the service. May be null.
+         */
+        logoUrl: string;
+        service:
+          | "ADROLL"
+          | "ASANA"
+          | "BOX"
+          | "CONTENTFUL"
+          | "DEV_TO"
+          | "DOCUSIGN"
+          | "DRIBBBLE"
+          | "DROPBOX"
+          | "EGGHEADIO"
+          | "EVENTIL"
+          | "FACEBOOK"
+          | "FIREBASE"
+          | "GITHUB"
+          | "GMAIL"
+          | "GONG"
+          | "GOOGLE"
+          | "GOOGLE_ADS"
+          | "GOOGLE_ANALYTICS"
+          | "GOOGLE_CALENDAR"
+          | "GOOGLE_COMPUTE"
+          | "GOOGLE_DOCS"
+          | "GOOGLE_SEARCH_CONSOLE"
+          | "GOOGLE_TRANSLATE"
+          | "HUBSPOT"
+          | "INTERCOM"
+          | "MAILCHIMP"
+          | "MEETUP"
+          | "NETLIFY"
+          | "NOTION"
+          | "OUTREACH"
+          | "PRODUCT_HUNT"
+          | "QUICKBOOKS"
+          | "SALESFORCE"
+          | "SANITY"
+          | "SLACK"
+          | "SPOTIFY"
+          | "STRIPE"
+          | "TRELLO"
+          | "TWILIO"
+          | "TWITTER"
+          | "TWITCH_TV"
+          | "YNAB"
+          | "YOUTUBE"
+          | "ZEIT"
+          | "ZENDESK"
+          | "AIRTABLE"
+          | "APOLLO"
+          | "BREX"
+          | "BUNDLEPHOBIA"
+          | "CHARGEBEE"
+          | "CLEARBIT"
+          | "CLOUDFLARE"
+          | "CRUNCHBASE"
+          | "DESCURI"
+          | "FEDEX"
+          | "GOOGLE_MAPS"
+          | "GRAPHCMS"
+          | "IMMIGRATION_GRAPH"
+          | "LOGDNA"
+          | "MIXPANEL"
+          | "MUX"
+          | "NPM"
+          | "ONEGRAPH"
+          | "ORBIT"
+          | "OPEN_COLLECTIVE"
+          | "RSS"
+          | "UPS"
+          | "USPS"
+          | "WORDPRESS";
+        /**
+         * Service string that can be provided in the URL when going through the oauth flow.
+         */
+        slug: string;
+        supportsCustomRedirectUri: boolean;
+        supportsCustomServiceAuth: boolean;
+        supportsOauthLogin: boolean;
+        /**
+         * Whether Netlify Graph is enabled for this service
+         */
+        netlifyGraphEnabled: boolean;
+        /**
+         * Whether Netlify API Authentication is enabled for this service
+         */
+        netlifyApiAuthenticationEnabled: boolean;
+      }>;
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors: Array<GraphQLError>;
+};
+
+/**
+ * Retrieve a list of _all_ supported services from OneGraph
+ */
+export function fetchListNetlifyEnabledServicesQuery(
+  variables: ListNetlifyEnabledServicesQueryInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<ListNetlifyEnabledServicesQuery>;
+
 export interface Functions {
   /**
    * Create a GraphQL Schema by specifying its inputs (services, external GraphQL schemas, etc.)
@@ -1423,6 +2060,22 @@ export interface Functions {
    * Mark a CLI session as inactive
    */
   executeMarkCLISessionInactive: typeof executeMarkCLISessionInactive;
+  /**
+   * List shared documents given a set of filters
+   */
+  fetchListSharedDocumentsQuery: typeof fetchListSharedDocumentsQuery;
+  /**
+   * Create a document with a shared operation for others to import and use
+   */
+  executeCreateSharedDocumentMutation: typeof executeCreateSharedDocumentMutation;
+  /**
+   * Find a shared document given its id
+   */
+  fetchSharedDocumentQuery: typeof fetchSharedDocumentQuery;
+  /**
+   * Retrieve a list of _all_ supported services from OneGraph
+   */
+  fetchListNetlifyEnabledServicesQuery: typeof fetchListNetlifyEnabledServicesQuery;
 }
 
 export const functions: Functions;

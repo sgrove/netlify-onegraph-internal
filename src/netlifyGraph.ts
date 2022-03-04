@@ -218,7 +218,7 @@ ${out(
         timeout: timeoutMs,
       }
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId
+  const url = 'https://graph.netlify.com/graphql?app_id=' + siteId
 
   const respBody = []
 
@@ -275,7 +275,7 @@ ${out(
     body: reqBody
   };
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + siteId;
+  const url = 'https://graph.netlify.com/graphql?app_id=' + siteId;
 
   return fetch(url, reqOptions);
 }`
@@ -386,7 +386,7 @@ ${out(
   };
 
   const encodedVariables = encodeURIComponent(input.variables || "null");
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
         
   const respBody = []
 
@@ -443,7 +443,7 @@ const httpPost = (input) => {
   };
 
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
   const respBody = []
 
@@ -507,7 +507,7 @@ ${out(
   };
 
   const url =
-    'https://serve.onegraph.com/graphql?app_id=' +
+    'https://graph.netlify.com/graphql?app_id=' +
     input.siteId +
     '&doc_id=' +
     input.docId +
@@ -546,7 +546,7 @@ const httpPost = (input) => {
     schemaId ? `"${schemaId}"` : "undefined"
   };
 
-  const url = 'https://serve.onegraph.com/graphql?app_id=' + input.siteId +
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
 
   return fetch(url, reqOptions);
