@@ -196,6 +196,103 @@ export function typeScriptForGraphQLType(
   }
 }
 
+export const guessVariableDescriptions = (
+  schema: GraphQLSchema,
+  operationDefinition: OperationDefinitionNode,
+  variableNames: string[]
+): Record<
+  string,
+  {
+    usageCount: number;
+    descriptions?: Set<string>;
+  }
+> => {
+  const variableRecords: Record<
+    string,
+    { usageCount: number; descriptions?: Set<string> }
+  > = {};
+
+  for (let variableName of variableNames) {
+    variableRecords[variableName] = {
+      usageCount: 0,
+      descriptions: new Set(),
+    };
+  }
+
+  const typeInfo = new TypeInfo(schema);
+
+  const argHandler: ASTVisitFn<ArgumentNode> = (node) => {
+    if (node.value && node.value.kind === Kind.VARIABLE) {
+      const argument = typeInfo.getArgument();
+      const existingRecord = variableRecords[node.value.name.value];
+      const existingDescription = existingRecord?.descriptions;
+
+      if (existingDescription && argument?.description) {
+        existingDescription.add(argument.description);
+      }
+
+      if (!existingRecord) {
+        internalConsole.warn(
+          `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
+        );
+
+        return node;
+      }
+
+      variableRecords[node.value.name.value] = {
+        ...existingRecord,
+        usageCount: existingRecord?.usageCount + 1,
+      };
+    }
+    return node;
+  };
+
+  const objectFieldHandler: ASTVisitFn<ObjectFieldNode> = (node) => {
+    if (node.value && node.value.kind === Kind.VARIABLE) {
+      const parentType = typeInfo.getParentInputType();
+      const namedParentType = getNamedType(parentType);
+
+      let field: GraphQLInputField | undefined;
+
+      if (isInputObjectType(namedParentType)) {
+        field = namedParentType?.getFields()[node.name.value];
+
+        const existingRecord = variableRecords[node.value.name.value];
+        const existingDescription = existingRecord?.descriptions;
+
+        if (existingDescription && field?.description) {
+          existingDescription.add(field.description);
+        }
+
+        if (!existingRecord) {
+          internalConsole.warn(
+            `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
+          );
+
+          return node;
+        }
+
+        variableRecords[node.value.name.value] = {
+          ...existingRecord,
+          usageCount: existingRecord.usageCount + 1,
+        };
+      }
+
+      return node;
+    }
+  };
+
+  visit(
+    operationDefinition,
+    visitWithTypeInfo(typeInfo, {
+      Argument: argHandler,
+      ObjectField: objectFieldHandler,
+    })
+  );
+
+  return variableRecords;
+};
+
 export function typeScriptSignatureForOperationVariables(
   variableNames: Array<string>,
   schema: GraphQLSchema,
@@ -223,102 +320,11 @@ export function typeScriptSignatureForOperationVariables(
       return variableNames.includes(variableName);
     });
 
-  const guessVariableDescription = (
-    variableNames: string[]
-  ): Record<
-    string,
-    {
-      usageCount: number;
-      descriptions?: Set<string>;
-    }
-  > => {
-    const variableRecords: Record<
-      string,
-      { usageCount: number; descriptions?: Set<string> }
-    > = {};
-
-    for (let variableName of variableNames) {
-      variableRecords[variableName] = {
-        usageCount: 0,
-        descriptions: new Set(),
-      };
-    }
-
-    const typeInfo = new TypeInfo(schema);
-
-    const argHandler: ASTVisitFn<ArgumentNode> = (node) => {
-      if (node.value && node.value.kind === Kind.VARIABLE) {
-        const argument = typeInfo.getArgument();
-        const existingRecord = variableRecords[node.value.name.value];
-        const existingDescription = existingRecord?.descriptions;
-
-        if (existingDescription && argument?.description) {
-          existingDescription.add(argument.description);
-        }
-
-        if (!existingRecord) {
-          internalConsole.warn(
-            `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
-          );
-
-          return node;
-        }
-
-        variableRecords[node.value.name.value] = {
-          ...existingRecord,
-          usageCount: existingRecord?.usageCount + 1,
-        };
-      }
-      return node;
-    };
-
-    const objectFieldHandler: ASTVisitFn<ObjectFieldNode> = (node) => {
-      if (node.value && node.value.kind === Kind.VARIABLE) {
-        const parentType = typeInfo.getParentInputType();
-        const namedParentType = getNamedType(parentType);
-
-        let field: GraphQLInputField | undefined;
-
-        if (isInputObjectType(namedParentType)) {
-          field = namedParentType?.getFields()[node.name.value];
-
-          const existingRecord = variableRecords[node.value.name.value];
-          const existingDescription = existingRecord?.descriptions;
-
-          if (existingDescription && field?.description) {
-            existingDescription.add(field.description);
-          }
-
-          if (!existingRecord) {
-            internalConsole.warn(
-              `Undefined variable $${node.value.name.value} found in operation ${operationDefinition.name?.value}`
-            );
-
-            return node;
-          }
-
-          variableRecords[node.value.name.value] = {
-            ...existingRecord,
-            usageCount: existingRecord.usageCount + 1,
-          };
-        }
-
-        return node;
-      }
-    };
-
-    visit(
-      operationDefinition,
-      visitWithTypeInfo(typeInfo, {
-        Argument: argHandler,
-        ObjectField: objectFieldHandler,
-      })
-    );
-
-    return variableRecords;
-  };
-
-  const variableUsageInfo = guessVariableDescription(variableNames);
+  const variableUsageInfo = guessVariableDescriptions(
+    schema,
+    operationDefinition,
+    variableNames
+  );
 
   let typesObject: [string, string, boolean][] = variables
     .map(([varName, varDef]) => {
