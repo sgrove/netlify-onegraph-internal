@@ -94,6 +94,7 @@ export type ExtractedFunction = {
 export type ExtractedFragment = {
   id: string;
   fragmentName: string;
+  typeCondition: string;
   description: string;
   kind: "fragment";
   parsedOperation: FragmentDefinitionNode;
@@ -341,7 +342,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
       const resultJson = result.json();
       resultJson.then((json) => {
         if (etag) {
-          // Make a not of the new etag for the given payload
+          // Make a note of the new etag for the given payload
           setInCache(cache, cacheKey, [etag, json])
         };
         resolve(json);
@@ -631,7 +632,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
           const resultJson = result.json();
           resultJson.then((json) => {
             if (etag) {
-              // Make a not of the new etag for the given payload
+              // Make a note of the new etag for the given payload
               setInCache(cache, cacheKey, [etag, json])
             };
             resolve(json);
@@ -1035,12 +1036,15 @@ export const fragmentToParsedFragmentDefinition = (
     ),
   };
 
+  const typeCondition = operation.typeCondition.name.value;
+
   const fn: ParsedFragment = {
     ...basicFn,
     safeBody,
     kind: "fragment",
     returnSignature,
     fragmentName: operationName,
+    typeCondition,
     parsedOperation: operation,
     operationStringWithoutNetlifyDirective: print(
       operationWithoutNetlifyDirective
@@ -2079,10 +2083,11 @@ export const extractFunctionsFromOperationDoc = (
     };
 
     if (next.kind === Kind.FRAGMENT_DEFINITION) {
-      next.name?.value;
+      const typeCondition = next.typeCondition.name.value;
       const operation: ExtractedFragment = {
         id: netlifyDirective.id,
         fragmentName: key,
+        typeCondition: typeCondition,
         description: netlifyDirective.description,
         parsedOperation: next,
         kind: "fragment",
