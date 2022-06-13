@@ -657,6 +657,8 @@ export function typeScriptDefinitionObjectForOperation(
     }
   };
 
+  console.log("trying to find baseGqlType");
+
   let baseGqlType = (
     operationDefinition.kind === Kind.OPERATION_DEFINITION
       ? operationDefinition.operation === "query"

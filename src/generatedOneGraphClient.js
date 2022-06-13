@@ -117,7 +117,7 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
         const resultJson = result.json();
         resultJson.then((json) => {
           if (etag) {
-            // Make a not of the new etag for the given payload
+            // Make a note of the new etag for the given payload
             setInCache(cache, cacheKey, [etag, json]);
           }
           resolve(json);
@@ -152,8 +152,8 @@ export const verifyRequestSignature = (request, options) => {
 
 export const executeCreateGraphQLSchemaMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateGraphQLSchemaMutation($input: OneGraphCreateGraphQLSchemaInput!) {
-  oneGraph {
+    query: `mutation CreateGraphQLSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQLSchemaInput!) {
+  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
     createGraphQLSchema(input: $input) {
       graphQLSchema {
         id
@@ -764,3 +764,4 @@ export const handler = () => {
     }),
   };
 };
+

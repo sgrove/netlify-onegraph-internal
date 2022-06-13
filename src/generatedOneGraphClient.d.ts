@@ -26,6 +26,7 @@ export type GraphQLError = {
 };
 
 export type CreateGraphQLSchemaMutationInput = {
+  nfToken: string;
   input: {
     /**
      * Whether to set this schema as the default for the app. Defaults to false.

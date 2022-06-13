@@ -2,11 +2,76 @@ import { buildClientSchema } from "graphql";
 import fetch = require("node-fetch");
 import { internalConsole } from "./internalConsole";
 import GeneratedClient from "./generatedOneGraphClient";
-// import type { CreateNewSchemaMutationInput } from "./generatedOneGraphClient";
+import type { CreateNewSchemaMutationInput } from "./generatedOneGraphClient";
 
 const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
 
 const netlifyGraphHost = "graph.netlify.com";
+
+/**
+ * Fetch a schema (in json form) for an app by its schemaId
+ * @param {object} input
+ * @param {string} input.appId
+ * @param {string} input.schemaId
+ * @param {string} input.accessToken
+ * @returns {Promise<Record<string, any>>} The schema json
+ */
+export const fetchOneGraphSchemaByIdJson = async ({
+  appId,
+  schemaId,
+  accessToken,
+}: {
+  appId: string;
+  schemaId: string;
+  accessToken: string;
+}) => {
+  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&schemaId=${schemaId}`;
+  const authorizationHeader = accessToken
+    ? { authorization: `Bearer ${accessToken}` }
+    : {};
+  const headers = { ...authorizationHeader };
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      body: null,
+    });
+
+    const text = await response.text();
+    return JSON.parse(text);
+  } catch (error) {
+    internalConsole.error(
+      `Error fetching schema: ${JSON.stringify(error, null, 2)}`
+    );
+  }
+};
+
+/**
+ * Fetch a schema and parse it for an app by its schemaId
+ * @param {object} input
+ * @param {string} input.siteId
+ * @param {string} input.schemaId
+ * @param {string} input.accessToken
+ * @returns {Promise<GraphQLSchema>} The schema for the app
+ */
+export const fetchOneGraphSchemaById = async ({
+  siteId,
+  schemaId,
+  accessToken,
+}: {
+  siteId: string;
+  schemaId: string;
+  accessToken: string;
+}) => {
+  const result = await fetchOneGraphSchemaByIdJson({
+    accessToken,
+    appId: siteId,
+    schemaId,
+  });
+  const schema = buildClientSchema(result.data);
+  return schema;
+};
 
 /**
  * Given an appId and desired services, fetch the schema (in json form) for that app
@@ -14,7 +79,7 @@ const netlifyGraphHost = "graph.netlify.com";
  * @param {string[]} enabledServices
  * @returns {Promise<object>} The schema for the app
  */
-export const fetchOneGraphSchemaJson = async (
+export const fetchOneGraphSchemaForServicesJson = async (
   appId: string,
   enabledServices: string[]
 ) => {
@@ -45,11 +110,14 @@ export const fetchOneGraphSchemaJson = async (
  * @param {string[]} enabledServices
  * @returns {Promise<GraphQLSchema>} The schema for the app
  */
-export const fetchOneGraphSchema = async (
+export const fetchOneGraphSchemaForServices = async (
   appId: string,
   enabledServices: string[]
 ) => {
-  const result = await fetchOneGraphSchemaJson(appId, enabledServices);
+  const result = await fetchOneGraphSchemaForServicesJson(
+    appId,
+    enabledServices
+  );
   const schema = buildClientSchema(result.data);
   return schema;
 };
@@ -268,31 +336,40 @@ export const friendlyEventName = (event: OneGraphCliEvent) => {
       return "Generate handler as Netlify function ";
     case "OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent":
       return `Sync Netlify Graph operations library`;
+    case "OneGraphNetlifyCliSessionOpenFileEvent":
+      return `Open file ${payload.filePath}`;
     default: {
       return `Unrecognized event (${__typename})`;
     }
   }
 };
 
+export type OneGraphCliEventAudience = "ui" | "cli";
+/**
+ *
+ * @param {OneGraphCliEvent} event
+ * @returns {'ui' | 'cli'} Which audience the event is intended for
+ */
+export const eventAudience = (
+  event: OneGraphCliEvent
+): OneGraphCliEventAudience => {
+  const { __typename, payload } = event;
+  switch (__typename) {
+    case "OneGraphNetlifyCliSessionTestEvent":
+      return eventAudience(payload);
+    case "OneGraphNetlifyCliSessionFileWrittenEvent":
+      return "ui";
+    default: {
+      return "cli";
+    }
+  }
+};
+
 /**
  * Fetch the schema metadata for a site (enabled services, id, etc.)
- * @param {string} authToken The (typically netlify) access token that is used for authentication, if any
- * @param {string} siteId The site id to query against
- * @returns {Promise<object|undefined>} The schema metadata for the site
  */
-export const fetchAppSchema = async (authToken: string, siteId: string) => {
-  const result = await GeneratedClient.fetchAppSchemaQuery(
-    {
-      nfToken: authToken,
-      appId: siteId,
-    },
-    {
-      siteId: siteId,
-    }
-  );
-
-  return result.data?.oneGraph?.app?.graphQLSchema;
-};
+export const fetchAppSchemaQuery: typeof GeneratedClient.fetchAppSchemaQuery =
+  GeneratedClient.fetchAppSchemaQuery;
 
 /**
  * If a site does not exists upstream in OneGraph for the given site, create it
@@ -322,7 +399,7 @@ export const upsertAppForSite = async (authToken: string, siteId: string) => {
  */
 export const createNewAppSchema = async (
   nfToken: string,
-  input //: CreateNewSchemaMutationInput["input"]
+  input: CreateNewSchemaMutationInput["input"]
 ) => {
   const result = await GeneratedClient.executeCreateNewSchemaMutation(
     {
@@ -496,3 +573,9 @@ export const fetchSharedDocumentQuery: typeof GeneratedClient.fetchSharedDocumen
  */
 export const fetchListNetlifyEnabledServicesQuery: typeof GeneratedClient.fetchListNetlifyEnabledServicesQuery =
   GeneratedClient.fetchListNetlifyEnabledServicesQuery;
+
+/**
+ * Create a new event for a CLI session to consume
+ */
+export const executeCreateCLISessionEventMutation: typeof GeneratedClient.executeCreateCLISessionEventMutation =
+  GeneratedClient.executeCreateCLISessionEventMutation;
