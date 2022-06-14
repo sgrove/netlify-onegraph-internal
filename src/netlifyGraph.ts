@@ -1796,7 +1796,7 @@ export const generatePersistedFunctionsSource = async (
 
   for (const fn of functionDefinitions) {
     if (fn.executionStrategy === "DYNAMIC") {
-      console.log("Skipping dynamic operation", fn.operationName);
+      internalConsole.log("Skipping dynamic operation", fn.operationName);
       // @ts-ignore
       persistedFunctionDefinitions.push({
         ...fn,
@@ -1804,7 +1804,7 @@ export const generatePersistedFunctionsSource = async (
       continue;
     }
 
-    console.log("Persisting: ", fn.operationName);
+    internalConsole.log("Persisting: ", fn.operationName);
 
     const result = await executeCreatePersistedQueryMutation(
       {
