@@ -12,7 +12,7 @@ const ONEDASH_APP_ID = "0b066ba6-ed39-4db8-a497-ba0be34d5b2a";
 
 const netlifyGraphHost = "graph.netlify.com";
 
-const netlifyApiRoot = "https://api.netlify.com";
+const netlifyApiRoot = "https://api.netlify.com/api";
 
 export type JwtResult = {
   jwt: string;
@@ -44,19 +44,20 @@ const __netlifyGraphJwt = async ({
   const url = `${netlifyApiRoot}/v1/sites/${siteId}/jwt`;
   const options = {
     headers: {
+      "Content-type": "application/json",
       Authorization: `bearer ${nfToken}`,
     },
   };
 
-  console.log("Fetch:", url, options);
-
   const resp = await fetch(url, options);
 
-  const text = await resp.text();
-
-  console.log("resp:\n", text);
-
-  return JSON.parse(text);
+  if (resp.status === 200) {
+    return resp.json();
+  } else {
+    throw new Error(
+      `Non-200 status when exchanging API token for short-lived JWT: ${resp.status}`
+    );
+  }
 };
 
 export function getGraphJwtForSite({
@@ -71,8 +72,7 @@ export function getGraphJwtForSite({
     return Promise.resolve(cacheResult);
   }
   const result: Promise<JwtResult> = __netlifyGraphJwt({ siteId, nfToken })
-    .then(({ data }) => {
-      const jwt = data.jwt;
+    .then(({ jwt }) => {
       const base64Payload = jwt
         .split(".")[1]
         // url-safe -> ordinary base64

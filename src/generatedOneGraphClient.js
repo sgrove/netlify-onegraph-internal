@@ -1,10 +1,12 @@
 /* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-import buffer from "buffer";
-import crypto from "crypto";
-import https from "https";
-import process from "process";
+const buffer = require("buffer");
+const crypto = require("crypto");
+const fetch = require('node-fetch')
+const internalConsole = require("./internalConsole").internalConsole;
+
+const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "graph.netlify.com"
 
 export const verifySignature = (input) => {
   const secret = input.secret;
@@ -83,7 +85,7 @@ const calculateCacheKey = (payload) => {
   return JSON.stringify(payload);
 };
 
-const httpFetch = (siteId, options) => {
+const httpFetch = async (siteId, options) => {
   const reqBody = options.body || null;
   const userHeaders = options.headers || {};
   const headers = {
@@ -98,42 +100,13 @@ const httpFetch = (siteId, options) => {
     method: "POST",
     headers: headers,
     timeout: timeoutMs,
+    body: reqBody
   };
 
-  const url = "https://graph.netlify.com/graphql?app_id=" + siteId;
+  const url = "https://" + netlifyGraphHost + "/graphql?app_id=" + siteId;
 
-  const respBody = [];
-
-  return new Promise((resolve, reject) => {
-    const req = https.request(url, reqOptions, (res) => {
-      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
-        return reject(
-          new Error(
-            "Netlify Graph return non-OK HTTP status code" + res.statusCode
-          )
-        );
-      }
-
-      res.on("data", (chunk) => respBody.push(chunk));
-
-      res.on("end", () => {
-        const resString = buffer.Buffer.concat(respBody).toString();
-        resolve(resString);
-      });
-    });
-
-    req.on("error", (error) => {
-      console.error("Error making request to Netlify Graph:", error);
-    });
-
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error("Request to Netlify Graph timed out"));
-    });
-
-    req.write(reqBody);
-    req.end();
-  });
+  const resp = await fetch(url, reqOptions);
+  return resp;
 };
 
 const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
