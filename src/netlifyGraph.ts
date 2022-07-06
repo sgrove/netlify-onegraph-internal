@@ -1775,7 +1775,7 @@ export const generateFunctionsSource = async (
 
 export const generatePersistedFunctionsSource = async (
   netlifyGraphConfig: NetlifyGraphConfig,
-  netlifyToken: string,
+  netlifyJwt: string,
   siteId: string,
   schema: GraphQLSchema,
   operationsDoc: string,
@@ -1834,7 +1834,6 @@ export const generatePersistedFunctionsSource = async (
 
     const result = await executeCreatePersistedQueryMutation(
       {
-        nfToken: netlifyToken,
         appId: siteId,
         description: fn.description,
         query: fn.persistableOperationString,
@@ -1846,7 +1845,7 @@ export const generatePersistedFunctionsSource = async (
       },
       {
         siteId: siteId,
-        accessToken: netlifyToken,
+        accessToken: netlifyJwt,
       }
     );
 
