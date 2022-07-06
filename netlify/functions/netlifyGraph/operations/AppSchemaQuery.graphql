@@ -1,5 +1,5 @@
-query AppSchemaQuery($nfToken: String!, $appId: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155011""", doc: """Fetch the schema metadata for a site (enabled services, id, etc.)""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+query AppSchemaQuery($appId: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155011""", doc: """Fetch the schema metadata for a site (enabled services, id, etc.)""") {
+  oneGraph {
     app(id: $appId) {
       graphQLSchema {
         appId

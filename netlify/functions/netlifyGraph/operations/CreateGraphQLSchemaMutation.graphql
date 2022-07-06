@@ -1,5 +1,5 @@
-mutation CreateGraphQLSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQLSchemaInput!) @netlify(id: """12b5bd78-9222-4124-a731-5e697b155001""", doc: """Create a GraphQL Schema by specifying its inputs (services, external GraphQL schemas, etc.)""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+mutation CreateGraphQLSchemaMutation($input: OneGraphCreateGraphQLSchemaInput!) @netlify(id: """12b5bd78-9222-4124-a731-5e697b155001""", doc: """Create a GraphQL Schema by specifying its inputs (services, external GraphQL schemas, etc.)""") {
+  oneGraph {
     createGraphQLSchema(input: $input) {
       graphQLSchema {
         id

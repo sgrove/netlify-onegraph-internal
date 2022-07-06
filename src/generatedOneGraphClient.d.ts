@@ -26,7 +26,6 @@ export type GraphQLError = {
 };
 
 export type CreateGraphQLSchemaMutationInput = {
-  nfToken: string;
   input: {
     /**
      * Whether to set this schema as the default for the app. Defaults to false.
@@ -228,7 +227,6 @@ export type CreateApiTokenMutationInput = {
      */;
     appId: string;
   };
-  nfToken: string;
 };
 
 export type CreateApiTokenMutation = {
@@ -307,7 +305,6 @@ export function executeCreateApiTokenMutation(
 ): Promise<CreateApiTokenMutation>;
 
 export type CreatePersistedQueryMutationInput = {
-  nfToken: string;
   cacheStrategy?: {
     /**
      * Number of seconds to cache the query result for.
@@ -494,7 +491,6 @@ export function fetchListPersistedQueries(
 ): Promise<ListPersistedQueries>;
 
 export type PersistedQueryQueryInput = {
-  nfToken: string;
   /**
    * The id of the app that the persisted query belongs to.
    */
@@ -561,7 +557,6 @@ export function fetchPersistedQueryQuery(
 ): Promise<PersistedQueryQuery>;
 
 export type CreateCLISessionMutationInput = {
-  nfToken: string;
   appId: string;
   /**
    * An optional name for the session
@@ -614,7 +609,6 @@ export function executeCreateCLISessionMutation(
 ): Promise<CreateCLISessionMutation>;
 
 export type UpdateCLISessionMetadataMutationInput = {
-  nfToken: string;
   /**
    * The id of the session
    */
@@ -665,7 +659,6 @@ export function executeUpdateCLISessionMetadataMutation(
 ): Promise<UpdateCLISessionMetadataMutation>;
 
 export type CreateCLISessionEventMutationInput = {
-  nfToken: string;
   sessionId: string;
   payload: unknown;
 };
@@ -700,7 +693,6 @@ export function executeCreateCLISessionEventMutation(
 ): Promise<CreateCLISessionEventMutation>;
 
 export type CLISessionQueryInput = {
-  nfToken: string;
   sessionId: string;
   /**
    * The number of events to fetch, maximum of 1000.
@@ -754,7 +746,6 @@ export function fetchCLISessionQuery(
 ): Promise<CLISessionQuery>;
 
 export type AckCLISessionEventMutationInput = {
-  nfToken: string;
   sessionId: string;
   eventIds: Array<string>;
 };
@@ -793,7 +784,6 @@ export function executeAckCLISessionEventMutation(
 ): Promise<AckCLISessionEventMutation>;
 
 export type AppSchemaQueryInput = {
-  nfToken: string;
   /**
    * App id
    */
@@ -852,7 +842,6 @@ export function fetchAppSchemaQuery(
 ): Promise<AppSchemaQuery>;
 
 export type UpsertAppForSiteMutationInput = {
-  nfToken: string;
   siteId: string;
 };
 
@@ -928,7 +917,6 @@ export function executeUpsertAppForSiteMutation(
 ): Promise<UpsertAppForSiteMutation>;
 
 export type CreateNewSchemaMutationInput = {
-  nfToken: string;
   input: {
     /**
      * Whether to set this schema as the default for the app. Defaults to false.
@@ -1093,7 +1081,6 @@ export function executeCreateNewSchemaMutation(
 ): Promise<CreateNewSchemaMutation>;
 
 export type MarkCLISessionActiveHeartbeatInput = {
-  nfToken: string;
   /**
    * The id of the session
    */
@@ -1141,7 +1128,6 @@ export function executeMarkCLISessionActiveHeartbeat(
 ): Promise<MarkCLISessionActiveHeartbeat>;
 
 export type MarkCLISessionInactiveInput = {
-  nfToken: string;
   /**
    * The id of the session
    */
@@ -1189,7 +1175,6 @@ export function executeMarkCLISessionInactive(
 ): Promise<MarkCLISessionInactive>;
 
 export type ListSharedDocumentsQueryInput = {
-  nfToken: string;
   /**
    * The number of shared documents to fetch. Defaults to 10, maximum of 100.
    */
@@ -1352,7 +1337,6 @@ export function fetchListSharedDocumentsQuery(
 ): Promise<ListSharedDocumentsQuery>;
 
 export type CreateSharedDocumentMutationInput = {
-  nfToken: string;
   input: {
     /**
      * Optional example variables to include with the document.
@@ -1432,7 +1416,6 @@ export function executeCreateSharedDocumentMutation(
 ): Promise<CreateSharedDocumentMutation>;
 
 export type SharedDocumentQueryInput = {
-  nfToken: string;
   id: string;
   logoStyle?: "DEFAULT" | "ROUNDED_RECTANGLE";
 };

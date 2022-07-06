@@ -1,5 +1,5 @@
-query PersistedQueryQuery($nfToken: String!, $appId: String!, $id: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155005""", doc: """Fetch a persisted doc belonging to appId by its id""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+query PersistedQueryQuery($appId: String!, $id: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155005""", doc: """Fetch a persisted doc belonging to appId by its id""") {
+  oneGraph {
     persistedQuery(appId: $appId, id: $id) {
       id
       query
