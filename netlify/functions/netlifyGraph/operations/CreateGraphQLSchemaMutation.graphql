@@ -7,7 +7,9 @@ mutation CreateGraphQLSchemaMutation($nfToken: String!, $input: OneGraphCreateGr
           nodes {
             id
             endpoint
-            service
+            serviceInfo {
+              graphQLField
+            }
             createdAt
             updatedAt
           }
@@ -19,7 +21,7 @@ mutation CreateGraphQLSchemaMutation($nfToken: String!, $input: OneGraphCreateGr
           updatedAt
         }
         services {
-          slug
+          graphQLField
         }
         updatedAt
         createdAt

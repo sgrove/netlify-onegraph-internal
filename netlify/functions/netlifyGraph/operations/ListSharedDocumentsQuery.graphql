@@ -16,7 +16,7 @@ query ListSharedDocumentsQuery($nfToken: String!, $first: Int = 10, $status: One
         services {
           friendlyServiceName
           logoUrl(style: $style)
-          service
+          graphQLField
           slug
         }
       }

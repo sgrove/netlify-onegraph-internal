@@ -5,7 +5,7 @@ query ListNetlifyEnabledServicesQuery($logoStyle: OneGraphAppLogoStyleEnum = ROU
     ) {
       friendlyServiceName
       logoUrl(style: $logoStyle)
-      service
+      graphQLField
       slug
       supportsCustomRedirectUri
       supportsCustomServiceAuth

@@ -161,7 +161,9 @@ export const executeCreateGraphQLSchemaMutation = (variables, options) => {
           nodes {
             id
             endpoint
-            service
+            serviceInfo {
+              graphQLField
+            }
             createdAt
             updatedAt
           }
@@ -173,7 +175,7 @@ export const executeCreateGraphQLSchemaMutation = (variables, options) => {
           updatedAt
         }
         services {
-          slug
+          graphQLField
         }
         updatedAt
         createdAt
@@ -197,7 +199,9 @@ export const executeCreateApiTokenMutation = (variables, options) => {
       accessToken {
         token
         userAuths {
-          service
+          serviceInfo {
+            graphQLField
+          }
           foreignUserId
           scopes
         }
@@ -435,7 +439,7 @@ export const fetchAppSchemaQuery = (variables, options) => {
         services {
           friendlyServiceName
           logoUrl
-          service
+          graphQLField
           slug
           supportsCustomRedirectUri
           supportsCustomServiceAuth
@@ -497,7 +501,7 @@ export const executeCreateNewSchemaMutation = (variables, options) => {
         services {
           friendlyServiceName
           logoUrl
-          service
+          graphQLField
           slug
           supportsCustomRedirectUri
           supportsCustomServiceAuth
@@ -578,7 +582,7 @@ export const fetchListSharedDocumentsQuery = (variables, options) => {
         services {
           friendlyServiceName
           logoUrl(style: $style)
-          service
+          graphQLField
           slug
         }
       }
@@ -631,7 +635,7 @@ export const fetchSharedDocumentQuery = (variables, options) => {
       services {
         logoUrl(style: $logoStyle)
         friendlyServiceName
-        service
+        graphQLField
         slug
       }
     }
@@ -653,7 +657,7 @@ export const fetchListNetlifyEnabledServicesQuery = (variables, options) => {
     ) {
       friendlyServiceName
       logoUrl(style: $logoStyle)
-      service
+      graphQLField
       slug
       supportsCustomRedirectUri
       supportsCustomServiceAuth
@@ -764,4 +768,3 @@ export const handler = () => {
     }),
   };
 };
-

@@ -56,6 +56,7 @@ export type CreateGraphQLSchemaMutationInput = {
       | "ADROLL"
       | "ASANA"
       | "BOX"
+      | "CLOUDINARY"
       | "CONTENTFUL"
       | "DEV_TO"
       | "DOCUSIGN"
@@ -87,17 +88,19 @@ export type CreateGraphQLSchemaMutationInput = {
       | "QUICKBOOKS"
       | "SALESFORCE"
       | "SANITY"
+      | "SHOPIFY_ADMIN"
+      | "SHOPIFY_STOREFRONT"
       | "SLACK"
       | "SPOTIFY"
       | "STRIPE"
-      | "TRELLO"
-      | "TWILIO"
-      | "TWITTER"
       | "TWITCH_TV"
+      | "TWILIO"
       | "YNAB"
       | "YOUTUBE"
       | "ZEIT"
       | "ZENDESK"
+      | "TRELLO"
+      | "TWITTER"
       | "AIRTABLE"
       | "APOLLO"
       | "BREX"
@@ -123,6 +126,10 @@ export type CreateGraphQLSchemaMutationInput = {
       | "USPS"
       | "WORDPRESS"
     >
+    /**
+     * The list of GraphQL fields identifying services that this schema should use. Leave blank if you want to add support for all supported services. Note that this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
+     */;
+    graphQLFieldForEnabledServices?: Array<string>
     /**
      * The id of the app that the schema should belong to.
      */;
@@ -153,9 +160,14 @@ export type CreateGraphQLSchemaMutation = {
                */
               endpoint: string;
               /**
-               * Service of the external graphql schema
+               * Service ID of the external graphql schema
                */
-              service: "GRAPHCMS" | "WORDPRESS";
+              serviceInfo: {
+                /**
+                 * GraphQL field identifying the service in the schema
+                 */
+                graphQLField: string;
+              };
               /**
                * The datetime that the schema was added, in rfc3339 format.
                */
@@ -183,9 +195,9 @@ export type CreateGraphQLSchemaMutation = {
           };
           services: Array<{
             /**
-             * Service string that can be provided in the URL when going through the oauth flow.
+             * GraphQL field identifying the service in the schema
              */
-            slug: string;
+            graphQLField: string;
           }>;
           updatedAt: string;
           createdAt: string;
@@ -241,76 +253,12 @@ export type CreateApiTokenMutation = {
             /**
              * Service that the auth belongs to.
              */
-            service:
-              | "ADROLL"
-              | "ASANA"
-              | "BOX"
-              | "CONTENTFUL"
-              | "DEV_TO"
-              | "DOCUSIGN"
-              | "DRIBBBLE"
-              | "DROPBOX"
-              | "EGGHEADIO"
-              | "EVENTIL"
-              | "FACEBOOK"
-              | "FIREBASE"
-              | "GITHUB"
-              | "GMAIL"
-              | "GONG"
-              | "GOOGLE"
-              | "GOOGLE_ADS"
-              | "GOOGLE_ANALYTICS"
-              | "GOOGLE_CALENDAR"
-              | "GOOGLE_COMPUTE"
-              | "GOOGLE_DOCS"
-              | "GOOGLE_SEARCH_CONSOLE"
-              | "GOOGLE_TRANSLATE"
-              | "HUBSPOT"
-              | "INTERCOM"
-              | "MAILCHIMP"
-              | "MEETUP"
-              | "NETLIFY"
-              | "NOTION"
-              | "OUTREACH"
-              | "PRODUCT_HUNT"
-              | "QUICKBOOKS"
-              | "SALESFORCE"
-              | "SANITY"
-              | "SLACK"
-              | "SPOTIFY"
-              | "STRIPE"
-              | "TRELLO"
-              | "TWILIO"
-              | "TWITTER"
-              | "TWITCH_TV"
-              | "YNAB"
-              | "YOUTUBE"
-              | "ZEIT"
-              | "ZENDESK"
-              | "AIRTABLE"
-              | "APOLLO"
-              | "BREX"
-              | "BUNDLEPHOBIA"
-              | "CHARGEBEE"
-              | "CLEARBIT"
-              | "CLOUDFLARE"
-              | "CRUNCHBASE"
-              | "DESCURI"
-              | "FEDEX"
-              | "GOOGLE_MAPS"
-              | "GRAPHCMS"
-              | "IMMIGRATION_GRAPH"
-              | "LOGDNA"
-              | "MIXPANEL"
-              | "MUX"
-              | "NPM"
-              | "ONEGRAPH"
-              | "ORBIT"
-              | "OPEN_COLLECTIVE"
-              | "RSS"
-              | "UPS"
-              | "USPS"
-              | "WORDPRESS";
+            serviceInfo: {
+              /**
+               * GraphQL field identifying the service in the schema
+               */
+              graphQLField: string;
+            };
             /**
              * Unique id for the logged-in entity on the service.
              */
@@ -693,7 +641,7 @@ export type UpdateCLISessionMetadataMutation = {
         session: {
           id: string;
           name: string;
-          metadata: unknown;
+          metadata: Record<string, unknown>;
           /**
            * Number of milliseconds to wait between heartbeats
            */
@@ -785,7 +733,7 @@ export type CLISessionQuery = {
           }
         >;
         lastEventAt: string;
-        metadata: unknown;
+        metadata: Record<string, unknown>;
         name: string;
         netlifyUserId: string;
       };
@@ -872,76 +820,10 @@ export type AppSchemaQuery = {
              * A short-lived svg image url of the logo for the service. May be null.
              */
             logoUrl: string;
-            service:
-              | "ADROLL"
-              | "ASANA"
-              | "BOX"
-              | "CONTENTFUL"
-              | "DEV_TO"
-              | "DOCUSIGN"
-              | "DRIBBBLE"
-              | "DROPBOX"
-              | "EGGHEADIO"
-              | "EVENTIL"
-              | "FACEBOOK"
-              | "FIREBASE"
-              | "GITHUB"
-              | "GMAIL"
-              | "GONG"
-              | "GOOGLE"
-              | "GOOGLE_ADS"
-              | "GOOGLE_ANALYTICS"
-              | "GOOGLE_CALENDAR"
-              | "GOOGLE_COMPUTE"
-              | "GOOGLE_DOCS"
-              | "GOOGLE_SEARCH_CONSOLE"
-              | "GOOGLE_TRANSLATE"
-              | "HUBSPOT"
-              | "INTERCOM"
-              | "MAILCHIMP"
-              | "MEETUP"
-              | "NETLIFY"
-              | "NOTION"
-              | "OUTREACH"
-              | "PRODUCT_HUNT"
-              | "QUICKBOOKS"
-              | "SALESFORCE"
-              | "SANITY"
-              | "SLACK"
-              | "SPOTIFY"
-              | "STRIPE"
-              | "TRELLO"
-              | "TWILIO"
-              | "TWITTER"
-              | "TWITCH_TV"
-              | "YNAB"
-              | "YOUTUBE"
-              | "ZEIT"
-              | "ZENDESK"
-              | "AIRTABLE"
-              | "APOLLO"
-              | "BREX"
-              | "BUNDLEPHOBIA"
-              | "CHARGEBEE"
-              | "CLEARBIT"
-              | "CLOUDFLARE"
-              | "CRUNCHBASE"
-              | "DESCURI"
-              | "FEDEX"
-              | "GOOGLE_MAPS"
-              | "GRAPHCMS"
-              | "IMMIGRATION_GRAPH"
-              | "LOGDNA"
-              | "MIXPANEL"
-              | "MUX"
-              | "NPM"
-              | "ONEGRAPH"
-              | "ORBIT"
-              | "OPEN_COLLECTIVE"
-              | "RSS"
-              | "UPS"
-              | "USPS"
-              | "WORDPRESS";
+            /**
+             * GraphQL field identifying the service in the schema
+             */
+            graphQLField: string;
             /**
              * Service string that can be provided in the URL when going through the oauth flow.
              */
@@ -1076,6 +958,7 @@ export type CreateNewSchemaMutationInput = {
       | "ADROLL"
       | "ASANA"
       | "BOX"
+      | "CLOUDINARY"
       | "CONTENTFUL"
       | "DEV_TO"
       | "DOCUSIGN"
@@ -1107,17 +990,19 @@ export type CreateNewSchemaMutationInput = {
       | "QUICKBOOKS"
       | "SALESFORCE"
       | "SANITY"
+      | "SHOPIFY_ADMIN"
+      | "SHOPIFY_STOREFRONT"
       | "SLACK"
       | "SPOTIFY"
       | "STRIPE"
-      | "TRELLO"
-      | "TWILIO"
-      | "TWITTER"
       | "TWITCH_TV"
+      | "TWILIO"
       | "YNAB"
       | "YOUTUBE"
       | "ZEIT"
       | "ZENDESK"
+      | "TRELLO"
+      | "TWITTER"
       | "AIRTABLE"
       | "APOLLO"
       | "BREX"
@@ -1143,6 +1028,10 @@ export type CreateNewSchemaMutationInput = {
       | "USPS"
       | "WORDPRESS"
     >
+    /**
+     * The list of GraphQL fields identifying services that this schema should use. Leave blank if you want to add support for all supported services. Note that this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
+     */;
+    graphQLFieldForEnabledServices?: Array<string>
     /**
      * The id of the app that the schema should belong to.
      */;
@@ -1173,76 +1062,10 @@ export type CreateNewSchemaMutation = {
              * A short-lived svg image url of the logo for the service. May be null.
              */
             logoUrl: string;
-            service:
-              | "ADROLL"
-              | "ASANA"
-              | "BOX"
-              | "CONTENTFUL"
-              | "DEV_TO"
-              | "DOCUSIGN"
-              | "DRIBBBLE"
-              | "DROPBOX"
-              | "EGGHEADIO"
-              | "EVENTIL"
-              | "FACEBOOK"
-              | "FIREBASE"
-              | "GITHUB"
-              | "GMAIL"
-              | "GONG"
-              | "GOOGLE"
-              | "GOOGLE_ADS"
-              | "GOOGLE_ANALYTICS"
-              | "GOOGLE_CALENDAR"
-              | "GOOGLE_COMPUTE"
-              | "GOOGLE_DOCS"
-              | "GOOGLE_SEARCH_CONSOLE"
-              | "GOOGLE_TRANSLATE"
-              | "HUBSPOT"
-              | "INTERCOM"
-              | "MAILCHIMP"
-              | "MEETUP"
-              | "NETLIFY"
-              | "NOTION"
-              | "OUTREACH"
-              | "PRODUCT_HUNT"
-              | "QUICKBOOKS"
-              | "SALESFORCE"
-              | "SANITY"
-              | "SLACK"
-              | "SPOTIFY"
-              | "STRIPE"
-              | "TRELLO"
-              | "TWILIO"
-              | "TWITTER"
-              | "TWITCH_TV"
-              | "YNAB"
-              | "YOUTUBE"
-              | "ZEIT"
-              | "ZENDESK"
-              | "AIRTABLE"
-              | "APOLLO"
-              | "BREX"
-              | "BUNDLEPHOBIA"
-              | "CHARGEBEE"
-              | "CLEARBIT"
-              | "CLOUDFLARE"
-              | "CRUNCHBASE"
-              | "DESCURI"
-              | "FEDEX"
-              | "GOOGLE_MAPS"
-              | "GRAPHCMS"
-              | "IMMIGRATION_GRAPH"
-              | "LOGDNA"
-              | "MIXPANEL"
-              | "MUX"
-              | "NPM"
-              | "ONEGRAPH"
-              | "ORBIT"
-              | "OPEN_COLLECTIVE"
-              | "RSS"
-              | "UPS"
-              | "USPS"
-              | "WORDPRESS";
+            /**
+             * GraphQL field identifying the service in the schema
+             */
+            graphQLField: string;
             /**
              * Service string that can be provided in the URL when going through the oauth flow.
              */
@@ -1292,7 +1115,7 @@ export type MarkCLISessionActiveHeartbeat = {
          */
         session: {
           id: string;
-          status: "ACTIVE" | "INACTIVE";
+          status: "ACTIVE" | "INACTIVE" | "UNCLAIMED" | "TERMINATED";
           createdAt: string;
           updatedAt: string;
           /**
@@ -1340,7 +1163,7 @@ export type MarkCLISessionInactive = {
          */
         session: {
           id: string;
-          status: "ACTIVE" | "INACTIVE";
+          status: "ACTIVE" | "INACTIVE" | "UNCLAIMED" | "TERMINATED";
           createdAt: string;
           updatedAt: string;
           /**
@@ -1376,6 +1199,7 @@ export type ListSharedDocumentsQueryInput = {
     | "ADROLL"
     | "ASANA"
     | "BOX"
+    | "CLOUDINARY"
     | "CONTENTFUL"
     | "DEV_TO"
     | "DOCUSIGN"
@@ -1407,17 +1231,19 @@ export type ListSharedDocumentsQueryInput = {
     | "QUICKBOOKS"
     | "SALESFORCE"
     | "SANITY"
+    | "SHOPIFY_ADMIN"
+    | "SHOPIFY_STOREFRONT"
     | "SLACK"
     | "SPOTIFY"
     | "STRIPE"
-    | "TRELLO"
-    | "TWILIO"
-    | "TWITTER"
     | "TWITCH_TV"
+    | "TWILIO"
     | "YNAB"
     | "YOUTUBE"
     | "ZEIT"
     | "ZENDESK"
+    | "TRELLO"
+    | "TWITTER"
     | "AIRTABLE"
     | "APOLLO"
     | "BREX"
@@ -1498,76 +1324,10 @@ export type ListSharedDocumentsQuery = {
              * A short-lived svg image url of the logo for the service. May be null.
              */
             logoUrl: string;
-            service:
-              | "ADROLL"
-              | "ASANA"
-              | "BOX"
-              | "CONTENTFUL"
-              | "DEV_TO"
-              | "DOCUSIGN"
-              | "DRIBBBLE"
-              | "DROPBOX"
-              | "EGGHEADIO"
-              | "EVENTIL"
-              | "FACEBOOK"
-              | "FIREBASE"
-              | "GITHUB"
-              | "GMAIL"
-              | "GONG"
-              | "GOOGLE"
-              | "GOOGLE_ADS"
-              | "GOOGLE_ANALYTICS"
-              | "GOOGLE_CALENDAR"
-              | "GOOGLE_COMPUTE"
-              | "GOOGLE_DOCS"
-              | "GOOGLE_SEARCH_CONSOLE"
-              | "GOOGLE_TRANSLATE"
-              | "HUBSPOT"
-              | "INTERCOM"
-              | "MAILCHIMP"
-              | "MEETUP"
-              | "NETLIFY"
-              | "NOTION"
-              | "OUTREACH"
-              | "PRODUCT_HUNT"
-              | "QUICKBOOKS"
-              | "SALESFORCE"
-              | "SANITY"
-              | "SLACK"
-              | "SPOTIFY"
-              | "STRIPE"
-              | "TRELLO"
-              | "TWILIO"
-              | "TWITTER"
-              | "TWITCH_TV"
-              | "YNAB"
-              | "YOUTUBE"
-              | "ZEIT"
-              | "ZENDESK"
-              | "AIRTABLE"
-              | "APOLLO"
-              | "BREX"
-              | "BUNDLEPHOBIA"
-              | "CHARGEBEE"
-              | "CLEARBIT"
-              | "CLOUDFLARE"
-              | "CRUNCHBASE"
-              | "DESCURI"
-              | "FEDEX"
-              | "GOOGLE_MAPS"
-              | "GRAPHCMS"
-              | "IMMIGRATION_GRAPH"
-              | "LOGDNA"
-              | "MIXPANEL"
-              | "MUX"
-              | "NPM"
-              | "ONEGRAPH"
-              | "ORBIT"
-              | "OPEN_COLLECTIVE"
-              | "RSS"
-              | "UPS"
-              | "USPS"
-              | "WORDPRESS";
+            /**
+             * GraphQL field identifying the service in the schema
+             */
+            graphQLField: string;
             /**
              * Service string that can be provided in the URL when going through the oauth flow.
              */
@@ -1595,8 +1355,16 @@ export type CreateSharedDocumentMutationInput = {
   nfToken: string;
   input: {
     /**
-     * A description for the operation. Maximum length is 2096 characters.
+     * Optional example variables to include with the document.
      */
+    exampleVariables?: unknown
+    /**
+     * A short title for the operation. Maximum length is 256 characters.
+     */;
+    title?: string
+    /**
+     * A description for the operation. Maximum length is 2096 characters.
+     */;
     description?: string
     /**
      * The Netlify siteId that this operation should be associated with. The currently-authenticated user must have access to this site in Netlify.
@@ -1716,76 +1484,10 @@ export type SharedDocumentQuery = {
            */
           logoUrl: string;
           friendlyServiceName: string;
-          service:
-            | "ADROLL"
-            | "ASANA"
-            | "BOX"
-            | "CONTENTFUL"
-            | "DEV_TO"
-            | "DOCUSIGN"
-            | "DRIBBBLE"
-            | "DROPBOX"
-            | "EGGHEADIO"
-            | "EVENTIL"
-            | "FACEBOOK"
-            | "FIREBASE"
-            | "GITHUB"
-            | "GMAIL"
-            | "GONG"
-            | "GOOGLE"
-            | "GOOGLE_ADS"
-            | "GOOGLE_ANALYTICS"
-            | "GOOGLE_CALENDAR"
-            | "GOOGLE_COMPUTE"
-            | "GOOGLE_DOCS"
-            | "GOOGLE_SEARCH_CONSOLE"
-            | "GOOGLE_TRANSLATE"
-            | "HUBSPOT"
-            | "INTERCOM"
-            | "MAILCHIMP"
-            | "MEETUP"
-            | "NETLIFY"
-            | "NOTION"
-            | "OUTREACH"
-            | "PRODUCT_HUNT"
-            | "QUICKBOOKS"
-            | "SALESFORCE"
-            | "SANITY"
-            | "SLACK"
-            | "SPOTIFY"
-            | "STRIPE"
-            | "TRELLO"
-            | "TWILIO"
-            | "TWITTER"
-            | "TWITCH_TV"
-            | "YNAB"
-            | "YOUTUBE"
-            | "ZEIT"
-            | "ZENDESK"
-            | "AIRTABLE"
-            | "APOLLO"
-            | "BREX"
-            | "BUNDLEPHOBIA"
-            | "CHARGEBEE"
-            | "CLEARBIT"
-            | "CLOUDFLARE"
-            | "CRUNCHBASE"
-            | "DESCURI"
-            | "FEDEX"
-            | "GOOGLE_MAPS"
-            | "GRAPHCMS"
-            | "IMMIGRATION_GRAPH"
-            | "LOGDNA"
-            | "MIXPANEL"
-            | "MUX"
-            | "NPM"
-            | "ONEGRAPH"
-            | "ORBIT"
-            | "OPEN_COLLECTIVE"
-            | "RSS"
-            | "UPS"
-            | "USPS"
-            | "WORDPRESS";
+          /**
+           * GraphQL field identifying the service in the schema
+           */
+          graphQLField: string;
           /**
            * Service string that can be provided in the URL when going through the oauth flow.
            */
@@ -1817,6 +1519,7 @@ export type ListNetlifyEnabledServicesQueryInput = {
     | "ADROLL"
     | "ASANA"
     | "BOX"
+    | "CLOUDINARY"
     | "CONTENTFUL"
     | "DEV_TO"
     | "DOCUSIGN"
@@ -1848,17 +1551,19 @@ export type ListNetlifyEnabledServicesQueryInput = {
     | "QUICKBOOKS"
     | "SALESFORCE"
     | "SANITY"
+    | "SHOPIFY_ADMIN"
+    | "SHOPIFY_STOREFRONT"
     | "SLACK"
     | "SPOTIFY"
     | "STRIPE"
-    | "TRELLO"
-    | "TWILIO"
-    | "TWITTER"
     | "TWITCH_TV"
+    | "TWILIO"
     | "YNAB"
     | "YOUTUBE"
     | "ZEIT"
     | "ZENDESK"
+    | "TRELLO"
+    | "TWITTER"
     | "AIRTABLE"
     | "APOLLO"
     | "BREX"
@@ -1898,76 +1603,10 @@ export type ListNetlifyEnabledServicesQuery = {
          * A short-lived svg image url of the logo for the service. May be null.
          */
         logoUrl: string;
-        service:
-          | "ADROLL"
-          | "ASANA"
-          | "BOX"
-          | "CONTENTFUL"
-          | "DEV_TO"
-          | "DOCUSIGN"
-          | "DRIBBBLE"
-          | "DROPBOX"
-          | "EGGHEADIO"
-          | "EVENTIL"
-          | "FACEBOOK"
-          | "FIREBASE"
-          | "GITHUB"
-          | "GMAIL"
-          | "GONG"
-          | "GOOGLE"
-          | "GOOGLE_ADS"
-          | "GOOGLE_ANALYTICS"
-          | "GOOGLE_CALENDAR"
-          | "GOOGLE_COMPUTE"
-          | "GOOGLE_DOCS"
-          | "GOOGLE_SEARCH_CONSOLE"
-          | "GOOGLE_TRANSLATE"
-          | "HUBSPOT"
-          | "INTERCOM"
-          | "MAILCHIMP"
-          | "MEETUP"
-          | "NETLIFY"
-          | "NOTION"
-          | "OUTREACH"
-          | "PRODUCT_HUNT"
-          | "QUICKBOOKS"
-          | "SALESFORCE"
-          | "SANITY"
-          | "SLACK"
-          | "SPOTIFY"
-          | "STRIPE"
-          | "TRELLO"
-          | "TWILIO"
-          | "TWITTER"
-          | "TWITCH_TV"
-          | "YNAB"
-          | "YOUTUBE"
-          | "ZEIT"
-          | "ZENDESK"
-          | "AIRTABLE"
-          | "APOLLO"
-          | "BREX"
-          | "BUNDLEPHOBIA"
-          | "CHARGEBEE"
-          | "CLEARBIT"
-          | "CLOUDFLARE"
-          | "CRUNCHBASE"
-          | "DESCURI"
-          | "FEDEX"
-          | "GOOGLE_MAPS"
-          | "GRAPHCMS"
-          | "IMMIGRATION_GRAPH"
-          | "LOGDNA"
-          | "MIXPANEL"
-          | "MUX"
-          | "NPM"
-          | "ONEGRAPH"
-          | "ORBIT"
-          | "OPEN_COLLECTIVE"
-          | "RSS"
-          | "UPS"
-          | "USPS"
-          | "WORDPRESS";
+        /**
+         * GraphQL field identifying the service in the schema
+         */
+        graphQLField: string;
         /**
          * Service string that can be provided in the URL when going through the oauth flow.
          */

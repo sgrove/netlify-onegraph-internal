@@ -4,7 +4,9 @@ mutation CreateApiTokenMutation($input: OneGraphCreateApiTokenTokenInput!, $nfTo
       accessToken {
         token
         userAuths {
-          service
+          serviceInfo {
+            graphQLField
+          }
           foreignUserId
           scopes
         }

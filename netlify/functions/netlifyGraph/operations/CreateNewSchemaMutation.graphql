@@ -11,7 +11,7 @@ mutation CreateNewSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQ
         services {
           friendlyServiceName
           logoUrl
-          service
+          graphQLField
           slug
           supportsCustomRedirectUri
           supportsCustomServiceAuth
