@@ -11,7 +11,7 @@ query SharedDocumentQuery($nfToken: String!, $id: String!, $logoStyle: OneGraphA
       services {
         logoUrl(style: $logoStyle)
         friendlyServiceName
-        service
+        graphQLField
         slug
       }
     }
