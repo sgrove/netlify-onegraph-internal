@@ -97,7 +97,7 @@ const scalarMap: Record<string, OutType> = {
   Boolean: { kind: "scalar", type: "boolean" },
   GitHubGitObjectID: { kind: "scalar", type: "string" },
   GitHubURI: { kind: "scalar", type: "string" },
-  JSON: { kind: "scalar", type: "Record<string, unknown>" },
+  JSONObject: { kind: "scalar", type: "Record<string, unknown>" },
 };
 
 export function gatherAllReferencedTypes(
@@ -156,7 +156,7 @@ export function typeScriptForGraphQLType(
     Boolean: "boolean",
     GitHubURI: "string",
     GitHubTimestamp: "string",
-    JSON: "Record<string, unknown>",
+    JSONObject: "Record<string, unknown>",
   };
 
   if (isListType(gqlType)) {
