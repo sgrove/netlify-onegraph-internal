@@ -1,10 +1,58 @@
 /* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
+const buffer = require("buffer");
+const crypto = require("crypto");
 const fetch = require('node-fetch')
 const internalConsole = require("./internalConsole").internalConsole;
 
 const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "graph.netlify.com"
+
+export const verifySignature = (input) => {
+  const secret = input.secret;
+  const body = input.body;
+  const signature = input.signature;
+
+  if (!signature) {
+    console.error("Missing signature");
+    return false;
+  }
+
+  const sig = {};
+  for (const pair of signature.split(",")) {
+    const [key, value] = pair.split("=");
+    sig[key] = value;
+  }
+
+  if (!sig.t || !sig.hmac_sha256) {
+    console.error("Invalid signature header");
+    return false;
+  }
+
+  const hash = crypto
+    .createHmac("sha256", secret)
+    .update(sig.t)
+    .update(".")
+    .update(body)
+    .digest("hex");
+
+  if (
+    !crypto.timingSafeEqual(
+      Buffer.from(hash, "hex"),
+      Buffer.from(sig.hmac_sha256, "hex")
+    )
+  ) {
+    console.error("Invalid signature");
+    return false;
+  }
+
+  if (parseInt(sig.t, 10) < Date.now() / 1000 - 300 /* 5 minutes */) {
+    console.error("Request is too old");
+    return false;
+  }
+
+  return true;
+};
 
 // Basic LRU cache implementation
 const makeLRUCache = (max) => {
@@ -152,8 +200,8 @@ export const verifyRequestSignature = (request, options) => {
 
 export const executeCreateGraphQLSchemaMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateGraphQLSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQLSchemaInput!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateGraphQLSchemaMutation($input: OneGraphCreateGraphQLSchemaInput!) {
+  oneGraph {
     createGraphQLSchema(input: $input) {
       graphQLSchema {
         id
@@ -193,8 +241,8 @@ export const executeCreateGraphQLSchemaMutation = (variables, options) => {
 
 export const executeCreateApiTokenMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateApiTokenMutation($input: OneGraphCreateApiTokenTokenInput!, $nfToken: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateApiTokenMutation($input: OneGraphCreateApiTokenTokenInput!) {
+  oneGraph {
     createApiToken(input: $input) {
       accessToken {
         token
@@ -223,8 +271,8 @@ export const executeCreateApiTokenMutation = (variables, options) => {
 
 export const executeCreatePersistedQueryMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreatePersistedQueryMutation($nfToken: String!, $cacheStrategy: OneGraphPersistedQueryCacheStrategyArg, $allowedOperationNames: [String!]!, $fallbackOnError: Boolean!, $freeVariables: [String!]!, $query: String!, $tags: [String!]!, $description: String, $appId: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreatePersistedQueryMutation($cacheStrategy: OneGraphPersistedQueryCacheStrategyArg, $allowedOperationNames: [String!]!, $fallbackOnError: Boolean!, $freeVariables: [String!]!, $query: String!, $tags: [String!]!, $description: String, $appId: String!) {
+  oneGraph {
     createPersistedQuery(
       input: {query: $query, appId: $appId, cacheStrategy: $cacheStrategy, allowedOperationNames: $allowedOperationNames, fallbackOnError: $fallbackOnError, freeVariables: $freeVariables, tags: $tags, description: $description}
     ) {
@@ -280,8 +328,8 @@ export const fetchListPersistedQueries = (variables, options) => {
 
 export const fetchPersistedQueryQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query PersistedQueryQuery($nfToken: String!, $appId: String!, $id: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `query PersistedQueryQuery($appId: String!, $id: String!) {
+  oneGraph {
     persistedQuery(appId: $appId, id: $id) {
       id
       query
@@ -302,8 +350,8 @@ export const fetchPersistedQueryQuery = (variables, options) => {
 
 export const executeCreateCLISessionMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateCLISessionMutation($nfToken: String!, $appId: String!, $name: String!, $metadata: JSON) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateCLISessionMutation($appId: String!, $name: String!, $metadata: JSON) {
+  oneGraph {
     createNetlifyCliSession(
       input: {appId: $appId, name: $name, metadata: $metadata}
     ) {
@@ -326,8 +374,8 @@ export const executeCreateCLISessionMutation = (variables, options) => {
 
 export const executeUpdateCLISessionMetadataMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation UpdateCLISessionMetadataMutation($nfToken: String!, $sessionId: String!, $metadata: JSON!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation UpdateCLISessionMetadataMutation($sessionId: String!, $metadata: JSON!) {
+  oneGraph {
     updateNetlifyCliSession(input: {id: $sessionId, metadata: $metadata}) {
       session {
         id
@@ -347,8 +395,8 @@ export const executeUpdateCLISessionMetadataMutation = (variables, options) => {
 
 export const executeCreateCLISessionEventMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateCLISessionEventMutation($nfToken: String!, $sessionId: String!, $payload: JSON!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateCLISessionEventMutation($sessionId: String!, $payload: JSON!) {
+  oneGraph {
     createNetlifyCliTestEvent(
       input: {data: {payload: $payload}, sessionId: $sessionId}
     ) {
@@ -369,8 +417,8 @@ export const executeCreateCLISessionEventMutation = (variables, options) => {
 
 export const fetchCLISessionQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query CLISessionQuery($nfToken: String!, $sessionId: String!, $first: Int!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `query CLISessionQuery($sessionId: String!, $first: Int!) {
+  oneGraph {
     __typename
     netlifyCliSession(id: $sessionId) {
       appId
@@ -411,8 +459,8 @@ export const fetchCLISessionQuery = (variables, options) => {
 
 export const executeAckCLISessionEventMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation AckCLISessionEventMutation($nfToken: String!, $sessionId: String!, $eventIds: [String!]!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation AckCLISessionEventMutation($sessionId: String!, $eventIds: [String!]!) {
+  oneGraph {
     ackNetlifyCliEvents(input: {eventIds: $eventIds, sessionId: $sessionId}) {
       events {
         id
@@ -429,8 +477,8 @@ export const executeAckCLISessionEventMutation = (variables, options) => {
 
 export const fetchAppSchemaQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query AppSchemaQuery($nfToken: String!, $appId: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `query AppSchemaQuery($appId: String!) {
+  oneGraph {
     app(id: $appId) {
       graphQLSchema {
         appId
@@ -459,8 +507,8 @@ export const fetchAppSchemaQuery = (variables, options) => {
 
 export const executeUpsertAppForSiteMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation UpsertAppForSiteMutation($nfToken: String!, $siteId: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation UpsertAppForSiteMutation($siteId: String!) {
+  oneGraph {
     upsertAppForNetlifySite(input: {netlifySiteId: $siteId}) {
       org {
         id
@@ -488,8 +536,8 @@ export const executeUpsertAppForSiteMutation = (variables, options) => {
 
 export const executeCreateNewSchemaMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateNewSchemaMutation($nfToken: String!, $input: OneGraphCreateGraphQLSchemaInput!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateNewSchemaMutation($input: OneGraphCreateGraphQLSchemaInput!) {
+  oneGraph {
     createGraphQLSchema(input: $input) {
       app {
         graphQLSchema {
@@ -520,8 +568,8 @@ export const executeCreateNewSchemaMutation = (variables, options) => {
 
 export const executeMarkCLISessionActiveHeartbeat = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation MarkCLISessionActiveHeartbeat($nfToken: String!, $id: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation MarkCLISessionActiveHeartbeat($id: String!) {
+  oneGraph {
     updateNetlifyCliSession(input: {status: ACTIVE, id: $id}) {
       session {
         id
@@ -542,8 +590,8 @@ export const executeMarkCLISessionActiveHeartbeat = (variables, options) => {
 
 export const executeMarkCLISessionInactive = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation MarkCLISessionInactive($nfToken: String!, $id: String!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation MarkCLISessionInactive($id: String!) {
+  oneGraph {
     updateNetlifyCliSession(input: {status: INACTIVE, id: $id}) {
       session {
         id
@@ -564,8 +612,8 @@ export const executeMarkCLISessionInactive = (variables, options) => {
 
 export const fetchListSharedDocumentsQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query ListSharedDocumentsQuery($nfToken: String!, $first: Int = 10, $status: OneGraphSharedDocumentModerationStatusEnum, $services: [OneGraphServiceEnumArg!]!, $style: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `query ListSharedDocumentsQuery($first: Int = 10, $status: OneGraphSharedDocumentModerationStatusEnum, $services: [OneGraphServiceEnumArg!]!, $style: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) {
+  oneGraph {
     sharedDocuments(
       first: $first
       filter: {moderationStatus: {equalTo: $status}, services: {in: $services}}
@@ -598,8 +646,8 @@ export const fetchListSharedDocumentsQuery = (variables, options) => {
 
 export const executeCreateSharedDocumentMutation = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `mutation CreateSharedDocumentMutation($nfToken: String!, $input: OneGraphCreateSharedDocumentInput!) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `mutation CreateSharedDocumentMutation($input: OneGraphCreateSharedDocumentInput!) {
+  oneGraph {
     createSharedDocument(input: $input) {
       sharedDocument {
         id
@@ -622,8 +670,8 @@ export const executeCreateSharedDocumentMutation = (variables, options) => {
 
 export const fetchSharedDocumentQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query SharedDocumentQuery($nfToken: String!, $id: String!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+    query: `query SharedDocumentQuery($id: String!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) {
+  oneGraph {
     sharedDocument(id: $id) {
       body
       createdAt

@@ -1,5 +1,5 @@
-query CLISessionQuery($nfToken: String!, $sessionId: String!, $first: Int!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155009""", doc: """Fetch a single CLI session by its id""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+query CLISessionQuery($sessionId: String!, $first: Int!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155009""", doc: """Fetch a single CLI session by its id""") {
+  oneGraph {
     __typename
     netlifyCliSession(id: $sessionId) {
       appId

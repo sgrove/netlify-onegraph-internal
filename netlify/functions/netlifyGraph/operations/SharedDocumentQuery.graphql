@@ -1,5 +1,5 @@
-query SharedDocumentQuery($nfToken: String!, $id: String!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """a2b5fdea-9ccd-4124-a731-5e697b155001""", doc: """Find a shared document given its id""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+query SharedDocumentQuery($id: String!, $logoStyle: OneGraphAppLogoStyleEnum = ROUNDED_RECTANGLE) @netlify(id: """a2b5fdea-9ccd-4124-a731-5e697b155001""", doc: """Find a shared document given its id""") {
+  oneGraph {
     sharedDocument(id: $id) {
       body
       createdAt

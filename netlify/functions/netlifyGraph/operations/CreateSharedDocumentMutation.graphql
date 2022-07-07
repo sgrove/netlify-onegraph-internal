@@ -1,5 +1,5 @@
-mutation CreateSharedDocumentMutation($nfToken: String!, $input: OneGraphCreateSharedDocumentInput!) @netlify(id: """12b5fdea-9ccd-4124-a731-5e697b155015""", doc: """Create a document with a shared operation for others to import and use""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+mutation CreateSharedDocumentMutation($input: OneGraphCreateSharedDocumentInput!) @netlify(id: """12b5fdea-9ccd-4124-a731-5e697b155015""", doc: """Create a document with a shared operation for others to import and use""") {
+  oneGraph {
     createSharedDocument(input: $input) {
       sharedDocument {
         id

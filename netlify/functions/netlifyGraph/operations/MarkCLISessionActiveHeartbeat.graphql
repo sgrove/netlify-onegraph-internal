@@ -1,5 +1,5 @@
-mutation MarkCLISessionActiveHeartbeat($nfToken: String!, $id: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155014""", doc: """Mark a CLI session as active and update the session's heartbeat""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+mutation MarkCLISessionActiveHeartbeat($id: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155014""", doc: """Mark a CLI session as active and update the session's heartbeat""") {
+  oneGraph {
     updateNetlifyCliSession(input: {status: ACTIVE, id: $id}) {
       session {
         id

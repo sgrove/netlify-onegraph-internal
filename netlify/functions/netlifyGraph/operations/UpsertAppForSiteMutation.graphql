@@ -1,5 +1,5 @@
-mutation UpsertAppForSiteMutation($nfToken: String!, $siteId: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155012""", doc: """If a site does not exists upstream in OneGraph for the given site, create it""") {
-  oneGraph(auths: {netlifyAuth: {oauthToken: $nfToken}}) {
+mutation UpsertAppForSiteMutation($siteId: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155012""", doc: """If a site does not exists upstream in OneGraph for the given site, create it""") {
+  oneGraph {
     upsertAppForNetlifySite(input: {netlifySiteId: $siteId}) {
       org {
         id
