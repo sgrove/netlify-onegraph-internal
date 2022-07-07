@@ -583,7 +583,7 @@ export const fetchEnabledServices = async (jwt: string, appId: string) => {
 
 export type MiniSession = {
   id: string;
-  status: "ACTIVE" | "INACTIVE";
+  status: "ACTIVE" | "INACTIVE" | "UNCLAIMED" | "TERMINATED";
   createdAt: string;
   updatedAt: string;
 };
