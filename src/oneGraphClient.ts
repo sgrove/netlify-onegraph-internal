@@ -173,7 +173,7 @@ export const fetchOneGraphSchemaForServicesJson = async (
   appId: string,
   enabledServices: string[]
 ): Promise<{ data: IntrospectionQuery } | undefined> => {
-  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&services=${enabledServices.join(
+  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&serviceFields=${enabledServices.join(
     ","
   )}`;
   const headers = {};
