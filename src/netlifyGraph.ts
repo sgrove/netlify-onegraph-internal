@@ -964,9 +964,13 @@ export const queryToFunctionDefinition = (
 };
 
 export const fragmentToParsedFragmentDefinition = (
+  currentFragments: {},
   fullSchema: GraphQLSchema,
   persistedQuery: ExtractedFragment
-): ParsedFragment | undefined => {
+): {
+  fragmentDefinitions: Record<string, FragmentDefinitionNode[]>;
+  fragment?: ParsedFragment | undefined;
+} => {
   const basicFn = {
     id: persistedQuery.id,
     operationString: persistedQuery.operationString,
@@ -991,20 +995,20 @@ export const fragmentToParsedFragmentDefinition = (
 
   if (!operations) {
     internalConsole.error(`Operation definition is required in ${basicFn.id}`);
-    return;
+    return { fragmentDefinitions: fragments };
   }
 
   const [operation] = fragmentDefinitions;
 
   if (operation.kind !== Kind.FRAGMENT_DEFINITION) {
     internalConsole.error(`Definition is not an operation in ${basicFn.id}`);
-    return;
+    return { fragmentDefinitions: fragments };
   }
 
   const returnSignature = typeScriptSignatureForFragment(
     fullSchema,
     operation,
-    fragments
+    { ...currentFragments, ...fragments }
   );
 
   const variableNames = (operation.variableDefinitions || []).map(
@@ -1026,7 +1030,7 @@ export const fragmentToParsedFragmentDefinition = (
         basicFn.operationString
       }\n\tfound: ${JSON.stringify(operation.name)}`
     );
-    return;
+    return { fragmentDefinitions: fragments };
   }
 
   const operationWithoutNetlifyDirective = {
@@ -1051,7 +1055,7 @@ export const fragmentToParsedFragmentDefinition = (
     ),
   };
 
-  return fn;
+  return { fragmentDefinitions: fragments, fragment: fn };
 };
 
 export const generateJavaScriptClient = (
@@ -1715,16 +1719,27 @@ export const generateFunctionsSource = async (
   queries: Record<string, ExtractedFunction>,
   fragments: Record<string, ExtractedFragment>
 ) => {
-  const fragmentDefinitions: Record<string, ParsedFragment> = Object.entries(
+  const {
+    fragmentDefinitions,
+  }: { fragmentDefinitions: Record<string, ParsedFragment> } = Object.entries(
     fragments
-  ).reduce((acc, [fragmentName, fragment]) => {
-    const parsed = fragmentToParsedFragmentDefinition(schema, fragment);
-    if (parsed) {
-      return { ...acc, [fragmentName]: parsed };
-    } else {
-      return acc;
-    }
-  }, {});
+  ).reduce(
+    ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
+      const parsed = fragmentToParsedFragmentDefinition(
+        fragmentNodes,
+        schema,
+        fragment
+      );
+      return {
+        fragmentDefinitions: {
+          ...fragmentDefinitions,
+          [fragmentName]: parsed.fragment,
+        },
+        fragmentNodes: { ...fragmentNodes, ...parsed.fragmentDefinitions },
+      };
+    },
+    { fragmentNodes: {}, fragmentDefinitions: {} }
+  );
 
   const parsedDoc = parse(operationsDoc, { noLocation: true });
 
@@ -1768,16 +1783,27 @@ export const generatePersistedFunctionsSource = async (
   fragments: Record<string, ExtractedFragment>,
   schemaId: string
 ) => {
-  const fragmentDefinitions: Record<string, ParsedFragment> = Object.entries(
+  const {
+    fragmentDefinitions,
+  }: { fragmentDefinitions: Record<string, ParsedFragment> } = Object.entries(
     fragments
-  ).reduce((acc, [fragmentName, fragment]) => {
-    const parsed = fragmentToParsedFragmentDefinition(schema, fragment);
-    if (parsed) {
-      return { ...acc, [fragmentName]: parsed };
-    } else {
-      return acc;
-    }
-  }, {});
+  ).reduce(
+    ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
+      const parsed = fragmentToParsedFragmentDefinition(
+        fragmentNodes,
+        schema,
+        fragment
+      );
+      return {
+        fragmentDefinitions: {
+          ...fragmentDefinitions,
+          [fragmentName]: parsed.fragment,
+        },
+        fragmentNodes: { ...fragmentNodes, ...parsed.fragmentDefinitions },
+      };
+    },
+    { fragmentNodes: {}, fragmentDefinitions: {} }
+  );
 
   const parsedDoc = parse(operationsDoc, { noLocation: true });
 
