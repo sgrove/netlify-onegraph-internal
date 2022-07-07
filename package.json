@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prettier": "prettier --write \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "sgrove",
