@@ -15,6 +15,7 @@ import {
   isInterfaceType,
   isListType,
   isNonNullType,
+  isNullableType,
   isObjectType,
   isScalarType,
   isWrappingType,
@@ -57,6 +58,7 @@ type OutSelection = Record<string, OutSelectionFieldValue>;
 type OutSelectionFieldValue = {
   kind: "selection_field";
   name: string;
+  isNullable: boolean;
   type: OutType;
   description?: Maybe<string>;
 };
@@ -411,6 +413,7 @@ const dummyOut: OutObject = {
       name: "data",
       description:
         "Any data retrieved by the function will be returned here [Placeholder]",
+      isNullable: false,
       type: {
         kind: "scalar",
         type: "Record<string, unknown>",
@@ -421,6 +424,7 @@ const dummyOut: OutObject = {
       name: "errors",
       description:
         "Any errors in the function will be returned here [Placeholder]",
+      isNullable: true,
       type: {
         kind: "array",
         type: {
@@ -524,6 +528,7 @@ export function typeScriptDefinitionObjectForOperation(
 
         let gqlType = field.type;
         let namedType = getNamedType(gqlType);
+        const isNullable = isNullableType(gqlType);
 
         const subSelectionSet = selection.selectionSet;
 
@@ -540,6 +545,7 @@ export function typeScriptDefinitionObjectForOperation(
               kind: "selection_field",
               name: displayedName,
               description: field.description,
+              isNullable,
               type: value,
             };
           }
@@ -549,6 +555,7 @@ export function typeScriptDefinitionObjectForOperation(
             kind: "selection_field",
             name: displayedName,
             description: field.description,
+            isNullable,
             type: scalar,
           };
         } else if (isEnumType(namedType)) {
@@ -563,6 +570,7 @@ export function typeScriptDefinitionObjectForOperation(
               kind: "selection_field",
               name: displayedName,
               description: field.description,
+              isNullable,
               type: value,
             };
           }
@@ -574,6 +582,7 @@ export function typeScriptDefinitionObjectForOperation(
               kind: "selection_field",
               name: displayedName,
               description: field.description,
+              isNullable,
               type: value,
             };
           }
@@ -692,12 +701,14 @@ export function typeScriptDefinitionObjectForOperation(
           kind: "selection_field",
           name: "data",
           description: "Any data from the function will be returned here",
+          isNullable: false,
           type: sub,
         },
         errors: {
           kind: "selection_field",
           name: "errors",
           description: "Any errors from the function will be returned here",
+          isNullable: true,
           type: {
             kind: "array",
             type: {
@@ -731,7 +742,7 @@ const printObject = (obj: OutObject): string => {
 `
         : "";
 
-      return `${description}${fieldSelection.name}: ${value};`;
+      return `${description}${fieldSelection.name}${fieldSelection.isNullable ? "?" : ""}: ${value};`;
     })
     .join("\n  ");
 
@@ -891,7 +902,7 @@ export function typeScriptDefinitionObjectForFragment(
             namedFragments: [],
             inlineFragments: [],
             selections: {
-              displayedName: {
+              [displayedName]: {
                 kind: "scalar",
                 description: "Internal GraphQL field",
                 type: "unknown",
@@ -902,6 +913,7 @@ export function typeScriptDefinitionObjectForFragment(
 
         let gqlType = field.type;
         let namedType = getNamedType(gqlType);
+        const isNullable = isNullableType(gqlType);
 
         const subSelectionSet = selection.selectionSet;
 
@@ -918,6 +930,7 @@ export function typeScriptDefinitionObjectForFragment(
               kind: "selection_field",
               name: displayedName,
               type: value,
+              isNullable,
               description: field.description,
             };
           }
@@ -927,6 +940,7 @@ export function typeScriptDefinitionObjectForFragment(
             kind: "selection_field",
             name: displayedName,
             type: scalar,
+              isNullable,
             description: field.description,
           };
         } else if (isEnumType(namedType)) {
@@ -941,6 +955,7 @@ export function typeScriptDefinitionObjectForFragment(
               kind: "selection_field",
               name: displayedName,
               type: value,
+              isNullable,
               description: field.description,
             };
           }
@@ -952,6 +967,7 @@ export function typeScriptDefinitionObjectForFragment(
               kind: "selection_field",
               name: displayedName,
               type: value,
+              isNullable,
               description: field.description,
             };
           }
