@@ -1,58 +1,10 @@
 /* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-const buffer = require("buffer");
-const crypto = require("crypto");
 const fetch = require('node-fetch')
 const internalConsole = require("./internalConsole").internalConsole;
 
 const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "graph.netlify.com"
-
-export const verifySignature = (input) => {
-  const secret = input.secret;
-  const body = input.body;
-  const signature = input.signature;
-
-  if (!signature) {
-    console.error("Missing signature");
-    return false;
-  }
-
-  const sig = {};
-  for (const pair of signature.split(",")) {
-    const [key, value] = pair.split("=");
-    sig[key] = value;
-  }
-
-  if (!sig.t || !sig.hmac_sha256) {
-    console.error("Invalid signature header");
-    return false;
-  }
-
-  const hash = crypto
-    .createHmac("sha256", secret)
-    .update(sig.t)
-    .update(".")
-    .update(body)
-    .digest("hex");
-
-  if (
-    !crypto.timingSafeEqual(
-      Buffer.from(hash, "hex"),
-      Buffer.from(sig.hmac_sha256, "hex")
-    )
-  ) {
-    console.error("Invalid signature");
-    return false;
-  }
-
-  if (parseInt(sig.t, 10) < Date.now() / 1000 - 300 /* 5 minutes */) {
-    console.error("Request is too old");
-    return false;
-  }
-
-  return true;
-};
 
 // Basic LRU cache implementation
 const makeLRUCache = (max) => {
