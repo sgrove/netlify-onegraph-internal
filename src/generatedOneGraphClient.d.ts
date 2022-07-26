@@ -124,10 +124,11 @@ export type CreateGraphQLSchemaMutationInput = {
       | "UPS"
       | "USPS"
       | "WORDPRESS"
-    >
-    /**
-     * The list of GraphQL fields identifying services that this schema should use. Leave blank if you want to add support for all supported services. Note that this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
-     */;
+    > /**
+  * The list of GraphQL fields identifying services that this schema should use.
+Leave blank if you want to add support for all supported services. Note that
+this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
+  */;
     graphQLFieldForEnabledServices?: Array<string>
     /**
      * The id of the app that the schema should belong to.
@@ -159,7 +160,7 @@ export type CreateGraphQLSchemaMutation = {
                */
               endpoint: string;
               /**
-               * Service ID of the external graphql schema
+               * Service information for the external graphql schema
                */
               serviceInfo: {
                 /**
@@ -177,8 +178,8 @@ export type CreateGraphQLSchemaMutation = {
               updatedAt: string;
             }>;
           };
-          parentGraphQLSchemaId: string;
-          salesforceSchema: {
+          parentGraphQLSchemaId?: string;
+          salesforceSchema?: {
             /**
              * Id of the salesforce schema
              */
@@ -208,7 +209,7 @@ export type CreateGraphQLSchemaMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -264,7 +265,7 @@ export type CreateApiTokenMutation = {
             /**
              * Scopes granted for the service.
              */
-            scopes: Array<string>;
+            scopes?: Array<string>;
           }>;
           /**
            * AppId that the token belongs to
@@ -277,15 +278,16 @@ export type CreateApiTokenMutation = {
           /**
            * Token name, if it is a personal access token
            */
-          name: string;
+          name?: string;
           /**
            * Netlify-specific ID for the token
            */
-          netlifyId: string;
+          netlifyId?: string;
           /**
-           * The anchor is like two-factor auth for the token. It ensures that the person who adds auth to the token is the same as the person who created the token.
-           */
-          anchor: "ONEGRAPH_USER" | "NETLIFY_USER" | "NETLIFY_SITE";
+  * The anchor is like two-factor auth for the token. It ensures that the person
+who adds auth to the token is the same as the person who created the token.
+  */
+          anchor?: "ONEGRAPH_USER" | "NETLIFY_USER" | "NETLIFY_SITE";
         };
       };
     };
@@ -293,7 +295,7 @@ export type CreateApiTokenMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -316,20 +318,26 @@ export type CreatePersistedQueryMutationInput = {
    */
   allowedOperationNames: Array<string>;
   /**
- * If set to true, and there was a successful execution of the query in the last 30 days, then the last successful result will be returned if we encounter any error when executing the query. If we do not have a previous successful result, then the response with the error will be returned.
+ * If set to true, and there was a successful execution of the query in the last
+30 days, then the last successful result will be returned if we encounter any
+error when executing the query. If we do not have a previous successful
+result, then the response with the error will be returned.
 
-Note that the fallback result will be returned even in the case of partial success.
+                         Note that the fallback result will be returned even in the case of partial success.
 
-This parameter is useful when you expect that your queries might be rate-limited by the underlying service.
+                         This parameter is useful when you expect that your
+queries might be rate-limited by the underlying service.
 
-The query must provide a cache strategy in order to use `fallbackOnError`.
+                         The query must provide a cache strategy in order to use `fallbackOnError`.
  */
   fallbackOnError: boolean;
   freeVariables: Array<string>;
   query: string;
   /**
-   * List of tags to add to the persisted query. Tags are free-form text that can be used to categorize persisted queries. Each tag must be under 256 characters and there can be a maximum of 10 tags on a single persisted query.
-   */
+ * List of tags to add to the persisted query. Tags are free-form text that can
+be used to categorize persisted queries. Each tag must be under 256 characters
+and there can be a maximum of 10 tags on a single persisted query.
+ */
   tags: Array<string>;
   /**
    * A description for the persisted query. Maximum length is 2096 characters.
@@ -351,21 +359,22 @@ export type CreatePersistedQueryMutation = {
            */
           id: string;
           /**
-           * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
-           */
-          allowedOperationNames: Array<string>;
+  * The list of operation names that the caller of the query is allowed to
+execute. If the field is null, then all operationNames are allowed.
+  */
+          allowedOperationNames?: Array<string>;
           /**
            * The user-defined description that was added to the query
            */
-          description: string;
+          description?: string;
           /**
            * The default variables provided to the query.
            */
-          fixedVariables: unknown;
+          fixedVariables?: unknown;
           /**
            * The list of variables that the caller of the query is allowed to provide.
            */
-          freeVariables: Array<string>;
+          freeVariables?: Array<string>;
           /**
            * The persisted query's query string.
            */
@@ -373,7 +382,7 @@ export type CreatePersistedQueryMutation = {
           /**
            * The list of user-defined tags that were added to the query
            */
-          tags: Array<string>;
+          tags?: Array<string>;
         };
       };
     };
@@ -381,7 +390,7 @@ export type CreatePersistedQueryMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -437,7 +446,7 @@ export type ListPersistedQueries = {
             /**
              * When paginating forwards, the cursor to continue.
              */
-            endCursor: string;
+            endCursor?: string;
           };
           /**
            * List of persisted queries.
@@ -454,23 +463,24 @@ export type ListPersistedQueries = {
             /**
              * The default variables provided to the query.
              */
-            fixedVariables: unknown;
+            fixedVariables?: unknown;
             /**
              * The list of variables that the caller of the query is allowed to provide.
              */
-            freeVariables: Array<string>;
+            freeVariables?: Array<string>;
             /**
-             * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
-             */
-            allowedOperationNames: Array<string>;
+  * The list of operation names that the caller of the query is allowed to
+execute. If the field is null, then all operationNames are allowed.
+  */
+            allowedOperationNames?: Array<string>;
             /**
              * The list of user-defined tags that were added to the query
              */
-            tags: Array<string>;
+            tags?: Array<string>;
             /**
              * The user-defined description that was added to the query
              */
-            description: string;
+            description?: string;
           }>;
         };
       };
@@ -479,7 +489,7 @@ export type ListPersistedQueries = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -520,32 +530,33 @@ export type PersistedQueryQuery = {
          */
         query: string;
         /**
-         * The list of operation names that the caller of the query is allowed to execute. If the field is null, then all operationNames are allowed.
-         */
-        allowedOperationNames: Array<string>;
+  * The list of operation names that the caller of the query is allowed to
+execute. If the field is null, then all operationNames are allowed.
+  */
+        allowedOperationNames?: Array<string>;
         /**
          * The user-defined description that was added to the query
          */
-        description: string;
+        description?: string;
         /**
          * The list of variables that the caller of the query is allowed to provide.
          */
-        freeVariables: Array<string>;
+        freeVariables?: Array<string>;
         /**
          * The default variables provided to the query.
          */
-        fixedVariables: unknown;
+        fixedVariables?: unknown;
         /**
          * The list of user-defined tags that were added to the query
          */
-        tags: Array<string>;
+        tags?: Array<string>;
       };
     };
   };
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -585,7 +596,7 @@ export type CreateCLISessionMutation = {
           id: string;
           appId: string;
           netlifyUserId: string;
-          name: string;
+          name?: string;
           /**
            * Number of milliseconds to wait between heartbeats
            */
@@ -597,7 +608,7 @@ export type CreateCLISessionMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -634,8 +645,8 @@ export type UpdateCLISessionMetadataMutation = {
          */
         session: {
           id: string;
-          name: string;
-          metadata: Record<string, unknown>;
+          name?: string;
+          metadata?: Record<string, unknown>;
           /**
            * Number of milliseconds to wait between heartbeats
            */
@@ -647,7 +658,7 @@ export type UpdateCLISessionMetadataMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -681,7 +692,7 @@ export type CreateCLISessionEventMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -724,9 +735,9 @@ export type CLISessionQuery = {
             sessionId: string;
           }
         >;
-        lastEventAt: string;
-        metadata: Record<string, unknown>;
-        name: string;
+        lastEventAt?: string;
+        metadata?: Record<string, unknown>;
+        name?: string;
         netlifyUserId: string;
       };
     };
@@ -734,7 +745,7 @@ export type CLISessionQuery = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -772,7 +783,7 @@ export type AckCLISessionEventMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -800,7 +811,7 @@ export type AppSchemaQuery = {
         /**
          * Customizations to the default GraphQL schema
          */
-        graphQLSchema: {
+        graphQLSchema?: {
           appId: string;
           createdAt: string;
           id: string;
@@ -809,7 +820,7 @@ export type AppSchemaQuery = {
             /**
              * A short-lived svg image url of the logo for the service. May be null.
              */
-            logoUrl: string;
+            logoUrl?: string;
             /**
              * GraphQL field identifying the service in the schema
              */
@@ -830,7 +841,7 @@ export type AppSchemaQuery = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -905,7 +916,7 @@ export type UpsertAppForSiteMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1015,10 +1026,11 @@ export type CreateNewSchemaMutationInput = {
       | "UPS"
       | "USPS"
       | "WORDPRESS"
-    >
-    /**
-     * The list of GraphQL fields identifying services that this schema should use. Leave blank if you want to add support for all supported services. Note that this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
-     */;
+    > /**
+  * The list of GraphQL fields identifying services that this schema should use.
+Leave blank if you want to add support for all supported services. Note that
+this field won't be merged with `enabledServices`, which takes an enum and is deprecated.
+  */;
     graphQLFieldForEnabledServices?: Array<string>
     /**
      * The id of the app that the schema should belong to.
@@ -1038,7 +1050,7 @@ export type CreateNewSchemaMutation = {
           /**
            * Customizations to the default GraphQL schema
            */
-          graphQLSchema: {
+          graphQLSchema?: {
             id: string;
           };
         };
@@ -1049,7 +1061,7 @@ export type CreateNewSchemaMutation = {
             /**
              * A short-lived svg image url of the logo for the service. May be null.
              */
-            logoUrl: string;
+            logoUrl?: string;
             /**
              * GraphQL field identifying the service in the schema
              */
@@ -1069,7 +1081,7 @@ export type CreateNewSchemaMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1116,7 +1128,7 @@ export type MarkCLISessionActiveHeartbeat = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1163,7 +1175,7 @@ export type MarkCLISessionInactive = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1271,7 +1283,7 @@ export type ListSharedDocumentsQuery = {
           /**
            * Document description
            */
-          description: string;
+          description?: string;
           /**
            * The text of the GraphQL document
            */
@@ -1291,11 +1303,11 @@ export type ListSharedDocumentsQuery = {
           /**
            * Operation name
            */
-          operationName: string;
+          operationName?: string;
           /**
            * The siteId that the shared document originated from
            */
-          siteId: string;
+          siteId?: string;
           /**
            * Timestamp the document was last updated, in rfc3339 format.
            */
@@ -1308,7 +1320,7 @@ export type ListSharedDocumentsQuery = {
             /**
              * A short-lived svg image url of the logo for the service. May be null.
              */
-            logoUrl: string;
+            logoUrl?: string;
             /**
              * GraphQL field identifying the service in the schema
              */
@@ -1325,7 +1337,7 @@ export type ListSharedDocumentsQuery = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1349,10 +1361,10 @@ export type CreateSharedDocumentMutationInput = {
     /**
      * A description for the operation. Maximum length is 2096 characters.
      */;
-    description?: string
-    /**
-     * The Netlify siteId that this operation should be associated with. The currently-authenticated user must have access to this site in Netlify.
-     */;
+    description?: string /**
+  * The Netlify siteId that this operation should be associated with. The
+currently-authenticated user must have access to this site in Netlify.
+  */;
     siteId?: string
     /**
      * The shared operation text. Maximum length is 1mb.
@@ -1386,7 +1398,7 @@ export type CreateSharedDocumentMutation = {
           /**
            * Operation name
            */
-          operationName: string;
+          operationName?: string;
           /**
            * Services that appear in the query
            */
@@ -1396,7 +1408,7 @@ export type CreateSharedDocumentMutation = {
           /**
            * Document description
            */
-          description: string;
+          description?: string;
         };
       };
     };
@@ -1404,7 +1416,7 @@ export type CreateSharedDocumentMutation = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1441,7 +1453,7 @@ export type SharedDocumentQuery = {
         /**
          * Document description
          */
-        description: string;
+        description?: string;
         /**
          * The id of the shared document
          */
@@ -1453,7 +1465,7 @@ export type SharedDocumentQuery = {
         /**
          * Operation name
          */
-        operationName: string;
+        operationName?: string;
         /**
          * Timestamp the document was last updated, in rfc3339 format.
          */
@@ -1465,7 +1477,7 @@ export type SharedDocumentQuery = {
           /**
            * A short-lived svg image url of the logo for the service. May be null.
            */
-          logoUrl: string;
+          logoUrl?: string;
           friendlyServiceName: string;
           /**
            * GraphQL field identifying the service in the schema
@@ -1482,7 +1494,7 @@ export type SharedDocumentQuery = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1585,7 +1597,7 @@ export type ListNetlifyEnabledServicesQuery = {
         /**
          * A short-lived svg image url of the logo for the service. May be null.
          */
-        logoUrl: string;
+        logoUrl?: string;
         /**
          * GraphQL field identifying the service in the schema
          */
@@ -1611,7 +1623,7 @@ export type ListNetlifyEnabledServicesQuery = {
   /**
    * Any errors from the function will be returned here
    */
-  errors: Array<GraphQLError>;
+  errors?: Array<GraphQLError>;
 };
 
 /**
@@ -1621,6 +1633,61 @@ export function fetchListNetlifyEnabledServicesQuery(
   variables: ListNetlifyEnabledServicesQueryInput,
   options?: NetlifyGraphFunctionOptions
 ): Promise<ListNetlifyEnabledServicesQuery>;
+
+export type FetchNetlifySessionSchemaQueryInput = {
+  sessionId: string;
+};
+
+export type FetchNetlifySessionSchemaQuery = {
+  /**
+   * Any data from the function will be returned here
+   */
+  data: {
+    oneGraph: {
+      /**
+       * Get a Netlify CLI session by its id.
+       */
+      netlifyCliSession: {
+        graphQLSchema?: {
+          appId: string;
+          createdAt: string;
+          id: string;
+          services: Array<{
+            friendlyServiceName: string;
+            /**
+             * A short-lived svg image url of the logo for the service. May be null.
+             */
+            logoUrl?: string;
+            /**
+             * GraphQL field identifying the service in the schema
+             */
+            graphQLField: string;
+            /**
+             * Service string that can be provided in the URL when going through the oauth flow.
+             */
+            slug: string;
+            supportsCustomRedirectUri: boolean;
+            supportsCustomServiceAuth: boolean;
+            supportsOauthLogin: boolean;
+          }>;
+          updatedAt: string;
+        };
+      };
+    };
+  };
+  /**
+   * Any errors from the function will be returned here
+   */
+  errors?: Array<GraphQLError>;
+};
+
+/**
+ * Create a document with a shared operation for others to import and use
+ */
+export function fetchFetchNetlifySessionSchemaQuery(
+  variables: FetchNetlifySessionSchemaQueryInput,
+  options?: NetlifyGraphFunctionOptions
+): Promise<FetchNetlifySessionSchemaQuery>;
 
 export interface Functions {
   /**
@@ -1699,6 +1766,10 @@ export interface Functions {
    * Retrieve a list of _all_ supported services from OneGraph
    */
   fetchListNetlifyEnabledServicesQuery: typeof fetchListNetlifyEnabledServicesQuery;
+  /**
+   * Create a document with a shared operation for others to import and use
+   */
+  fetchFetchNetlifySessionSchemaQuery: typeof fetchFetchNetlifySessionSchemaQuery;
 }
 
 export const functions: Functions;

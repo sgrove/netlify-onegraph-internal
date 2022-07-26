@@ -1,7 +1,7 @@
 import { buildClientSchema } from "graphql";
 import fetch from "node-fetch";
 import { internalConsole } from "./internalConsole";
-import GeneratedClient from "./generatedOneGraphClient";
+import GeneratedClient, { GraphQLError } from "./generatedOneGraphClient";
 import type {
   CLISessionQuery,
   CreateNewSchemaMutationInput,
@@ -221,9 +221,11 @@ export const fetchOneGraphSchemaForServices = async (
 export type PersistedQuery = {
   id: string;
   query: string;
-  description: string | null;
-  allowedOperationNames: string[];
-  tags: string[];
+  freeVariables?: string[];
+  fixedVariables?: unknown;
+  description?: string;
+  allowedOperationNames?: string[];
+  tags?: string[];
 };
 
 /**
@@ -271,7 +273,7 @@ export const fetchCliSession = async (options: {
   desiredEventCount?: number;
 }): Promise<{
   session: CLISessionQuery["data"]["oneGraph"]["netlifyCliSession"];
-  errors: any[];
+  errors?: GraphQLError[];
 }> => {
   const { appId, jwt, sessionId } = options;
 
@@ -564,11 +566,14 @@ export const ensureAppForSite = async (jwt: string, siteId: string) => {
 
 /**
  * Fetch a list of what services are enabled for the given site
- * @param {string} jwt The netlify jwt that is used for authentication, if any
+ * @param {string} jwt The netlify jwt that is used for authentication
  * @param {string} appId The app id to query against
  * @returns
  */
-export const fetchEnabledServices = async (jwt: string, appId: string) => {
+export const fetchEnabledServicesForApp = async (
+  jwt: string,
+  appId: string
+) => {
   const appSchemaResult = await GeneratedClient.fetchAppSchemaQuery(
     {
       appId,
@@ -579,6 +584,31 @@ export const fetchEnabledServices = async (jwt: string, appId: string) => {
     }
   );
   return appSchemaResult.data?.oneGraph?.app?.graphQLSchema?.services;
+};
+
+/**
+ * Fetch a list of what services are enabled for the given session
+ * @param {string} jwt The netlify jwt that is used for authentication
+ * @param {string} sessionId The session ID to query against
+ * @returns
+ */
+export const fetchEnabledServicesForSession = async (
+  jwt: string,
+  siteId: string,
+  sessionId: string
+) => {
+  const appSchemaResult =
+    await GeneratedClient.fetchFetchNetlifySessionSchemaQuery(
+      {
+        sessionId,
+      },
+      {
+        siteId,
+        accessToken: jwt,
+      }
+    );
+  return appSchemaResult.data?.oneGraph?.netlifyCliSession.graphQLSchema
+    ?.services;
 };
 
 export type MiniSession = {
@@ -593,13 +623,13 @@ export type MiniSession = {
  * @param {string} jwt The netlify jwt that is used for authentication
  * @param {string} appId The app to query against, typically the siteId
  * @param {string} sessionId The session id to mark as active / update heartbeat
- * @returns {Promise<{ errors: any[]; data: MiniSession }>}
+ * @returns {Promise<{ errors?: GraphQLError[]; data: MiniSession }>}
  */
 export const executeMarkCliSessionActiveHeartbeat = async (
   jwt: string,
   appId: string,
   sessionId: string
-): Promise<{ errors: any[]; data: MiniSession }> => {
+): Promise<{ errors?: GraphQLError[]; data: MiniSession }> => {
   const result = await GeneratedClient.executeMarkCLISessionActiveHeartbeat(
     {
       id: sessionId,
@@ -620,13 +650,13 @@ export const executeMarkCliSessionActiveHeartbeat = async (
  * @param {string} jwt The netlify jwt that is used for authentication
  * @param {string} appId The app to query against, typically the siteId
  * @param {string} sessionId The session id to mark as inactive
- * @returns {Promise<{ errors: any[]; data: MiniSession }>}
+ * @returns {Promise<{ errors?: GraphQLError[]; data: MiniSession }>}
  */
 export const executeMarkCliSessionInactive = async (
   jwt: string,
   appId: string,
   sessionId: string
-): Promise<{ errors: any[]; data: MiniSession }> => {
+): Promise<{ errors?: GraphQLError[]; data: MiniSession }> => {
   const result = await GeneratedClient.executeMarkCLISessionInactive(
     {
       id: sessionId,

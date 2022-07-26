@@ -1817,7 +1817,7 @@ export const generatePersistedFunctionsSource = async (
   const failedPersistedFunctions: {
     attemptedFunction: ParsedFunction;
     data: any;
-    errors: any;
+    errors?: any;
   }[] = [];
 
   for (const fn of functionDefinitions) {

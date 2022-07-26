@@ -674,6 +674,36 @@ export const fetchListNetlifyEnabledServicesQuery = (variables, options) => {
   });
 };
 
+export const fetchFetchNetlifySessionSchemaQuery = (variables, options) => {
+  return fetchNetlifyGraph({
+    query: `query FetchNetlifySessionSchemaQuery($sessionId: String!) {
+  oneGraph {
+    netlifyCliSession(id: $sessionId) {
+      graphQLSchema {
+        appId
+        createdAt
+        id
+        services {
+          friendlyServiceName
+          logoUrl
+          graphQLField
+          slug
+          supportsCustomRedirectUri
+          supportsCustomServiceAuth
+          supportsOauthLogin
+        }
+        updatedAt
+      }
+    }
+  }
+}`,
+    operationName: "FetchNetlifySessionSchemaQuery",
+    variables: variables,
+    options: options,
+    fetchStrategy: "POST",
+  });
+};
+
 /**
  * The generated NetlifyGraph library with your operations
  */
@@ -755,6 +785,10 @@ const functions = {
    * Retrieve a list of _all_ supported services from OneGraph
    */
   fetchListNetlifyEnabledServicesQuery: fetchListNetlifyEnabledServicesQuery,
+  /**
+   * Create a document with a shared operation for others to import and use
+   */
+  fetchFetchNetlifySessionSchemaQuery: fetchFetchNetlifySessionSchemaQuery,
 };
 
 export default functions;
