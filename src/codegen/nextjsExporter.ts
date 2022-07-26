@@ -133,7 +133,7 @@ ${addLeftWhitespace(form.formEl, 8)}
             }
           }}
         >
-          {\`Log in to \${needsLoginService}\`}
+          {\`Log in to \${needsLoginService.graphQLField}\`}
         </button>) 
         : null}
         <pre>{JSON.stringify(formVariables, null, 2)}</pre>
