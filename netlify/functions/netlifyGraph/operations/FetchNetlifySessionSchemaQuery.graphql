@@ -1,0 +1,23 @@
+query FetchNetlifySessionSchemaQuery(
+  $sessionId: String!
+) @netlify(id: """fa2e2b33-a96e-4bbd-8f9d-488a56690d54""") {
+  oneGraph {
+    netlifyCliSession(id: $sessionId) {
+      graphQLSchema {
+        appId
+        createdAt
+        id
+        services {
+          friendlyServiceName
+          logoUrl
+          graphQLField
+          slug
+          supportsCustomRedirectUri
+          supportsCustomServiceAuth
+          supportsOauthLogin
+        }
+        updatedAt
+      }
+    }
+  }
+}
