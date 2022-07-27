@@ -206,57 +206,61 @@ ${out(
   netlifyGraphConfig,
   ["node"],
   `const httpFetch = (siteId, options) => {
-      const reqBody = options.body || null
-      const userHeaders = options.headers || {}
-      const headers = {
-        ...userHeaders,
-        'Content-Type': 'application/json',
-        'Content-Length': reqBody.length,
-      }
+  const reqBody = options.body || null;
+  const userHeaders = options.headers || {};
+  const headers = {
+    ...userHeaders,
+    "Content-Type": "application/json",
+    "Content-Length": reqBody.length,
+  };
 
-      const timeoutMs = 30_000
+  const timeoutMs = 30_000;
 
-      const reqOptions = {
-        method: 'POST',
-        headers: headers,
-        timeout: timeoutMs,
-      }
+  const reqOptions = {
+    method: "POST",
+    headers: headers,
+    timeout: timeoutMs,
+  };
 
-  const url = 'https://graph.netlify.com/graphql?app_id=' + siteId
+  const url = "https://graph.netlify.com/graphql?app_id=" + siteId;
 
-  const respBody = []
+  const respBody = [];
 
   return new Promise((resolve, reject) => {
     const req = https.request(url, reqOptions, (res) => {
       if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
         return reject(
           new Error(
-            "Netlify Graph return non-OK HTTP status code" + res.statusCode,
-          ),
-        )
+            "Netlify Graph return non-OK HTTP status code" + res.statusCode
+          )
+        );
       }
 
-      res.on('data', (chunk) => respBody.push(chunk))
+      res.on("data", (chunk) => respBody.push(chunk));
 
-      res.on('end', () => {
-        const resString = buffer.Buffer.concat(respBody).toString()
-        resolve(resString)
-      })
-    })
+      res.on("end", () => {
+        const resString = buffer.Buffer.concat(respBody).toString();
+        resolve({
+          status: res.statusCode,
+          body: resString,
+          headers: res.headers,
+        });
+      });
+    });
 
-    req.on('error', (error) => {
-      console.error('Error making request to Netlify Graph:', error)
-    })
+    req.on("error", (error) => {
+      console.error("Error making request to Netlify Graph:", error);
+    });
 
-    req.on('timeout', () => {
-      req.destroy()
-      reject(new Error('Request to Netlify Graph timed out'))
-    })
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("Request to Netlify Graph timed out"));
+    });
 
-    req.write(reqBody)
-    req.end()
-  })
-}
+    req.write(reqBody);
+    req.end();
+  });
+};
 `
 )}
 ${out(
@@ -281,7 +285,18 @@ ${out(
 
   const url = 'https://graph.netlify.com/graphql?app_id=' + siteId;
 
-  return fetch(url, reqOptions);
+  return fetch(url, reqOptions).then(r => {
+    body.text().then(bodyString => {
+      const headers = {};
+      r.headers.forEach((k,v) => x[k] = v);
+      
+      return {
+        body: bodyString,
+        headers: headers,
+        status: r.status
+      }
+    })
+  });
 }`
 )}
 
@@ -303,60 +318,57 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
   };
 
   let cachedOrLiveValue = new Promise((resolve) => {
-  const cacheKey = calculateCacheKey(payload);
+    const cacheKey = calculateCacheKey(payload);
 
-  // Check the cache for a previous result
-  const cachedResultPair = getFromCache(cache, cacheKey);
+    // Check the cache for a previous result
+    const cachedResultPair = getFromCache(cache, cacheKey);
 
-  let conditionalHeaders = {
-    'If-None-Match': ''
-  };
-  let cachedResultValue;
-
-  if (cachedResultPair) {
-    const [etag, previousResult] = cachedResultPair;
-    conditionalHeaders = {
-      'If-None-Match': etag
+    let conditionalHeaders = {
+      "If-None-Match": "",
     };
-    cachedResultValue = previousResult;
-  }
+    let cachedResultValue;
 
-  const response = httpFetch(siteId, {
-    method: 'POST',
-    headers: {
-      ...conditionalHeaders,
-      Authorization: accessToken ? 'Bearer ' + accessToken : '',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  response.then((result) => {
-    // Check response headers for a 304 Not Modified
-    if (result.status === 304) {
-      // Return the cached result
-      resolve(cachedResultValue);
+    if (cachedResultPair) {
+      const [etag, previousResult] = cachedResultPair;
+      conditionalHeaders = {
+        "If-None-Match": etag,
+      };
+      cachedResultValue = previousResult;
     }
-    else if (result.status === 200) {
-      // Update the cache with the new etag and result
-      const etag = result.headers.get('etag');
-      const resultJson = result.json();
-      resultJson.then((json) => {
-        if (etag) {
-          // Make a note of the new etag for the given payload
-          setInCache(cache, cacheKey, [etag, json])
-        };
-        resolve(json);
-      });
-    } else {
-      return result.json().then((json) => {
-        resolve(json);
-      });
-    }
-  });
+
+    const response = httpFetch(siteId, {
+      method: "POST",
+      headers: {
+        ...conditionalHeaders,
+        Authorization: accessToken ? "Bearer " + accessToken : "",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    response.then((result) => {
+      // Check response headers for a 304 Not Modified
+      if (result.status === 304) {
+        // Return the cached result
+        resolve(cachedResultValue);
+      } else if (result.status === 200) {
+        // Update the cache with the new etag and result
+        const etag = result.headers["etag"];
+        const resultJson = JSON.parse(result.body)
+          if (etag) {
+            // Make a note of the new etag for the given payload
+            setInCache(cache, cacheKey, [etag, resultJson]);
+          }
+          resolve(resultJson);
+      } else {
+        return result.json().then((json) => {
+          resolve(json);
+        });
+      }
+    });
   });
 
-  return cachedOrLiveValue
-}
+  return cachedOrLiveValue;
+};
 `;
 
 const generatedNetlifyGraphPersistedClient = (
