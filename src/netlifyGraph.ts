@@ -228,7 +228,7 @@ ${out(
 
   return new Promise((resolve, reject) => {
     const req = https.request(url, reqOptions, (res) => {
-      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299) && res.statusCode !== 304) {
         return reject(
           new Error(
             "Netlify Graph return non-OK HTTP status code" + res.statusCode
@@ -408,7 +408,7 @@ ${out(
 
   return new Promise((resolve, reject) => {
     const req = https.request(url, reqOptions, (res) => {
-      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299) && res.statusCode !== 304) {
         return reject(
           new Error(
             "Netlify Graph return non-OK HTTP status code" + res.statusCode,
@@ -465,7 +465,7 @@ const httpPost = (input) => {
 
   return new Promise((resolve, reject) => {
     const req = https.request(url, reqOptions, (res) => {
-      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299)) {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode > 299) && res.statusCode !== 304) {
         return reject(
           new Error(
             "Netlify Graph return non-OK HTTP status code" + res.statusCode,
