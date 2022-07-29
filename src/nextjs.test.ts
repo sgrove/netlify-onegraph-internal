@@ -14,6 +14,8 @@ const test = () => {
   const schema = buildASTSchema(parse(schemaGraphQLFile));
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
+    siteId: "SITE_ID",
+    schemaId: "SCHEMA_ID",
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
     graphQLConfigJsonFilename: [".graphqlrc.json"],
     webhookBasePath: "/api",

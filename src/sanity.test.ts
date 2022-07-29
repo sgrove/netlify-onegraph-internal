@@ -18,6 +18,8 @@ const test = () => {
   const functions = NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
+    siteId: "SITE_ID",
+    schemaId: "SCHEMA_ID",
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
     graphQLConfigJsonFilename: [".graphqlrc.json"],
     framework: "custom",
