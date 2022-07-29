@@ -280,24 +280,24 @@ ${out(
     method: 'POST',
     headers: headers,
     timeout: timeoutMs,
-    body: reqBody
+    body: reqBody,
   };
 
   const url = 'https://graph.netlify.com/graphql?app_id=' + siteId;
 
-  return fetch(url, reqOptions).then(r => {
-    body.text().then(bodyString => {
+  return fetch(url, reqOptions).then((body) => {
+    return body.text().then((bodyString) => {
       const headers = {};
-      r.headers.forEach((k,v) => x[k] = v);
-      
+      body.headers.forEach((k, v) => (headers[k] = v));
+
       return {
         body: bodyString,
         headers: headers,
-        status: r.status
-      }
-    })
+        status: body.status,
+      };
+    });
   });
-}`
+};`
 )}
 
 const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
