@@ -19,8 +19,6 @@ const test = async () => {
     NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
-    siteId: "SITE_ID",
-    schemaId: "SCHEMA_ID",
     netlifyGraphPath: ["functions", "netlifyGraph"],
     graphQLConfigJsonFilename: [".graphqlrc.json"],
     framework: "custom",

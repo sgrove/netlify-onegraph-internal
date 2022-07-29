@@ -53,8 +53,6 @@ export const NETLIFY_DIRECTIVE_NAME = "netlify";
 export const NETLIFY_CACHE_CONTROL_DIRECTIVE_NAME = "netlifyCacheControl";
 
 export type NetlifyGraphConfig = {
-  siteId: string;
-  schemaId: string;
   functionsPath: string[];
   webhookBasePath: string;
   netlifyGraphImplementationFilename: string[];
@@ -127,15 +125,7 @@ export const defaultSourceOperationsFilename =
   "netlifyGraphOperationsLibrary.graphql";
 export const defaultGraphQLSchemaFilename = "netlifyGraphSchema.graphql";
 
-export const makeDefaultNetlifyGraphConfig = ({
-  siteId,
-  schemaId,
-}: {
-  siteId: string;
-  schemaId: string;
-}): NetlifyGraphConfig => ({
-  siteId,
-  schemaId,
+export const defaultNetlifyGraphConfig: NetlifyGraphConfig = {
   extension: "js",
   functionsPath: ["netlify", "functions"],
   netlifyGraphPath: ["netlify", "functions", "netlifyGraph"],
@@ -170,7 +160,7 @@ export const makeDefaultNetlifyGraphConfig = ({
   moduleType: "commonjs",
   language: "javascript",
   runtimeTargetEnv: "node",
-});
+};
 
 export const defaultExampleOperationsDoc = `query ExampleQuery @netlify(doc: "An example query to start with.") {
   __typename
@@ -232,7 +222,7 @@ ${out(
     timeout: timeoutMs,
   };
 
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\`;
+  const url = "https://graph.netlify.com/graphql?app_id=" + siteId;
 
   const respBody = [];
 
@@ -293,7 +283,7 @@ ${out(
     body: reqBody,
   };
 
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\`;
+  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}\`;
 
   return fetch(url, reqOptions).then((body) => {
     return body.text().then((bodyString) => {
@@ -382,7 +372,8 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
 `;
 
 const generatedNetlifyGraphPersistedClient = (
-  netlifyGraphConfig: NetlifyGraphConfig
+  netlifyGraphConfig: NetlifyGraphConfig,
+  schemaId: string
 ) =>
   `${lruCacheImplementation}
 
@@ -406,8 +397,12 @@ ${out(
     throw new Error('docId is required for GET requests: ' + input.operationName);
   }
 
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
   const encodedVariables = encodeURIComponent(input.variables || "null");
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\` + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + '&variables=' + encodedVariables;
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
         
   const respBody = []
 
@@ -459,7 +454,12 @@ const httpPost = (input) => {
     timeout: timeoutMs,
   }
 
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\` + input.siteId +
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
+
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
   const respBody = []
 
@@ -518,12 +518,17 @@ ${out(
     JSON.stringify(input.variables || null)
   );
 
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
   const url =
-    \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\` +
+    'https://graph.netlify.com/graphql?app_id=' +
     input.siteId +
     '&doc_id=' +
     input.docId +
     (input.operationName ? '&operationName=' + input.operationName : '') +
+    (schemaId ? ('&schemaId=' + schemaId) : '') +
     '&variables=' +
     encodedVariables;
 
@@ -553,7 +558,11 @@ const httpPost = (input) => {
     body: reqBody,
   };
 
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}&schema_id=${netlifyGraphConfig.schemaId}\` +
+  const schemaId = input.schemaId || ${
+    schemaId ? `"${schemaId}"` : "undefined"
+  };
+
+  const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId +
               (schemaId ? ('&schemaId=' + schemaId) : '');
 
   return fetch(url, reqOptions);
@@ -1493,7 +1502,7 @@ ${exp(
 }`
 )}
 
-${generatedNetlifyGraphPersistedClient(netlifyGraphConfig)}
+${generatedNetlifyGraphPersistedClient(netlifyGraphConfig, schemaId)}
 
 ${exp(
   netlifyGraphConfig,

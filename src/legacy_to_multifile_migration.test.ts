@@ -21,8 +21,6 @@ const cleanDirectory = (directory: string) => {
 
 const test = async () => {
   const inputNetlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
-    siteId: "SITE_ID",
-    schemaId: "SCHEMA_ID",
     netlifyGraphPath: ["functions", "netlifyGraph"],
     graphQLConfigJsonFilename: [".graphqlrc.json"],
     framework: "custom",
