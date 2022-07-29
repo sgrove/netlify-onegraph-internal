@@ -283,7 +283,7 @@ ${out(
     body: reqBody,
   };
 
-  const url = \`https://graph.netlify.com/graphql?app_id=${netlifyGraphConfig.siteId}\`;
+  const url = 'https://graph.netlify.com/graphql?app_id=' + siteId;
 
   return fetch(url, reqOptions).then((body) => {
     return body.text().then((bodyString) => {
