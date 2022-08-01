@@ -11,9 +11,16 @@ const makeLRUCache = (max) => {
   return { max: max, cache: new Map() };
 };
 
+const oldestCacheKey = (lru) => {
+  return lru.keys().next().value
+}
+
+// Depend on Map keeping track of insertion order
 const getFromCache = (lru, key) => {
   const item = lru.cache.get(key);
   if (item) {
+    // Delete key and re-insert so key is now at the end,
+    // and now the last to be gc'd.
     lru.cache.delete(key);
     lru.cache.set(key, item);
   }
@@ -25,8 +32,13 @@ const setInCache = (lru, key, value) => {
     lru.cache.delete(key);
   }
   if (lru.cache.size == lru.max) {
-    lru.cache.delete(lru.first());
+    const cacheKey = oldestCacheKey(lru);
+
+    if (cacheKey) {
+      lru.cache.delete(cacheKey);
+    }
   }
+
   lru.cache.set(key, value);
 };
 
