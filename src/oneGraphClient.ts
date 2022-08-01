@@ -60,6 +60,11 @@ const __netlifyGraphJwt = async ({
   }
 };
 
+const atob =
+  globalThis.Buffer != null
+    ? (x) => globalThis.Buffer.from(x, "base64").toString()
+    : globalThis.atob;
+
 export function getGraphJwtForSite({
   siteId,
   nfToken,
@@ -78,6 +83,7 @@ export function getGraphJwtForSite({
         // url-safe -> ordinary base64
         .replace(/_/g, "/")
         .replace(/-/g, "+");
+
       const payload = JSON.parse(atob(base64Payload));
       const expirationTicks = payload.exp - payload.iat;
       // use performance.now in case the browser's clock is way off
