@@ -5,3 +5,4 @@ export * as InternalConsole from "./internalConsole";
 export * as CodegenHelpers from "./codegen/codegenHelpers";
 export * as GraphQLHelpers from "./graphqlHelpers";
 export * as NetlifyGraphJsonConfig from "./netlifyGraphJsonConfig";
+export * as NetlifyGraphLockfile from "./lockfile";
