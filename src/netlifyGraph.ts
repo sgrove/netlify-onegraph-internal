@@ -12,6 +12,8 @@ import {
   print,
 } from "graphql";
 
+import * as GraphQLPackage from "graphql";
+
 import { internalConsole } from "./internalConsole";
 import {
   extractPersistableOperation as extractPersistableOperationString,
@@ -29,8 +31,13 @@ import {
 
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
 import { remixFunctionSnippet } from "./codegen/remixExporter";
-import { ExportedFile, FrameworkGenerator } from "./codegen/codegenHelpers";
+import {
+  CodeGenerator,
+  ExportedFile,
+  GenerateHandlerFunction,
+} from "./codegen/codegenHelpers";
 import { executeCreatePersistedQueryMutation } from "./oneGraphClient";
+import { CodegenHelpers } from ".";
 
 export type State = {
   set: (key: string, value?: any) => any;
@@ -698,7 +705,7 @@ const out = (
   return value;
 };
 
-const exp = (
+const export_ = (
   netlifyGraphConfig: NetlifyGraphConfig,
   envs: ("browser" | "node")[],
   name: string,
@@ -715,7 +722,7 @@ const exp = (
   return `export const ${name} = ${value}`;
 };
 
-const imp = (
+const import_ = (
   netlifyGraphConfig: NetlifyGraphConfig,
   envs: ("browser" | "node")[],
   name: string,
@@ -733,6 +740,7 @@ const imp = (
 };
 
 export const generateSubscriptionFunctionTypeDefinition = (
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   fn: ParsedFunction,
   fragments: Record<string, ParsedFragment>
@@ -743,6 +751,7 @@ export const generateSubscriptionFunctionTypeDefinition = (
     }, {});
 
   const parsingFunctionReturnSignature = typeScriptSignatureForOperation(
+    GraphQL,
     schema,
     fn.parsedOperation,
     fragmentDefinitions
@@ -753,6 +762,7 @@ export const generateSubscriptionFunctionTypeDefinition = (
   );
 
   const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
     variableNames,
     schema,
     fn.parsedOperation
@@ -816,17 +826,20 @@ export function ${subscriptionParserName(
 
 // TODO: Handle fragments
 export const generateSubscriptionFunction = (
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   fn: ParsedFunction,
   fragments: never[],
   netlifyGraphConfig: NetlifyGraphConfig
 ) => {
   const patchedWithWebhookUrl = patchSubscriptionWebhookField({
+    GraphQL,
     schema,
     definition: fn.parsedOperation,
   });
 
   const patched = patchSubscriptionWebhookSecretField({
+    GraphQL,
     schema,
     definition: patchedWithWebhookUrl,
   });
@@ -887,6 +900,7 @@ const makeFunctionName = (kind: string, operationName: string) => {
 };
 
 export const queryToFunctionDefinition = (
+  GraphQL: typeof GraphQLPackage,
   fullSchema: GraphQLSchema,
   parsedDoc: DocumentNode,
   persistedQuery: ExtractedFunction,
@@ -909,7 +923,9 @@ export const queryToFunctionDefinition = (
     (def) => def.kind === Kind.FRAGMENT_DEFINITION
   ) as FragmentDefinitionNode[];
 
-  const fragments = Object.values(enabledFragments).reduce(
+  const fragments: Record<string, FragmentDefinitionNode> = Object.values(
+    enabledFragments
+  ).reduce(
     (acc, def) => ({ ...acc, [def.fragmentName]: def.parsedOperation }),
     {}
   );
@@ -927,6 +943,7 @@ export const queryToFunctionDefinition = (
   }
 
   const returnSignature = typeScriptSignatureForOperation(
+    GraphQL,
     fullSchema,
     operation,
     fragments
@@ -937,6 +954,7 @@ export const queryToFunctionDefinition = (
   );
 
   const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
     variableNames,
     fullSchema,
     operation
@@ -960,8 +978,14 @@ export const queryToFunctionDefinition = (
     ),
   };
 
+  const persistableOperationFacts = extractPersistableOperationString(
+    GraphQL,
+    parsedDoc,
+    operation
+  ) || { persistableOperationString: print(operation) };
+
   const persistableOperationString =
-    extractPersistableOperationString(parsedDoc, operation) || print(operation);
+    persistableOperationFacts.persistableOperationString;
 
   const cacheControl = pluckNetlifyCacheControlDirective(operation);
   const netlifyDirective = pluckNetlifyDirective(operation);
@@ -989,6 +1013,7 @@ export const queryToFunctionDefinition = (
 };
 
 export const fragmentToParsedFragmentDefinition = (
+  GraphQL: typeof GraphQLPackage,
   currentFragments: {},
   fullSchema: GraphQLSchema,
   persistedQuery: ExtractedFragment
@@ -1031,6 +1056,7 @@ export const fragmentToParsedFragmentDefinition = (
   }
 
   const returnSignature = typeScriptSignatureForFragment(
+    GraphQL,
     fullSchema,
     operation,
     { ...currentFragments, ...fragments }
@@ -1041,6 +1067,7 @@ export const fragmentToParsedFragmentDefinition = (
   );
 
   const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
     variableNames,
     fullSchema,
     // @ts-ignore TODO: FIX THIS!
@@ -1084,6 +1111,7 @@ export const fragmentToParsedFragmentDefinition = (
 };
 
 export const generateJavaScriptClient = (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
@@ -1107,6 +1135,7 @@ export const generateJavaScriptClient = (
       if (fn.kind === "subscription") {
         const fragments = [];
         return generateSubscriptionFunction(
+          GraphQL,
           schema,
           fn,
           fragments,
@@ -1114,7 +1143,7 @@ export const generateJavaScriptClient = (
         );
       }
 
-      const dynamicFunction = `${exp(
+      const dynamicFunction = `${export_(
         netlifyGraphConfig,
         ["browser", "node"],
         fn.fnName,
@@ -1138,7 +1167,7 @@ export const generateJavaScriptClient = (
       )}
 `;
 
-      const staticFunction = `${exp(
+      const staticFunction = `${export_(
         netlifyGraphConfig,
         ["browser", "node"],
         fn.fnName,
@@ -1207,7 +1236,7 @@ export const generateJavaScriptClient = (
     .filter(Boolean)
     .join(",\n  ");
 
-  const dummyHandler = exp(
+  const dummyHandler = export_(
     netlifyGraphConfig,
     ["node"],
     "handler",
@@ -1225,12 +1254,12 @@ export const generateJavaScriptClient = (
   const source = `/* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
-${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
-${imp(netlifyGraphConfig, ["node"], "https", "https")}
-${imp(netlifyGraphConfig, ["node"], "process", "process")}
+${import_(netlifyGraphConfig, ["node"], "buffer", "buffer")}
+${import_(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+${import_(netlifyGraphConfig, ["node"], "https", "https")}
+${import_(netlifyGraphConfig, ["node"], "process", "process")}
 
-${exp(
+${export_(
   netlifyGraphConfig,
   ["node"],
   "verifySignature",
@@ -1283,7 +1312,7 @@ ${exp(
 
 ${generatedNetlifyGraphDynamicClient(netlifyGraphConfig)}
 
-${exp(
+${export_(
   netlifyGraphConfig,
   ["node"],
   "verifyRequestSignature",
@@ -1325,6 +1354,7 @@ ${dummyHandler}`;
 };
 
 export const generateProductionJavaScriptClient = (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
@@ -1339,6 +1369,7 @@ export const generateProductionJavaScriptClient = (
       if (fn.kind === "subscription") {
         const fragments = [];
         return generateSubscriptionFunction(
+          GraphQL,
           schema,
           fn,
           fragments,
@@ -1346,7 +1377,7 @@ export const generateProductionJavaScriptClient = (
         );
       }
 
-      const dynamicFunction = `${exp(
+      const dynamicFunction = `${export_(
         netlifyGraphConfig,
         ["browser", "node"],
         fn.fnName,
@@ -1370,7 +1401,7 @@ export const generateProductionJavaScriptClient = (
       )}
 `;
 
-      const staticFunction = `${exp(
+      const staticFunction = `${export_(
         netlifyGraphConfig,
         ["browser", "node"],
         fn.fnName,
@@ -1441,7 +1472,7 @@ export const generateProductionJavaScriptClient = (
     .filter(Boolean)
     .join(",\n  ");
 
-  const dummyHandler = exp(
+  const dummyHandler = export_(
     netlifyGraphConfig,
     ["node"],
     "handler",
@@ -1459,12 +1490,12 @@ export const generateProductionJavaScriptClient = (
   const source = `/* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-  ${imp(netlifyGraphConfig, ["node"], "buffer", "buffer")}
-  ${imp(netlifyGraphConfig, ["node"], "crypto", "crypto")}
-  ${imp(netlifyGraphConfig, ["node"], "https", "https")}
-  ${imp(netlifyGraphConfig, ["node"], "process", "process")}
+  ${import_(netlifyGraphConfig, ["node"], "buffer", "buffer")}
+  ${import_(netlifyGraphConfig, ["node"], "crypto", "crypto")}
+  ${import_(netlifyGraphConfig, ["node"], "https", "https")}
+  ${import_(netlifyGraphConfig, ["node"], "process", "process")}
 
-${exp(
+${export_(
   netlifyGraphConfig,
   ["node"],
   "verifySignature",
@@ -1517,7 +1548,7 @@ ${exp(
 
 ${generatedNetlifyGraphPersistedClient(netlifyGraphConfig, schemaId)}
 
-${exp(
+${export_(
   netlifyGraphConfig,
   ["node"],
   "verifyRequestSignature",
@@ -1580,6 +1611,7 @@ export type ${returnSignatureName} = ${fragment.returnSignature};
 };
 
 export const generateTypeScriptDefinitions = (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   enabledFunctions: ParsedFunction[],
@@ -1606,6 +1638,7 @@ export const generateTypeScriptDefinitions = (
 
       if (isSubscription) {
         return generateSubscriptionFunctionTypeDefinition(
+          GraphQL,
           schema,
           fn,
           enabledFragments
@@ -1738,6 +1771,7 @@ export default functions;
 };
 
 export const generateFunctionsSource = async (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   schema: GraphQLSchema,
   operationsDoc: string,
@@ -1751,6 +1785,7 @@ export const generateFunctionsSource = async (
   ).reduce(
     ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
       const parsed = fragmentToParsedFragmentDefinition(
+        GraphQL,
         fragmentNodes,
         schema,
         fragment
@@ -1770,21 +1805,29 @@ export const generateFunctionsSource = async (
 
   const functionDefinitions: ParsedFunction[] = Object.values(queries)
     .map((query) =>
-      queryToFunctionDefinition(schema, parsedDoc, query, fragmentDefinitions)
+      queryToFunctionDefinition(
+        GraphQL,
+        schema,
+        parsedDoc,
+        query,
+        fragmentDefinitions
+      )
     )
     .filter(Boolean)
     .sort((a: ParsedFunction, b: ParsedFunction) => {
       return a.id.localeCompare(b.id);
     }) as ParsedFunction[];
 
-  const clientSource = generateJavaScriptClient(
+  // @ts-expect-error
+  const clientSource = generateJavaScriptClient({
+    GraphQL,
     netlifyGraphConfig,
     schema,
-    operationsDoc,
-    functionDefinitions
-  );
+    functionDefinitions,
+  });
 
   const typeDefinitionsSource = generateTypeScriptDefinitions(
+    GraphQL,
     netlifyGraphConfig,
     schema,
     functionDefinitions,
@@ -1798,7 +1841,86 @@ export const generateFunctionsSource = async (
   };
 };
 
+export const generateRuntime = async ({
+  GraphQL,
+  fragments,
+  generate,
+  netlifyGraphConfig,
+  operationsDoc,
+  operations,
+  schema,
+  schemaId,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  netlifyGraphConfig: NetlifyGraphConfig;
+  schema: GraphQLSchema;
+  operationsDoc: string;
+  operations: Record<string, ExtractedFunction>;
+  fragments: Record<string, ExtractedFragment>;
+  generate: CodegenHelpers.GenerateRuntimeFunction;
+  schemaId: string;
+}) => {
+  const {
+    fragmentDefinitions,
+  }: { fragmentDefinitions: Record<string, ParsedFragment> } = Object.entries(
+    fragments
+  ).reduce(
+    ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
+      const parsed = fragmentToParsedFragmentDefinition(
+        GraphQL,
+        fragmentNodes,
+        schema,
+        fragment
+      );
+      return {
+        fragmentDefinitions: {
+          ...fragmentDefinitions,
+          [fragmentName]: parsed.fragment,
+        },
+        fragmentNodes: { ...fragmentNodes, ...parsed.fragmentDefinitions },
+      };
+    },
+    { fragmentNodes: {}, fragmentDefinitions: {} }
+  );
+
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
+
+  const odl = computeOperationDataList({
+    query: operationsDoc,
+    variables: [],
+  });
+
+  const functionDefinitions: ParsedFunction[] = Object.values(operations)
+    .map((query) =>
+      queryToFunctionDefinition(
+        GraphQL,
+        schema,
+        parsedDoc,
+        query,
+        fragmentDefinitions
+      )
+    )
+    .filter(Boolean)
+    .sort((a: ParsedFunction, b: ParsedFunction) => {
+      return a.id.localeCompare(b.id);
+    }) as ParsedFunction[];
+
+  const runtime = generate({
+    GraphQL,
+    netlifyGraphConfig,
+    schema,
+    functionDefinitions,
+    fragments: Object.values(fragmentDefinitions),
+    operationDataList: odl.operationDataList,
+    schemaId: schemaId,
+    options: {},
+  });
+
+  return runtime;
+};
+
 export const generatePersistedFunctionsSource = async (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   netlifyJwt: string,
   siteId: string,
@@ -1815,6 +1937,7 @@ export const generatePersistedFunctionsSource = async (
   ).reduce(
     ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
       const parsed = fragmentToParsedFragmentDefinition(
+        GraphQL,
         fragmentNodes,
         schema,
         fragment
@@ -1834,7 +1957,13 @@ export const generatePersistedFunctionsSource = async (
 
   const functionDefinitions: ParsedFunction[] = Object.values(queries)
     .map((query) =>
-      queryToFunctionDefinition(schema, parsedDoc, query, fragmentDefinitions)
+      queryToFunctionDefinition(
+        GraphQL,
+        schema,
+        parsedDoc,
+        query,
+        fragmentDefinitions
+      )
     )
     .filter(Boolean) as ParsedFunction[];
 
@@ -1896,6 +2025,7 @@ export const generatePersistedFunctionsSource = async (
   }
 
   const clientSource = generateProductionJavaScriptClient(
+    GraphQL,
     netlifyGraphConfig,
     schema,
     operationsDoc,
@@ -1904,6 +2034,7 @@ export const generatePersistedFunctionsSource = async (
   );
 
   const typeDefinitionsSource = generateTypeScriptDefinitions(
+    GraphQL,
     netlifyGraphConfig,
     schema,
     functionDefinitions,
@@ -2097,6 +2228,7 @@ export const pluckNetlifyCacheControlDirective = (
  * @returns {functions: Record<string, ExtractedFunction>, fragments: Record<string, ExtractedFragment>}
  */
 export const extractFunctionsFromOperationDoc = (
+  GraphQL: typeof GraphQLPackage,
   parsedDoc: DocumentNode
 ): {
   functions: Record<string, ExtractedFunction>;
@@ -2156,10 +2288,11 @@ export const extractFunctionsFromOperationDoc = (
         ? pluckNetlifyCacheControlDirective(next)
         : { cacheStrategy: undefined, fallbackOnError: false };
 
-      const persistableOperationString = extractPersistableOperationString(
+      const { persistableOperationString } = extractPersistableOperationString(
+        GraphQL,
         parsedDoc,
         next
-      );
+      ) || { persistableOperationString: null };
 
       const operation: ExtractedFunction = {
         id: netlifyDirective.id,
@@ -2184,24 +2317,26 @@ export const extractFunctionsFromOperationDoc = (
   return { functions, fragments };
 };
 
-const frameworkGeneratorMap: Record<string, FrameworkGenerator> = {
-  "Next.js": nextjsFunctionSnippet.generate,
-  Remix: remixFunctionSnippet.generate,
-  default: genericNetlifyFunctionSnippet.generate,
+const frameworkGeneratorMap: Record<string, GenerateHandlerFunction> = {
+  "Next.js": nextjsFunctionSnippet.generateHandler,
+  Remix: remixFunctionSnippet.generateHandler,
+  default: genericNetlifyFunctionSnippet.generateHandler,
 };
 
-const defaultGenerator = genericNetlifyFunctionSnippet.generate;
+const defaultGenerator = genericNetlifyFunctionSnippet.generateHandler;
 
 /**
  * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
 export const generateHandlerSource = ({
+  GraphQL,
   handlerOptions,
   netlifyGraphConfig,
   operationId,
   operationsDoc,
   schema,
 }: {
+  GraphQL: typeof GraphQLPackage;
   handlerOptions: Record<string, boolean>;
   netlifyGraphConfig: NetlifyGraphConfig;
   operationId: string;
@@ -2214,7 +2349,7 @@ export const generateHandlerSource = ({
     }
   | undefined => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
-  const operations = extractFunctionsFromOperationDoc(parsedDoc);
+  const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const functions = operations.functions;
   const fn = functions[operationId];
 
@@ -2236,6 +2371,7 @@ export const generateHandlerSource = ({
     frameworkGeneratorMap[netlifyGraphConfig.framework] || defaultGenerator;
 
   const { exportedFiles } = generate({
+    GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
     schema,
@@ -2249,6 +2385,7 @@ export const generateHandlerSource = ({
  * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
 export const generateCustomHandlerSource = ({
+  GraphQL,
   handlerOptions,
   netlifyGraphConfig,
   operationId,
@@ -2256,12 +2393,13 @@ export const generateCustomHandlerSource = ({
   schema,
   generate,
 }: {
+  GraphQL: typeof GraphQLPackage;
   handlerOptions: Record<string, boolean>;
   netlifyGraphConfig: NetlifyGraphConfig;
   operationId: string;
   operationsDoc: string;
   schema: GraphQLSchema;
-  generate: FrameworkGenerator;
+  generate: CodeGenerator["generateHandler"];
 }):
   | {
       exportedFiles: ExportedFile[];
@@ -2269,7 +2407,7 @@ export const generateCustomHandlerSource = ({
     }
   | undefined => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
-  const operations = extractFunctionsFromOperationDoc(parsedDoc);
+  const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const fn = operations.functions[operationId];
 
   if (!fn) {
@@ -2286,6 +2424,7 @@ export const generateCustomHandlerSource = ({
   });
 
   const { exportedFiles } = generate({
+    GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
     schema,
@@ -2293,4 +2432,65 @@ export const generateCustomHandlerSource = ({
   });
 
   return { exportedFiles, operation: fn.parsedOperation };
+};
+
+/**
+ * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a preview of the full handler's output
+ */
+export const generatePreview = ({
+  GraphQL,
+  handlerOptions,
+  netlifyGraphConfig,
+  operationId,
+  operationsDoc,
+  schema,
+  generate,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  handlerOptions: Record<string, boolean>;
+  netlifyGraphConfig: NetlifyGraphConfig;
+  operationId: string;
+  operationsDoc: string;
+  schema: GraphQLSchema;
+  generate: CodeGenerator["generatePreview"];
+}):
+  | {
+      exportedFile: ExportedFile;
+      operation: OperationDefinitionNode;
+    }
+  | undefined => {
+  if (!generate) {
+    return;
+  }
+
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
+  const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
+  const fn = operations.functions[operationId];
+
+  if (!fn) {
+    internalConsole.warn(
+      `Operation ${operationId} not found in graphql among:
+ [${Object.keys(operations).join(",\n ")}]`
+    );
+    return;
+  }
+
+  const odl = computeOperationDataList({
+    query: fn.operationString,
+    variables: [],
+  });
+
+  const exportedFile = generate({
+    GraphQL,
+    netlifyGraphConfig,
+    operationDataList: odl.operationDataList,
+    schema,
+    options: handlerOptions,
+  });
+
+  if (!exportedFile) {
+    return;
+  }
+
+  return { exportedFile, operation: fn.parsedOperation };
 };

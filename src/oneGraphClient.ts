@@ -705,3 +705,9 @@ export const fetchListNetlifyEnabledServicesQuery: typeof GeneratedClient.fetchL
  */
 export const executeCreateCLISessionEventMutation: typeof GeneratedClient.executeCreateCLISessionEventMutation =
   GeneratedClient.executeCreateCLISessionEventMutation;
+
+/**
+ * Fetch schema metadata for cli session
+ */
+export const fetchNetlifySessionSchemaQuery: typeof GeneratedClient.fetchFetchNetlifySessionSchemaQuery =
+  GeneratedClient.fetchFetchNetlifySessionSchemaQuery;

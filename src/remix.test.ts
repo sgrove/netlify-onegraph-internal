@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
+import * as GraphQL from "graphql";
 
 import { NetlifyGraph } from "./index";
 
@@ -85,6 +86,7 @@ const test = () => {
   console.log("config: ", netlifyGraphConfig);
 
   const result = NetlifyGraph.generateHandlerSource({
+    GraphQL,
     handlerOptions: {
       postHttpMethod: true,
       useClientAuth: true,

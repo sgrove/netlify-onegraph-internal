@@ -10,7 +10,7 @@ import {
   ExportedFile,
   ExporterResult,
   munge,
-  SnippetGeneratorWithMeta,
+  CodeGenerator,
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
@@ -217,18 +217,26 @@ const addLeftWhitespace = (string, padding) => {
 
 const collapseExtraNewlines = (string) => string.replace(/\n{2,}/g, "\n\n");
 
-const snippetOptions = [
-  {
-    id: "postHttpMethod",
-    label: "POST function",
-    initial: true,
-  },
-  {
-    id: "useClientAuth",
-    label: "Use user's OAuth token",
-    initial: false,
-  },
-];
+const snippetOptions = {
+  inputTypename: "Options",
+  schemaSdl: `
+  enum HttpMethod {
+    POST
+    GET
+  }
+
+input Options {
+    """
+    Make call over POST
+    """
+    postHttpMethod: HttpMethod
+    """
+    Use user's OAuth token
+    """
+    useClientAuth: Boolean!
+}
+    `,
+};
 
 const operationFunctionName = (operationData) => {
   const { type } = operationData;
@@ -449,6 +457,7 @@ const subscriptionHandler = ({
 }): UnnamedExportedFile => {
   return {
     kind: "UnnamedExportedFile",
+    language: "javascript",
     content: `${imp(
       netlifyGraphConfig,
       "NetlifyGraph",
@@ -522,12 +531,13 @@ const exp = (netlifyGraphConfig, name) => {
 };
 
 // Snippet generation!
-export const netlifyFunctionSnippet: SnippetGeneratorWithMeta = {
-  language: "JavaScript",
-  codeMirrorMode: "javascript",
+export const netlifyFunctionSnippet: CodeGenerator = {
   name: "Netlify Function",
-  options: snippetOptions,
-  generate: (opts): ExporterResult => {
+  generateHandlerOptions: snippetOptions,
+  supportedDefinitionTypes: [],
+  id: "Netlify Functions",
+  version: "0.0.1",
+  generateHandler: (opts): ExporterResult => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
@@ -560,11 +570,11 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
 
     if (!firstOperation) {
       return {
-        language: "javascript",
         exportedFiles: [
           {
             kind: "UnnamedExportedFile",
             content: "// No operation found",
+            language: "javascript",
           },
         ],
       };
@@ -581,7 +591,6 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
       });
 
       return {
-        language: "javascript",
         exportedFiles: [result],
       };
     }
@@ -657,13 +666,15 @@ ${clientSideCalls}
     const content = collapseExtraNewlines(snippet);
 
     return {
-      language: "javascript",
       exportedFiles: [
         {
           kind: "UnnamedExportedFile",
           content: content,
+          language: "javascript",
         },
       ],
     };
   },
 };
+
+export const generators = [netlifyFunctionSnippet];

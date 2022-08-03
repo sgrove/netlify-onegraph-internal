@@ -1,10 +1,8 @@
-import {
-  FragmentDefinitionNode,
+import * as GraphQLPackage from "graphql";
+import type {
   GraphQLSchema,
-  Kind,
   OperationDefinitionNode,
-  parse,
-  print,
+  FragmentDefinitionNode,
 } from "graphql";
 import { NetlifyGraphConfig } from "../netlifyGraph";
 
@@ -14,10 +12,11 @@ import {
   NamedExportedFile,
   OperationData,
   OperationDataList,
-  SnippetGeneratorWithMeta,
+  CodeGenerator,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { remixFormInput } from "../graphqlHelpers";
+import { GraphQL } from "..";
 
 let operationNodesMemo = [null, null];
 
@@ -53,10 +52,13 @@ const formUpdateHandler = `const updateFormVariables = (setFormVariables, path, 
 };`;
 
 export const formElComponent = ({
+  GraphQL,
   operationData,
   schema,
   callFn,
 }: {
+  GraphQL: typeof GraphQLPackage;
+
   operationData: OperationData;
   schema: GraphQLSchema;
   callFn: string;
@@ -75,7 +77,7 @@ export const formElComponent = ({
 
   const els = (operationData.operationDefinition.variableDefinitions || []).map(
     (def) => {
-      const genInput = remixFormInput(schema, def, []);
+      const genInput = remixFormInput(GraphQL, schema, def, []);
 
       const input =
         genInput || `UNABLE_TO_GENERATE_FORM_INPUT_FOR_GRAPHQL_TYPE(${def})`;
@@ -98,12 +100,14 @@ export const formElComponent = ({
 };
 
 const generateRoute = (opts: {
+  GraphQL: typeof GraphQLPackage;
   netlifyGraphConfig: NetlifyGraphConfig;
   operationData: OperationData;
   schema: GraphQLSchema;
   route: string;
 }): NamedExportedFile => {
   const form = formElComponent({
+    GraphQL: opts.GraphQL,
     operationData: opts.operationData,
     schema: opts.schema,
     callFn: "submitForm()",
@@ -112,6 +116,7 @@ const generateRoute = (opts: {
   const { netlifyGraphConfig } = opts;
 
   const fetcherInvocation = asyncFetcherInvocation(
+    GraphQL,
     opts.netlifyGraphConfig,
     [opts.operationData],
     "get"
@@ -119,6 +124,7 @@ const generateRoute = (opts: {
 
   return {
     kind: "NamedExportedFile",
+    language: opts.netlifyGraphConfig.language,
     name: [
       "app",
       "routes",
@@ -176,7 +182,9 @@ export default function handler() {
   };
 };
 
-const getOperationNodes = (query) => {
+const getOperationNodes = (GraphQL: typeof GraphQLPackage, query) => {
+  const { parse } = GraphQL;
+
   if (operationNodesMemo[0] === query && operationNodesMemo[1]) {
     return operationNodesMemo[1];
   }
@@ -318,10 +326,17 @@ const toposort = (graph) => {
 };
 
 export const computeOperationDataList = ({
+  GraphQL,
   query,
   variables,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  query: string;
+  variables: Record<string, unknown>;
 }): OperationDataList => {
-  const operationDefinitions = getOperationNodes(query);
+  const { Kind, print } = GraphQL;
+
+  const operationDefinitions = getOperationNodes(GraphQL, query);
 
   const fragmentDefinitions: FragmentDefinitionNode[] = [];
 
@@ -379,18 +394,26 @@ const addLeftWhitespace = (string, padding) => {
 
 const collapseExtraNewlines = (string) => string.replace(/\n{2,}/g, "\n\n");
 
-const snippetOptions = [
-  {
-    id: "postHttpMethod",
-    label: "POST function",
-    initial: true,
-  },
-  {
-    id: "useClientAuth",
-    label: "Use user's OAuth token",
-    initial: false,
-  },
-];
+const snippetOptions = {
+  inputTypename: "Options",
+  schemaSdl: `
+  enum HttpMethod {
+    POST
+    GET
+  }
+
+input Options {
+    """
+    Make call over POST
+    """
+    postHttpMethod: HttpMethod
+    """
+    Use user's OAuth token
+    """
+    useClientAuth: Boolean!
+}
+    `,
+};
 
 const operationFunctionName = (operationData) => {
   const { type } = operationData;
@@ -419,7 +442,9 @@ const operationFunctionName = (operationData) => {
   return fnName;
 };
 
-const coercerFor = (type, name) => {
+const coercerFor = (GraphQL: typeof GraphQLPackage, type, name) => {
+  const { print } = GraphQL;
+
   const typeName = print(type).replace(/\W+/gi, "").toLocaleLowerCase();
 
   switch (typeName) {
@@ -437,10 +462,12 @@ const coercerFor = (type, name) => {
 };
 
 const asyncFetcherInvocation = (
+  GraphQL: typeof GraphQLPackage,
   netlifyGraphConfig: NetlifyGraphConfig,
   operationDataList,
   pluckerStyle
 ) => {
+  const { print } = GraphQL;
   const invocations = operationDataList
     .filter((operationData) =>
       ["query", "mutation", "subscription"].includes(operationData.type)
@@ -460,6 +487,7 @@ const asyncFetcherInvocation = (
             ?.map((def) => {
               const name = def.variable.name.value;
               const withCoercer = coercerFor(
+                GraphQL,
                 def.type,
                 `${munge(name)}FormValue`
               );
@@ -628,6 +656,7 @@ const subscriptionHandler = ({
 }): ExportedFile => {
   return {
     kind: "NamedExportedFile",
+    language: netlifyGraphConfig.language,
     name: [
       "app",
       "routes",
@@ -715,12 +744,13 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const remixFunctionSnippet: SnippetGeneratorWithMeta = {
-  language: "JavaScript",
-  codeMirrorMode: "javascript",
+export const remixFunctionSnippet: CodeGenerator = {
   name: "Remix Function",
-  options: snippetOptions,
-  generate: (opts) => {
+  generateHandlerOptions: snippetOptions,
+  supportedDefinitionTypes: [],
+  id: "sgrove/remix",
+  version: "0.0.1",
+  generateHandler: (opts) => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
@@ -753,11 +783,11 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
 
     if (!firstOperation) {
       return {
-        language: "javascript",
         exportedFiles: [
           {
             kind: "UnnamedExportedFile",
             content: "// No operation found",
+            language: "javascript",
           },
         ],
       };
@@ -774,7 +804,6 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
       });
 
       return {
-        language: netlifyGraphConfig.language,
         exportedFiles: [result],
       };
     }
@@ -819,6 +848,7 @@ ${clientSideCalls}
 */`;
 
     const route: NamedExportedFile = generateRoute({
+      GraphQL: opts.GraphQL,
       netlifyGraphConfig: netlifyGraphConfig,
       operationData: firstOperation,
       schema: opts.schema,
@@ -831,3 +861,5 @@ ${clientSideCalls}
     };
   },
 };
+
+export const generators = [remixFunctionSnippet];

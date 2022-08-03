@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import { buildASTSchema, DocumentNode, Kind, parse } from "graphql";
 import path = require("path/posix");
+import * as GraphQL from "graphql";
 
 import { NetlifyGraph } from "./index";
 
@@ -77,7 +78,7 @@ const test = async () => {
     const legacyParsedDoc: DocumentNode = parse(legacySourceGraphQLFile);
 
     const { functions: legacyFunctions, fragments: legacyFragments } =
-      NetlifyGraph.extractFunctionsFromOperationDoc(legacyParsedDoc);
+      NetlifyGraph.extractFunctionsFromOperationDoc(GraphQL, legacyParsedDoc);
 
     console.log("Legacy operations file found, migrating...");
 
@@ -145,7 +146,7 @@ const test = async () => {
   }, emptyDocDefinitionNode);
 
   const { functions, fragments } =
-    NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
+    NetlifyGraph.extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
 
   cleanDirectory(sourceGraphQLDirectory);
 
