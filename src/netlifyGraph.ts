@@ -423,7 +423,7 @@ ${out(
 
   const encodedVariables = encodeURIComponent(input.variables || "null");
   const url = 'https://graph.netlify.com/graphql?app_id=' + input.siteId + '&doc_id=' + input.docId + (input.operationName ? ('&operationName=' + input.operationName) : '') + (schemaId ? ('&schemaId=' + schemaId) : '') + '&variables=' + encodedVariables;
-        
+
   const respBody = []
 
   return new Promise((resolve, reject) => {
