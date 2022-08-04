@@ -2,12 +2,19 @@
 // present in the Netlify React UI JS bundle when we introduced lockfiles
 import { createHash } from "rusha";
 
+//TODO add schema content hash too?
 export type V0_format = {
   version: "v0";
   locked: {
     schemaId: string;
     operationsHash: string;
   };
+};
+
+export const defaultLockFileName = "netlifyGraph.lock";
+
+export const hashOperations = (operationsDoc: string) => {
+  return createHash().update(operationsDoc).digest("hex");
 };
 
 export const createLockfile = ({
@@ -18,10 +25,7 @@ export const createLockfile = ({
   schemaId: string;
   operationsFileContents: string;
 }): V0_format => {
-  const operationsHash = createHash()
-    .update(operationsFileContents)
-    .digest("hex");
-
+  const operationsHash = hashOperations(operationsFileContents);
   return {
     version: "v0",
     locked: {
@@ -30,5 +34,3 @@ export const createLockfile = ({
     },
   };
 };
-
-export const defaultLockFileName = "netlifyGraph.lock";
