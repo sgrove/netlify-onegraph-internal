@@ -2016,7 +2016,7 @@ export const generatePersistedFunctionsSource = async (
         ...result,
         attemptedFunction: fn,
       });
-      console.warn(
+      internalConsole.warn(
         "Failed to persist function",
         fn.operationName,
         result.errors

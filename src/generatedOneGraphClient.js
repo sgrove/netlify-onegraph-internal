@@ -121,6 +121,8 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
     response.then((result) => {
       // Check response headers for a 304 Not Modified
       if (result.status === 304) {
+        // Drain the body so the connection will be closed
+        result.text();
         // Return the cached result
         resolve(cachedResultValue);
       } else if (result.status === 200) {

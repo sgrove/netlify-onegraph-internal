@@ -409,7 +409,7 @@ export function listCount(GraphQL: typeof GraphQLPackage, gqlType) {
     totalCount = totalCount + 1;
 
     if (totalCount > 30) {
-      console.warn("Bailing on potential infinite recursion");
+      internalConsole.warn("Bailing on potential infinite recursion");
       return -99;
     }
 
@@ -549,7 +549,7 @@ export function typeScriptDefinitionObjectForOperation(
           parentNamedType.getFields()[name];
 
         if (!field) {
-          console.warn(
+          internalConsole.warn(
             "Could not find field",
             name,
             "in",
@@ -621,7 +621,10 @@ export function typeScriptDefinitionObjectForOperation(
           }
         }
       } else {
-        console.warn("objectHelper got a non-field selection", selection);
+        internalConsole.warn(
+          "objectHelper got a non-field selection",
+          selection
+        );
       }
     });
 
@@ -696,7 +699,7 @@ export function typeScriptDefinitionObjectForOperation(
 
       return outEnum;
     } else {
-      console.warn("Unrecognized type in operation", parentGqlType);
+      internalConsole.warn("Unrecognized type in operation", parentGqlType);
     }
   };
 
@@ -934,19 +937,6 @@ export function typeScriptDefinitionObjectForFragment(
           (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
           parentNamedType.getFields()[name];
 
-        if (!field) {
-          console.warn(
-            "Could not find field",
-            name,
-            "on",
-            parentNamedType.name,
-            "among",
-            // @ts-ignore
-            Object.keys(parentNamedType.getFields())
-          );
-          return;
-        }
-
         if (name.startsWith("__")) {
           return {
             kind: "object",
@@ -960,6 +950,19 @@ export function typeScriptDefinitionObjectForFragment(
               },
             },
           };
+        }
+
+        if (!field) {
+          internalConsole.warn(
+            "Could not find field",
+            name,
+            "on",
+            parentNamedType.name,
+            "among",
+            // @ts-ignore
+            Object.keys(parentNamedType.getFields())
+          );
+          return;
         }
 
         let gqlType = field.type;
@@ -1024,7 +1027,10 @@ export function typeScriptDefinitionObjectForFragment(
           }
         }
       } else {
-        console.warn("objectHelper got a non-field selection", selection);
+        internalConsole.warn(
+          "objectHelper got a non-field selection",
+          selection
+        );
       }
     });
 
@@ -1099,7 +1105,7 @@ export function typeScriptDefinitionObjectForFragment(
 
       return outEnum;
     } else {
-      console.warn("Unrecognized type in fragment", parentGqlType);
+      internalConsole.warn("Unrecognized type in fragment", parentGqlType);
     }
   };
 
@@ -1492,7 +1498,7 @@ export const formInput = (
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    console.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn("\tCould not hydrate type for ", def.type);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1623,7 +1629,7 @@ export const remixFormInput = (
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    console.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn("\tCould not hydrate type for ", def.type);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1790,7 +1796,7 @@ export const gatherHardcodedValues = (
 
     return hardCodedValues;
   } catch (e) {
-    console.warn("Error parsing query", e);
+    internalConsole.warn("Error parsing query", e);
     return [];
   }
 };
@@ -1824,7 +1830,7 @@ export const extractPersistableOperation = (
         FragmentSpread: { enter: fragmentExtractor },
       });
     } else {
-      console.warn(
+      internalConsole.warn(
         "Could not find fragment definition for referenced fragment: ",
         fragmentName
       );

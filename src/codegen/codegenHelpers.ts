@@ -167,14 +167,39 @@ type CodeGeneratorSupportableDefinitionType =
   | "subscription"
   | "fragment";
 
+export type GenerateHandlerFunctionOptions = {
+  schemaSdl: string;
+  inputTypename: string;
+  defaultValue?: Record<string, unknown>;
+};
+
+export type GenerateHandlerFunctionOptionsDeserialized = {
+  schema: GraphQL.GraphQLSchema;
+  inputTypename: string;
+  defaultValue?: Record<string, unknown>;
+};
+
 export type CodeGenerator = {
   generatePreview?: GenerateHandlerPreviewFunction;
   generateHandler: GenerateHandlerFunction;
-  generateHandlerOptions?: { schemaSdl: string; inputTypename: string };
+  generateHandlerOptions?: GenerateHandlerFunctionOptions;
   supportedDefinitionTypes: CodeGeneratorSupportableDefinitionType[];
   name: string;
   id: string;
   version: string;
+};
+
+export type CodeGeneratorMeta = {
+  id: string;
+  name: string;
+  options: GenerateHandlerFunctionOptions | null;
+  supportedDefinitionTypes: CodeGeneratorSupportableDefinitionType[];
+};
+
+export type CodegenModuleMeta = {
+  id: string;
+  version: string;
+  generators: CodeGeneratorMeta[];
 };
 
 export type CodegenModule = {
