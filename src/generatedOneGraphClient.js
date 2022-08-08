@@ -1,10 +1,10 @@
 /* eslint-disable */
 // @ts-nocheck
 // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
-const fetch = require('node-fetch')
+const fetch = require("node-fetch");
 const internalConsole = require("./internalConsole").internalConsole;
 
-const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "graph.netlify.com"
+const netlifyGraphHost = process.env.NETLIFY_GRAPH_HOST || "graph.netlify.com";
 
 // Basic LRU cache implementation
 const makeLRUCache = (max) => {
@@ -12,8 +12,8 @@ const makeLRUCache = (max) => {
 };
 
 const oldestCacheKey = (lru) => {
-  return lru.keys().next().value
-}
+  return lru.keys().next().value;
+};
 
 // Depend on Map keeping track of insertion order
 const getFromCache = (lru, key) => {
@@ -64,7 +64,7 @@ const httpFetch = async (siteId, options) => {
     method: "POST",
     headers: headers,
     timeout: timeoutMs,
-    body: reqBody
+    body: reqBody,
   };
 
   const url = "https://" + netlifyGraphHost + "/graphql?app_id=" + siteId;
@@ -121,6 +121,8 @@ const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
     response.then((result) => {
       // Check response headers for a 304 Not Modified
       if (result.status === 304) {
+        // Drain the body so the connection will be closed
+        result.text();
         // Return the cached result
         resolve(cachedResultValue);
       } else if (result.status === 200) {
@@ -381,39 +383,63 @@ export const executeCreateCLISessionEventMutation = (variables, options) => {
 
 export const fetchCLISessionQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query CLISessionQuery($sessionId: String!, $first: Int!) {
-  oneGraph {
-    __typename
-    netlifyCliSession(id: $sessionId) {
-      appId
-      createdAt
-      id
-      cliHeartbeatIntervalMs
-      events(first: $first) {
+    query: `query CLISessionQuery($sessionId: String!, $first: Int!)
+    @netlify(
+      id: """
+      12b5bdea-9bab-4124-a731-5e697b155009
+      """
+      doc: """
+      Fetch a single CLI session by its id
+      """
+    ) {
+      oneGraph {
         __typename
-        createdAt
-        id
-        sessionId
-        ... on OneGraphNetlifyCliSessionLogEvent {
-          id
-          message
-          sessionId
+        netlifyCliSession(id: $sessionId) {
+          appId
           createdAt
-        }
-        ... on OneGraphNetlifyCliSessionTestEvent {
           id
-          createdAt
-          payload
-          sessionId
+          cliHeartbeatIntervalMs
+          events(first: $first) {
+            __typename
+            createdAt
+            id
+            sessionId
+            ... on OneGraphNetlifyCliSessionLogEvent {
+              id
+              message
+              sessionId
+              createdAt
+            }
+            ... on OneGraphNetlifyCliSessionTestEvent {
+              id
+              createdAt
+              payload
+              sessionId
+            }
+          }
+          lastEventAt
+          metadata
+          name
+          netlifyUserId
+          status
+          graphQLSchema {
+            createdAt
+            id
+            externalGraphQLSchemas {
+              nodes {
+                endpoint
+                id
+                service
+                serviceInfo {
+                  friendlyServiceName
+                  graphQLField
+                }
+              }
+            }
+          }
         }
       }
-      lastEventAt
-      metadata
-      name
-      netlifyUserId
-    }
-  }
-}`,
+    }`,
     operationName: "CLISessionQuery",
     variables: variables,
     options: options,
@@ -441,26 +467,31 @@ export const executeAckCLISessionEventMutation = (variables, options) => {
 
 export const fetchAppSchemaQuery = (variables, options) => {
   return fetchNetlifyGraph({
-    query: `query AppSchemaQuery($appId: String!) {
-  oneGraph {
-    app(id: $appId) {
-      graphQLSchema {
-        appId
-        createdAt
-        id
-        services {
-          friendlyServiceName
-          logoUrl
-          graphQLField
-          slug
-          supportsCustomRedirectUri
-          supportsCustomServiceAuth
-          supportsOauthLogin
+    query: `query AppSchemaQuery($appId: String!) @netlify(id: """12b5bdea-9bab-4124-a731-5e697b155011""", doc: """Fetch the schema metadata for a site (enabled services, id, etc.)""") {
+      oneGraph {
+        app(id: $appId) {
+          graphQLSchema {
+            ...OneGraphGraphQLSchema
+          }
         }
-        updatedAt
       }
     }
+
+
+fragment OneGraphGraphQLSchema on OneGraphGraphQLSchema @netlify(id: """0000bdea-9bab-4124-a731-5e697b150000""", doc: """Metadata for a GraphQL schema (enabled services, id, etc.)""") {
+  appId
+  createdAt
+  id
+  services {
+    friendlyServiceName
+    logoUrl
+    graphQLField
+    slug
+    supportsCustomRedirectUri
+    supportsCustomServiceAuth
+    supportsOauthLogin
   }
+  updatedAt
 }`,
     operationName: "AppSchemaQuery",
     variables: variables,

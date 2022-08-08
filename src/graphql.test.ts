@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, Kind, OperationDefinitionNode, parse } from "graphql";
+import * as GraphQL from "graphql";
 import {
   normalizeOperationsDoc,
   typeScriptSignatureForOperationVariables,
@@ -38,6 +39,7 @@ const test = () => {
     ) || [];
 
   const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
     operationVariableNames,
     schema,
     operation
@@ -45,7 +47,7 @@ const test = () => {
 
   console.log(`variableSignature:\n${variableSignature}`);
 
-  const result = normalizeOperationsDoc(sourceGraphQLFile);
+  const result = normalizeOperationsDoc(GraphQL, sourceGraphQLFile);
 
   if (!result) {
     throw new Error("result is undefined");

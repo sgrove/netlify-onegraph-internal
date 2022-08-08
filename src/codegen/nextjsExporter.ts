@@ -1,10 +1,8 @@
-import {
-  FragmentDefinitionNode,
+import * as GraphQLPackage from "graphql";
+import type {
   GraphQLSchema,
-  Kind,
   OperationDefinitionNode,
-  parse,
-  print,
+  FragmentDefinitionNode,
 } from "graphql";
 import { NetlifyGraphConfig } from "../netlifyGraph";
 
@@ -14,11 +12,12 @@ import {
   NamedExportedFile,
   OperationData,
   OperationDataList,
-  SnippetGeneratorWithMeta,
+  Codegen,
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { formElComponent } from "../graphqlHelpers";
+import { GraphQL } from "..";
 
 let operationNodesMemo = [null, null];
 
@@ -54,12 +53,14 @@ const formUpdateHandler = `const updateFormVariables = (setFormVariables, path, 
 };`;
 
 const generatePage = (opts: {
+  GraphQL: typeof GraphQLPackage;
   netlifyGraphConfig: NetlifyGraphConfig;
   operationData: OperationData;
   schema: GraphQLSchema;
   route: string;
 }): NamedExportedFile => {
   const form = formElComponent({
+    GraphQL,
     operationData: opts.operationData,
     schema: opts.schema,
     callFn: "submitForm()",
@@ -70,6 +71,7 @@ const generatePage = (opts: {
 
   return {
     kind: "NamedExportedFile",
+    language: opts.netlifyGraphConfig.language,
     name: ["pages", `${opts.operationData.displayName}Form.${extension}`],
     content: `import Head from "next/head";
 import React, { useState } from "react";
@@ -162,7 +164,8 @@ ${formUpdateHandler}
   };
 };
 
-const getOperationNodes = (query) => {
+const getOperationNodes = (GraphQL: typeof GraphQLPackage, query) => {
+  const { parse } = GraphQL;
   if (operationNodesMemo[0] === query && operationNodesMemo[1]) {
     return operationNodesMemo[1];
   }
@@ -304,10 +307,17 @@ const toposort = (graph) => {
 };
 
 export const computeOperationDataList = ({
+  GraphQL,
   query,
   variables,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  query: string;
+  variables: Record<string, unknown>;
 }): OperationDataList => {
-  const operationDefinitions = getOperationNodes(query);
+  const { Kind, print } = GraphQL;
+
+  const operationDefinitions = getOperationNodes(GraphQL, query);
 
   const fragmentDefinitions: FragmentDefinitionNode[] = [];
 
@@ -365,18 +375,26 @@ const addLeftWhitespace = (string, padding) => {
 
 const collapseExtraNewlines = (string) => string.replace(/\n{2,}/g, "\n\n");
 
-const snippetOptions = [
-  {
-    id: "postHttpMethod",
-    label: "POST function",
-    initial: true,
-  },
-  {
-    id: "useClientAuth",
-    label: "Use user's OAuth token",
-    initial: false,
-  },
-];
+const snippetOptions = {
+  inputTypename: "Options",
+  schemaSdl: `
+  enum HttpMethod {
+    POST
+    GET
+  }
+
+input Options {
+    """
+    Make call over POST
+    """
+    postHttpMethod: HttpMethod
+    """
+    Use user's OAuth token
+    """
+    useClientAuth: Boolean!
+}
+    `,
+};
 
 const operationFunctionName = (operationData) => {
   const { type } = operationData;
@@ -405,7 +423,9 @@ const operationFunctionName = (operationData) => {
   return fnName;
 };
 
-const coercerFor = (type, name) => {
+const coercerFor = (GraphQL: typeof GraphQLPackage, type, name) => {
+  const { Kind, print } = GraphQL;
+
   const typeName = print(type).replace(/\W+/gi, "").toLocaleLowerCase();
 
   switch (typeName) {
@@ -422,7 +442,13 @@ const coercerFor = (type, name) => {
   }
 };
 
-const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
+const asyncFetcherInvocation = (
+  GraphQL: typeof GraphQLPackage,
+  operationDataList,
+  pluckerStyle
+) => {
+  const { print } = GraphQL;
+
   const invocations = operationDataList
     .filter((operationData) =>
       ["query", "mutation", "subscription"].includes(operationData.type)
@@ -442,6 +468,7 @@ const asyncFetcherInvocation = (operationDataList, pluckerStyle) => {
             ?.map((def) => {
               const name = def.variable.name.value;
               const withCoercer = coercerFor(
+                GraphQL,
                 def.type,
                 `typeof req.query?.${name} === 'string' ? req.query?.${name} : req.query?.${name}[0]`
               );
@@ -602,6 +629,7 @@ const subscriptionHandler = ({
 }): ExportedFile => {
   return {
     kind: "UnnamedExportedFile",
+    language: netlifyGraphConfig.language,
     content: `${ts(
       netlifyGraphConfig,
       'import type { NextApiRequest, NextApiResponse } from "next";\n'
@@ -720,12 +748,13 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const nextjsFunctionSnippet: SnippetGeneratorWithMeta = {
-  language: "JavaScript",
-  codeMirrorMode: "javascript",
+export const nextjsFunctionSnippet: Codegen = {
   name: "Next.js Function",
-  options: snippetOptions,
-  generate: (opts) => {
+  generateHandlerOptions: snippetOptions,
+  supportedDefinitionTypes: [],
+  id: "sgrove/next-js",
+  version: "0.0.1",
+  generateHandler: (opts) => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
@@ -758,11 +787,11 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
 
     if (!firstOperation) {
       return {
-        language: "javascript",
         exportedFiles: [
           {
             kind: "UnnamedExportedFile",
             content: "// No operation found",
+            language: "javascript",
           },
         ],
       };
@@ -785,6 +814,7 @@ ${operationData.type} unnamed${capitalizeFirstLetter(operationData.type)}${
     }
 
     const fetcherInvocation = asyncFetcherInvocation(
+      opts.GraphQL,
       operationDataList,
       options.postHttpMethod === true ? "post" : "get"
     );
@@ -855,6 +885,7 @@ ${clientSideCalls}
 */`;
 
     const page: NamedExportedFile = generatePage({
+      GraphQL: opts.GraphQL,
       netlifyGraphConfig,
       operationData: firstOperation,
       schema: opts.schema,
@@ -864,6 +895,7 @@ ${clientSideCalls}
     const api: UnnamedExportedFile = {
       kind: "UnnamedExportedFile",
       content: collapseExtraNewlines(snippet),
+      language: netlifyGraphConfig.language,
     };
 
     return {
@@ -872,3 +904,5 @@ ${clientSideCalls}
     };
   },
 };
+
+export const generators = [nextjsFunctionSnippet];

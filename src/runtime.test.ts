@@ -1,5 +1,7 @@
 import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
+import * as GraphQL from "graphql";
+
 import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
@@ -16,7 +18,7 @@ const test = async () => {
   const parsedDoc = parse(sourceGraphQLFile);
 
   const { functions, fragments } =
-    NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
+    NetlifyGraph.extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["functions", "netlifyGraph"],
@@ -48,6 +50,7 @@ const test = async () => {
   };
 
   const result = NetlifyGraph.generateFunctionsSource(
+    GraphQL,
     netlifyGraphConfig,
     schema,
     sourceGraphQLFile,
@@ -65,7 +68,7 @@ const test = async () => {
 
   const sourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.js`;
 
-  writeFileSync(sourcePath, clientSource);
+  writeFileSync(sourcePath, clientSource[0]);
 
   const typeDefinitionsSourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.d.ts`;
   writeFileSync(typeDefinitionsSourcePath, typeDefinitionsSource);

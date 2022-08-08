@@ -1,5 +1,6 @@
 import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
+import * as GraphQL from "graphql";
 import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
@@ -15,7 +16,10 @@ const test = () => {
   const schema = buildASTSchema(parse(schemaGraphQLFile));
   const parsedDoc = parse(sourceGraphQLFile);
 
-  const functions = NetlifyGraph.extractFunctionsFromOperationDoc(parsedDoc);
+  const functions = NetlifyGraph.extractFunctionsFromOperationDoc(
+    GraphQL,
+    parsedDoc
+  );
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
@@ -41,6 +45,7 @@ const test = () => {
   };
 
   const result = NetlifyGraph.generateHandlerSource({
+    GraphQL,
     handlerOptions: {
       postHttpMethod: true,
       useClientAuth: true,

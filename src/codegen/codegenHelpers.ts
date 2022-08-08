@@ -1,9 +1,14 @@
-import {
+import * as GraphQL from "graphql";
+import type {
   FragmentDefinitionNode,
   GraphQLSchema,
   OperationDefinitionNode,
 } from "graphql";
-import { NetlifyGraphConfig } from "../netlifyGraph";
+import {
+  NetlifyGraphConfig,
+  ParsedFragment,
+  ParsedFunction,
+} from "../netlifyGraph";
 
 /**
  * Keywords in both Javascript and TypeScript
@@ -89,39 +94,43 @@ export type NamedExportedFile = {
   kind: "NamedExportedFile";
   name: string[];
   content: string;
+  language: string;
+  codeMirrorMode?: string;
 };
 
 export type UnnamedExportedFile = {
   kind: "UnnamedExportedFile";
   content: string;
+  language: string;
+  codeMirrorMode?: string;
 };
 
 export type ExportedFile = NamedExportedFile | UnnamedExportedFile;
 
 export type ExporterResult = {
   exportedFiles: ExportedFile[];
-  language: string;
 };
 
-export type FrameworkGenerator = (opts: {
+export type GenerateHandlerFunction = (opts: {
+  GraphQL: typeof GraphQL;
   operationDataList: OperationData[];
   netlifyGraphConfig: NetlifyGraphConfig;
   options: Record<string, boolean>;
   schema: GraphQLSchema;
 }) => ExporterResult;
 
+export type GenerateHandlerPreviewFunction = (opts: {
+  GraphQL: typeof GraphQL;
+  operationDataList: OperationData[];
+  netlifyGraphConfig: NetlifyGraphConfig;
+  options: Record<string, boolean>;
+  schema: GraphQLSchema;
+}) => ExportedFile;
+
 export type SnippetOption = {
   id: string;
   label: string;
   initial: boolean;
-};
-
-export type SnippetGeneratorWithMeta = {
-  language: string;
-  codeMirrorMode: string;
-  name: string;
-  options: SnippetOption[];
-  generate: FrameworkGenerator;
 };
 
 export type OperationDataList = {
@@ -139,4 +148,63 @@ export type OperationData = {
   variables: { [key: string]: string };
   operationDefinition: OperationDefinitionNode | FragmentDefinitionNode;
   fragmentDependencies: FragmentDefinitionNode[];
+};
+
+export type GenerateRuntimeFunction = (opts: {
+  GraphQL: typeof GraphQL;
+  operationDataList: OperationData[];
+  netlifyGraphConfig: NetlifyGraphConfig;
+  options: Record<string, boolean>;
+  schema: GraphQLSchema;
+  schemaId: string;
+  functionDefinitions: ParsedFunction[];
+  fragments: ParsedFragment[];
+}) => NamedExportedFile[];
+
+type CodegenSupportableDefinitionType =
+  | "query"
+  | "mutation"
+  | "subscription"
+  | "fragment";
+
+export type GenerateHandlerFunctionOptions = {
+  schemaSdl: string;
+  inputTypename: string;
+  defaultValue?: Record<string, unknown>;
+};
+
+export type GenerateHandlerFunctionOptionsDeserialized = {
+  schema: GraphQL.GraphQLSchema;
+  inputTypename: string;
+  defaultValue?: Record<string, unknown>;
+};
+
+export type Codegen = {
+  generatePreview?: GenerateHandlerPreviewFunction;
+  generateHandler: GenerateHandlerFunction;
+  generateHandlerOptions?: GenerateHandlerFunctionOptions;
+  supportedDefinitionTypes: CodegenSupportableDefinitionType[];
+  name: string;
+  id: string;
+  version: string;
+};
+
+export type CodegenMeta = {
+  id: string;
+  name: string;
+  options: GenerateHandlerFunctionOptions | null;
+  supportedDefinitionTypes: CodegenSupportableDefinitionType[];
+};
+
+export type CodegenModuleMeta = {
+  id: string;
+  version: string;
+  generators: CodegenMeta[];
+};
+
+export type CodegenModule = {
+  id: string;
+  version: string;
+  generateRuntime: GenerateRuntimeFunction;
+  generators: Codegen[];
 };

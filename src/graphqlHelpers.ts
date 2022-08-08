@@ -1,42 +1,23 @@
-import {
+import * as GraphQLPackage from "graphql";
+import type {
+  GraphQLSchema,
+  FragmentDefinitionNode,
+  OperationDefinitionNode,
+  VariableDefinitionNode,
+  GraphQLType,
   ArgumentNode,
   ASTVisitFn,
   DocumentNode,
   FragmentSpreadNode,
-  getNamedType,
   GraphQLInputField,
   GraphQLInterfaceType,
   GraphQLList,
   GraphQLObjectType,
   GraphQLScalarType,
   GraphQLUnionType,
-  isEnumType,
-  isInputObjectType,
-  isInterfaceType,
-  isListType,
-  isNonNullType,
-  isNullableType,
-  isObjectType,
-  isScalarType,
-  isWrappingType,
-  Kind,
   ObjectFieldNode,
-  parse,
-  parseType,
-  print,
   SelectionNode,
   SelectionSetNode,
-  typeFromAST,
-  TypeInfo,
-  visit,
-  visitWithTypeInfo,
-} from "graphql";
-import {
-  GraphQLSchema,
-  FragmentDefinitionNode,
-  OperationDefinitionNode,
-  VariableDefinitionNode,
-  GraphQLType,
 } from "graphql";
 import { Maybe } from "graphql/jsutils/Maybe";
 
@@ -103,9 +84,12 @@ const scalarMap: Record<string, OutType> = {
 };
 
 export function gatherAllReferencedTypes(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   query: OperationDefinitionNode
 ): Array<string> {
+  const { getNamedType, TypeInfo, visit, visitWithTypeInfo } = GraphQL;
+
   const types = new Set<string>([]);
   const typeInfo = new TypeInfo(schema);
   visit(
@@ -125,7 +109,11 @@ export function gatherAllReferencedTypes(
   return result;
 }
 
-function unwrapOutputType(outputType: GraphQLType): GraphQLType {
+function unwrapOutputType(
+  GraphQL: typeof GraphQLPackage,
+  outputType: GraphQLType
+): GraphQLType {
+  const { isWrappingType } = GraphQL;
   let unwrappedType = outputType;
   while (isWrappingType(unwrappedType)) {
     unwrappedType = unwrappedType.ofType;
@@ -134,8 +122,11 @@ function unwrapOutputType(outputType: GraphQLType): GraphQLType {
 }
 
 export function gatherVariableDefinitions(
+  GraphQL: typeof GraphQLPackage,
   definition: OperationDefinitionNode
 ): Array<[string, string]> {
+  const { print } = GraphQL;
+
   const extract = (varDef: VariableDefinitionNode): [string, string] => [
     varDef.variable.name.value,
     print(varDef.type),
@@ -147,9 +138,20 @@ export function gatherVariableDefinitions(
 }
 
 export function typeScriptForGraphQLType(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   gqlType: GraphQLType
 ): string {
+  const {
+    getNamedType,
+    isEnumType,
+    isInputObjectType,
+    isListType,
+    isNonNullType,
+    isObjectType,
+    isWrappingType,
+  } = GraphQL;
+
   let scalarMap = {
     String: "string",
     ID: "string",
@@ -162,12 +164,12 @@ export function typeScriptForGraphQLType(
   };
 
   if (isListType(gqlType)) {
-    let subType = typeScriptForGraphQLType(schema, gqlType.ofType);
+    let subType = typeScriptForGraphQLType(GraphQL, schema, gqlType.ofType);
     return `Array<${subType}>`;
   } else if (isObjectType(gqlType) || isInputObjectType(gqlType)) {
     let fields = Object.values(gqlType.getFields()).map((field) => {
       let nullable = !isNonNullType(field.type);
-      let type = typeScriptForGraphQLType(schema, field.type);
+      let type = typeScriptForGraphQLType(GraphQL, schema, field.type);
       const description = !!field.description
         ? `/**
   * ${field.description}
@@ -184,7 +186,7 @@ export function typeScriptForGraphQLType(
       return "Record<string, unknown> /* typeScriptForGraphQLType */";
     }
   } else if (isWrappingType(gqlType)) {
-    return typeScriptForGraphQLType(schema, gqlType.ofType);
+    return typeScriptForGraphQLType(GraphQL, schema, gqlType.ofType);
   } else if (isEnumType(gqlType)) {
     let values = gqlType.getValues();
 
@@ -200,6 +202,7 @@ export function typeScriptForGraphQLType(
 }
 
 export const guessVariableDescriptions = (
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode,
   variableNames: string[]
@@ -210,6 +213,15 @@ export const guessVariableDescriptions = (
     descriptions?: Set<string>;
   }
 > => {
+  const {
+    getNamedType,
+    isInputObjectType,
+    Kind,
+    TypeInfo,
+    visit,
+    visitWithTypeInfo,
+  } = GraphQL;
+
   const variableRecords: Record<
     string,
     { usageCount: number; descriptions?: Set<string> }
@@ -297,10 +309,13 @@ export const guessVariableDescriptions = (
 };
 
 export function typeScriptSignatureForOperationVariables(
+  GraphQL: typeof GraphQLPackage,
   variableNames: Array<string>,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode
 ) {
+  const { print, parseType, typeFromAST, isNonNullType } = GraphQL;
+
   const helper: (
     variableDefinition: VariableDefinitionNode
   ) => [string, VariableDefinitionNode] = (
@@ -324,6 +339,7 @@ export function typeScriptSignatureForOperationVariables(
     });
 
   const variableUsageInfo = guessVariableDescriptions(
+    GraphQL,
     schema,
     operationDefinition,
     variableNames
@@ -341,7 +357,7 @@ export function typeScriptSignatureForOperationVariables(
 
       let isRequired = isNonNullType(gqlType);
 
-      let tsType = typeScriptForGraphQLType(schema, gqlType);
+      let tsType = typeScriptForGraphQLType(GraphQL, schema, gqlType);
 
       return [varName, tsType, isRequired];
     })
@@ -377,7 +393,9 @@ export function typeScriptSignatureForOperationVariables(
   return types === "" ? "null" : types;
 }
 
-export function listCount(gqlType) {
+export function listCount(GraphQL: typeof GraphQLPackage, gqlType) {
+  const { isListType, isWrappingType } = GraphQL;
+
   let inspectedType = gqlType;
 
   let listCount = 0;
@@ -391,7 +409,7 @@ export function listCount(gqlType) {
     totalCount = totalCount + 1;
 
     if (totalCount > 30) {
-      console.warn("Bailing on potential infinite recursion");
+      internalConsole.warn("Bailing on potential infinite recursion");
       return -99;
     }
 
@@ -437,10 +455,25 @@ const dummyOut: OutObject = {
 };
 
 export function typeScriptDefinitionObjectForOperation(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode | FragmentDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
 ): OutObject {
+  const {
+    getNamedType,
+    isEnumType,
+    isInterfaceType,
+    isListType,
+    isNonNullType,
+    isNullableType,
+    isObjectType,
+    isScalarType,
+    isWrappingType,
+    Kind,
+    typeFromAST,
+  } = GraphQL;
+
   const objectHelper = (
     type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
     selectionSet: SelectionSetNode
@@ -516,7 +549,7 @@ export function typeScriptDefinitionObjectForOperation(
           parentNamedType.getFields()[name];
 
         if (!field) {
-          console.warn(
+          internalConsole.warn(
             "Could not find field",
             name,
             "in",
@@ -588,7 +621,10 @@ export function typeScriptDefinitionObjectForOperation(
           }
         }
       } else {
-        console.warn("objectHelper got a non-field selection", selection);
+        internalConsole.warn(
+          "objectHelper got a non-field selection",
+          selection
+        );
       }
     });
 
@@ -663,7 +699,7 @@ export function typeScriptDefinitionObjectForOperation(
 
       return outEnum;
     } else {
-      console.warn("Unrecognized type in operation", parentGqlType);
+      internalConsole.warn("Unrecognized type in operation", parentGqlType);
     }
   };
 
@@ -742,7 +778,9 @@ const printObject = (obj: OutObject): string => {
 `
         : "";
 
-      return `${description}${fieldSelection.name}${fieldSelection.isNullable ? "?" : ""}: ${value};`;
+      return `${description}${fieldSelection.name}${
+        fieldSelection.isNullable ? "?" : ""
+      }: ${value};`;
     })
     .join("\n  ");
 
@@ -797,11 +835,13 @@ const printOut = (out: OutType): string => {
 };
 
 export function typeScriptSignatureForOperation(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
 ) {
   let typeMap = typeScriptDefinitionObjectForOperation(
+    GraphQL,
     schema,
     operationDefinition,
     fragmentDefinitions
@@ -813,11 +853,25 @@ export function typeScriptSignatureForOperation(
 }
 
 export function typeScriptDefinitionObjectForFragment(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   fragmentDefinition: FragmentDefinitionNode,
-  fragmentDefinitions: Record<string, FragmentDefinitionNode>,
-  shouldLog = true
+  fragmentDefinitions: Record<string, FragmentDefinitionNode>
 ) {
+  const {
+    getNamedType,
+    isEnumType,
+    isInterfaceType,
+    isListType,
+    isNonNullType,
+    isNullableType,
+    isObjectType,
+    isScalarType,
+    isWrappingType,
+    Kind,
+    typeFromAST,
+  } = GraphQL;
+
   const dummyOut: OutScalar = {
     kind: "scalar",
     type: "Record<string, unknown>",
@@ -883,19 +937,6 @@ export function typeScriptDefinitionObjectForFragment(
           (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
           parentNamedType.getFields()[name];
 
-        if (!field) {
-          console.warn(
-            "Could not find field",
-            name,
-            "on",
-            parentNamedType.name,
-            "among",
-            // @ts-ignore
-            Object.keys(parentNamedType.getFields())
-          );
-          return;
-        }
-
         if (name.startsWith("__")) {
           return {
             kind: "object",
@@ -909,6 +950,19 @@ export function typeScriptDefinitionObjectForFragment(
               },
             },
           };
+        }
+
+        if (!field) {
+          internalConsole.warn(
+            "Could not find field",
+            name,
+            "on",
+            parentNamedType.name,
+            "among",
+            // @ts-ignore
+            Object.keys(parentNamedType.getFields())
+          );
+          return;
         }
 
         let gqlType = field.type;
@@ -940,7 +994,7 @@ export function typeScriptDefinitionObjectForFragment(
             kind: "selection_field",
             name: displayedName,
             type: scalar,
-              isNullable,
+            isNullable,
             description: field.description,
           };
         } else if (isEnumType(namedType)) {
@@ -973,7 +1027,10 @@ export function typeScriptDefinitionObjectForFragment(
           }
         }
       } else {
-        console.warn("objectHelper got a non-field selection", selection);
+        internalConsole.warn(
+          "objectHelper got a non-field selection",
+          selection
+        );
       }
     });
 
@@ -1048,7 +1105,7 @@ export function typeScriptDefinitionObjectForFragment(
 
       return outEnum;
     } else {
-      console.warn("Unrecognized type in fragment", parentGqlType);
+      internalConsole.warn("Unrecognized type in fragment", parentGqlType);
     }
   };
 
@@ -1074,11 +1131,13 @@ export function typeScriptDefinitionObjectForFragment(
 }
 
 export function typeScriptSignatureForFragment(
+  GraphQL: typeof GraphQLPackage,
   schema: GraphQLSchema,
   fragmentDefinition: FragmentDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
 ) {
   let typeMap = typeScriptDefinitionObjectForFragment(
+    GraphQL,
     schema,
     fragmentDefinition,
     fragmentDefinitions
@@ -1097,12 +1156,16 @@ export function typeScriptTypeNameForOperation(name: string) {
  * Doesn't patch e.g. fragments
  */
 export function patchSubscriptionWebhookField({
+  GraphQL,
   schema,
   definition,
 }: {
+  GraphQL: typeof GraphQLPackage;
   schema: GraphQLSchema;
   definition: OperationDefinitionNode;
 }): OperationDefinitionNode {
+  const { Kind } = GraphQL;
+
   if (definition.operation !== "subscription") {
     return definition;
   }
@@ -1195,12 +1258,16 @@ export function patchSubscriptionWebhookField({
 }
 
 export function patchSubscriptionWebhookSecretField({
+  GraphQL,
   schema,
   definition,
 }: {
+  GraphQL: typeof GraphQLPackage;
   schema: GraphQLSchema;
   definition: OperationDefinitionNode;
 }): OperationDefinitionNode {
+  const { Kind } = GraphQL;
+
   if (definition.operation !== "subscription") {
     return definition;
   }
@@ -1302,7 +1369,21 @@ const addLeftWhitespace = (string, padding) => {
     .join("\n");
 };
 
-export const formInput = (schema, def, path = []) => {
+export const formInput = (
+  GraphQL: typeof GraphQLPackage,
+  schema,
+  def,
+  path = []
+) => {
+  const {
+    getNamedType,
+    isEnumType,
+    isInputObjectType,
+    isListType,
+    isScalarType,
+    typeFromAST,
+  } = GraphQL;
+
   const name = def.variable.name.value;
 
   function helper(path, type, subfield) {
@@ -1417,7 +1498,7 @@ export const formInput = (schema, def, path = []) => {
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    console.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn("\tCould not hydrate type for ", def.type);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1427,7 +1508,21 @@ export const formInput = (schema, def, path = []) => {
   return `${formEl}`;
 };
 
-export const remixFormInput = (schema, def, path = []) => {
+export const remixFormInput = (
+  GraphQL: typeof GraphQLPackage,
+  schema,
+  def,
+  path = []
+) => {
+  const {
+    getNamedType,
+    isEnumType,
+    isInputObjectType,
+    isListType,
+    isScalarType,
+    typeFromAST,
+  } = GraphQL;
+
   const name = def.variable.name.value;
 
   function helper(path, type, subfield) {
@@ -1534,7 +1629,7 @@ export const remixFormInput = (schema, def, path = []) => {
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    console.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn("\tCould not hydrate type for ", def.type);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1545,10 +1640,12 @@ export const remixFormInput = (schema, def, path = []) => {
 };
 
 export const formElComponent = ({
+  GraphQL,
   operationData,
   schema,
   callFn,
 }: {
+  GraphQL: typeof GraphQLPackage;
   operationData: OperationData;
   schema: GraphQLSchema;
   callFn: string;
@@ -1567,7 +1664,7 @@ export const formElComponent = ({
 
   const els = (operationData.operationDefinition.variableDefinitions || []).map(
     (def) => {
-      const genInput = formInput(schema, def, []);
+      const genInput = formInput(GraphQL, schema, def, []);
 
       const input =
         genInput || `UNABLE_TO_GENERATE_FORM_INPUT_FOR_GRAPHQL_TYPE(${def})`;
@@ -1584,7 +1681,12 @@ export const formElComponent = ({
   };
 };
 
-export const normalizeOperationsDoc = (operationsDoc: string) => {
+export const normalizeOperationsDoc = (
+  GraphQL: typeof GraphQLPackage,
+  operationsDoc: string
+) => {
+  const { Kind, parse, print, visit } = GraphQL;
+
   const parsedOperations = parse(operationsDoc);
 
   const fragments: FragmentDefinitionNode[] = [];
@@ -1642,7 +1744,12 @@ export const normalizeOperationsDoc = (operationsDoc: string) => {
   return fullDoc;
 };
 
-export const gatherHardcodedValues = (query: string) => {
+export const gatherHardcodedValues = (
+  GraphQL: typeof GraphQLPackage,
+  query: string
+) => {
+  const { Kind, parse, visit } = GraphQL;
+
   let parsedQuery;
   try {
     parsedQuery = parse(query);
@@ -1689,17 +1796,24 @@ export const gatherHardcodedValues = (query: string) => {
 
     return hardCodedValues;
   } catch (e) {
-    console.warn("Error parsing query", e);
+    internalConsole.warn("Error parsing query", e);
     return [];
   }
 };
 
 export const extractPersistableOperation = (
+  GraphQL: typeof GraphQLPackage,
   doc: DocumentNode,
   operationDefinition: OperationDefinitionNode
-): string | null => {
+): {
+  fragmentDependencies: FragmentDefinitionNode[];
+  persistableOperationString: string;
+} | null => {
+  const { Kind, print, visit } = GraphQL;
+
   // Visit the operationDefinition and find all fragments referenced, and include them all in a single printed document
   const fragments = new Set<FragmentDefinitionNode>();
+  const visitedFragmentNames = new Set<string>();
 
   const fragmentExtractor: ASTVisitFn<FragmentSpreadNode> = (node) => {
     const fragmentName = node.name.value;
@@ -1711,8 +1825,12 @@ export const extractPersistableOperation = (
 
     if (fragmentDefinition) {
       fragments.add(fragmentDefinition);
+
+      visit(fragmentDefinition, {
+        FragmentSpread: { enter: fragmentExtractor },
+      });
     } else {
-      console.warn(
+      internalConsole.warn(
         "Could not find fragment definition for referenced fragment: ",
         fragmentName
       );
@@ -1743,5 +1861,8 @@ export const extractPersistableOperation = (
   // Put the operation in the top to help a human looking at the doc identify the purpose quickly
   const fullDoc = [print(newOperation), ...fragmentStrings].join("\n\n");
 
-  return fullDoc;
+  return {
+    fragmentDependencies: Array.from(fragments),
+    persistableOperationString: fullDoc,
+  };
 };

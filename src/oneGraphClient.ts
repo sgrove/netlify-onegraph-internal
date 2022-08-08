@@ -446,28 +446,35 @@ export const friendlyEventName = (event: OneGraphCliEvent): string => {
     case "OneGraphNetlifyCliSessionOpenFileEvent":
       return `Open file ${payload.filePath}`;
     default: {
+      if (__typename.startsWith("OneGraphNetlify")) {
+        return __typename.replace("OneGraphNetlify", "");
+      }
       return `Unrecognized event (${__typename})`;
     }
   }
 };
 
-export type OneGraphCliEventAudience = "ui" | "cli";
+export type OneGraphCliEventAudience = "UI" | "CLI";
 /**
  *
  * @param {OneGraphCliEvent} event
- * @returns {'ui' | 'cli'} Which audience the event is intended for
+ * @returns {OneGraphCliEventAudience} Which audience the event is intended for
  */
 export const eventAudience = (
   event: OneGraphCliEvent
 ): OneGraphCliEventAudience => {
   const { __typename, payload } = event;
+  if (event.audience || payload.audience) {
+    return event.audience || payload.audience;
+  }
+
   switch (__typename) {
     case "OneGraphNetlifyCliSessionTestEvent":
       return eventAudience(payload);
     case "OneGraphNetlifyCliSessionFileWrittenEvent":
-      return "ui";
+      return "UI";
     default: {
-      return "cli";
+      return "CLI";
     }
   }
 };
@@ -596,9 +603,8 @@ export const fetchEnabledServicesForApp = async (
  * Fetch a list of what services are enabled for the given session
  * @param {string} jwt The netlify jwt that is used for authentication
  * @param {string} sessionId The session ID to query against
- * @returns
  */
-export const fetchEnabledServicesForSession = async (
+export const fetchGraphQLSchemaForSession = async (
   jwt: string,
   siteId: string,
   sessionId: string
@@ -613,8 +619,7 @@ export const fetchEnabledServicesForSession = async (
         accessToken: jwt,
       }
     );
-  return appSchemaResult.data?.oneGraph?.netlifyCliSession.graphQLSchema
-    ?.services;
+  return appSchemaResult.data?.oneGraph?.netlifyCliSession.graphQLSchema;
 };
 
 export type MiniSession = {
@@ -711,3 +716,9 @@ export const fetchListNetlifyEnabledServicesQuery: typeof GeneratedClient.fetchL
  */
 export const executeCreateCLISessionEventMutation: typeof GeneratedClient.executeCreateCLISessionEventMutation =
   GeneratedClient.executeCreateCLISessionEventMutation;
+
+/**
+ * Fetch schema metadata for cli session
+ */
+export const fetchNetlifySessionSchemaQuery: typeof GeneratedClient.fetchFetchNetlifySessionSchemaQuery =
+  GeneratedClient.fetchFetchNetlifySessionSchemaQuery;
