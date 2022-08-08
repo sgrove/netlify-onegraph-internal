@@ -906,7 +906,7 @@ ${clientSideCalls}
   },
 };
 
-export const id = "netlify-graph-codegen/nextjs-default";
+export const id = "netlify-builtin:nextjs";
 export const version = "0.0.1";
 export const generators = [nextjsFunctionSnippet];
 
@@ -915,5 +915,5 @@ export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
   version,
   generators,
   generateRuntime: generateRuntime,
-  sigil: "__included/netlify-graph-codegen/nextjs-default",
+  sigil: "netlify-builtin:nextjs",
 };
