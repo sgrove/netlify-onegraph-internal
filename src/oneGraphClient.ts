@@ -451,23 +451,27 @@ export const friendlyEventName = (event: OneGraphCliEvent): string => {
   }
 };
 
-export type OneGraphCliEventAudience = "ui" | "cli";
+export type OneGraphCliEventAudience = "UI" | "CLI";
 /**
  *
  * @param {OneGraphCliEvent} event
- * @returns {'ui' | 'cli'} Which audience the event is intended for
+ * @returns {OneGraphCliEventAudience} Which audience the event is intended for
  */
 export const eventAudience = (
   event: OneGraphCliEvent
 ): OneGraphCliEventAudience => {
   const { __typename, payload } = event;
+  if (event.audience || payload.audience) {
+    return event.audience || payload.audience;
+  }
+
   switch (__typename) {
     case "OneGraphNetlifyCliSessionTestEvent":
       return eventAudience(payload);
     case "OneGraphNetlifyCliSessionFileWrittenEvent":
-      return "ui";
+      return "UI";
     default: {
-      return "cli";
+      return "CLI";
     }
   }
 };

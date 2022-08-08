@@ -10,7 +10,8 @@ import {
   ExportedFile,
   ExporterResult,
   munge,
-  CodeGenerator,
+  GenerateHandlerFunction,
+  Codegen,
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
@@ -531,7 +532,7 @@ const exp = (netlifyGraphConfig, name) => {
 };
 
 // Snippet generation!
-export const netlifyFunctionSnippet: CodeGenerator = {
+export const netlifyFunctionSnippet: Codegen = {
   name: "Netlify Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],

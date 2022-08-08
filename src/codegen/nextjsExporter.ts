@@ -12,7 +12,7 @@ import {
   NamedExportedFile,
   OperationData,
   OperationDataList,
-  CodeGenerator,
+  Codegen,
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
@@ -748,7 +748,7 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const nextjsFunctionSnippet: CodeGenerator = {
+export const nextjsFunctionSnippet: Codegen = {
   name: "Next.js Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],

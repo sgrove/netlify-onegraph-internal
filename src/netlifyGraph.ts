@@ -32,7 +32,7 @@ import {
 import { nextjsFunctionSnippet } from "./codegen/nextjsExporter";
 import { remixFunctionSnippet } from "./codegen/remixExporter";
 import {
-  CodeGenerator,
+  Codegen,
   ExportedFile,
   GenerateHandlerFunction,
 } from "./codegen/codegenHelpers";
@@ -2399,7 +2399,7 @@ export const generateCustomHandlerSource = ({
   operationId: string;
   operationsDoc: string;
   schema: GraphQLSchema;
-  generate: CodeGenerator["generateHandler"];
+  generate: Codegen["generateHandler"];
 }):
   | {
       exportedFiles: ExportedFile[];
@@ -2452,7 +2452,7 @@ export const generatePreview = ({
   operationId: string;
   operationsDoc: string;
   schema: GraphQLSchema;
-  generate: CodeGenerator["generatePreview"];
+  generate: Codegen["generatePreview"];
 }):
   | {
       exportedFile: ExportedFile;

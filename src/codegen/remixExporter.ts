@@ -12,7 +12,7 @@ import {
   NamedExportedFile,
   OperationData,
   OperationDataList,
-  CodeGenerator,
+  Codegen,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { remixFormInput } from "../graphqlHelpers";
@@ -744,7 +744,7 @@ const expDefault = (netlifyGraphConfig: NetlifyGraphConfig, name: string) => {
 };
 
 // Snippet generation!
-export const remixFunctionSnippet: CodeGenerator = {
+export const remixFunctionSnippet: Codegen = {
   name: "Remix Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],

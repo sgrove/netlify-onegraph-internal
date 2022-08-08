@@ -161,7 +161,7 @@ export type GenerateRuntimeFunction = (opts: {
   fragments: ParsedFragment[];
 }) => NamedExportedFile[];
 
-type CodeGeneratorSupportableDefinitionType =
+type CodegenSupportableDefinitionType =
   | "query"
   | "mutation"
   | "subscription"
@@ -179,32 +179,32 @@ export type GenerateHandlerFunctionOptionsDeserialized = {
   defaultValue?: Record<string, unknown>;
 };
 
-export type CodeGenerator = {
+export type Codegen = {
   generatePreview?: GenerateHandlerPreviewFunction;
   generateHandler: GenerateHandlerFunction;
   generateHandlerOptions?: GenerateHandlerFunctionOptions;
-  supportedDefinitionTypes: CodeGeneratorSupportableDefinitionType[];
+  supportedDefinitionTypes: CodegenSupportableDefinitionType[];
   name: string;
   id: string;
   version: string;
 };
 
-export type CodeGeneratorMeta = {
+export type CodegenMeta = {
   id: string;
   name: string;
   options: GenerateHandlerFunctionOptions | null;
-  supportedDefinitionTypes: CodeGeneratorSupportableDefinitionType[];
+  supportedDefinitionTypes: CodegenSupportableDefinitionType[];
 };
 
 export type CodegenModuleMeta = {
   id: string;
   version: string;
-  generators: CodeGeneratorMeta[];
+  generators: CodegenMeta[];
 };
 
 export type CodegenModule = {
   id: string;
   version: string;
   generateRuntime: GenerateRuntimeFunction;
-  generators: CodeGenerator[];
+  generators: Codegen[];
 };
