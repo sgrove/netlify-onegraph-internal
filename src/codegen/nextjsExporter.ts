@@ -17,7 +17,8 @@ import {
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { formElComponent } from "../graphqlHelpers";
-import { GraphQL } from "..";
+import { CodegenHelpers, GraphQL } from "..";
+import { generateRuntime } from "./common";
 
 let operationNodesMemo = [null, null];
 
@@ -752,7 +753,7 @@ export const nextjsFunctionSnippet: Codegen = {
   name: "Next.js Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],
-  id: "sgrove/next-js",
+  id: "netlify-graph-codegen/next-js",
   version: "0.0.1",
   generateHandler: (opts) => {
     const { netlifyGraphConfig, options } = opts;
@@ -905,4 +906,14 @@ ${clientSideCalls}
   },
 };
 
+export const id = "netlify-graph-codegen/nextjs-default";
+export const version = "0.0.1";
 export const generators = [nextjsFunctionSnippet];
+
+export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
+  id,
+  version,
+  generators,
+  generateRuntime: generateRuntime,
+  sigil: "__included/netlify-graph-codegen/nextjs-default",
+};

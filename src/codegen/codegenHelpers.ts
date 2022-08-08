@@ -208,3 +208,7 @@ export type CodegenModule = {
   generateRuntime: GenerateRuntimeFunction;
   generators: Codegen[];
 };
+
+export type IncludedCodegenModule = CodegenModule & {
+  sigil: string;
+};
