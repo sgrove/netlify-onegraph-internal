@@ -446,6 +446,9 @@ export const friendlyEventName = (event: OneGraphCliEvent): string => {
     case "OneGraphNetlifyCliSessionOpenFileEvent":
       return `Open file ${payload.filePath}`;
     default: {
+      if (__typename.startsWith("OneGraphNetlify")) {
+        return __typename.replace("OneGraphNetlify", "");
+      }
       return `Unrecognized event (${__typename})`;
     }
   }
@@ -600,9 +603,8 @@ export const fetchEnabledServicesForApp = async (
  * Fetch a list of what services are enabled for the given session
  * @param {string} jwt The netlify jwt that is used for authentication
  * @param {string} sessionId The session ID to query against
- * @returns
  */
-export const fetchEnabledServicesForSession = async (
+export const fetchGraphQLSchemaForSession = async (
   jwt: string,
   siteId: string,
   sessionId: string
@@ -617,8 +619,7 @@ export const fetchEnabledServicesForSession = async (
         accessToken: jwt,
       }
     );
-  return appSchemaResult.data?.oneGraph?.netlifyCliSession.graphQLSchema
-    ?.services;
+  return appSchemaResult.data?.oneGraph?.netlifyCliSession.graphQLSchema;
 };
 
 export type MiniSession = {
