@@ -16,7 +16,8 @@ import {
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { remixFormInput } from "../graphqlHelpers";
-import { GraphQL } from "..";
+import { CodegenHelpers, GraphQL } from "..";
+import { generateRuntime } from "./common";
 
 let operationNodesMemo = [null, null];
 
@@ -748,7 +749,7 @@ export const remixFunctionSnippet: Codegen = {
   name: "Remix Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],
-  id: "sgrove/remix",
+  id: "netlify-graph-codegen/remix",
   version: "0.0.1",
   generateHandler: (opts) => {
     const { netlifyGraphConfig, options } = opts;
@@ -862,4 +863,14 @@ ${clientSideCalls}
   },
 };
 
+export const id = "netlify-graph-codegen/remix-default";
+export const version = "0.0.1";
 export const generators = [remixFunctionSnippet];
+
+export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
+  id,
+  version,
+  generators,
+  generateRuntime: generateRuntime,
+  sigil: "__included/netlify-graph-codegen/remix-default",
+};

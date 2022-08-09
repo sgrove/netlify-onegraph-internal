@@ -15,6 +15,8 @@ import {
   UnnamedExportedFile,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
+import { CodegenHelpers } from "..";
+import { generateRuntime } from "./common";
 
 let operationNodesMemo = [null, null];
 
@@ -536,7 +538,7 @@ export const netlifyFunctionSnippet: Codegen = {
   name: "Netlify Function",
   generateHandlerOptions: snippetOptions,
   supportedDefinitionTypes: [],
-  id: "Netlify Functions",
+  id: "netlify-graph-codegen/serverless",
   version: "0.0.1",
   generateHandler: (opts): ExporterResult => {
     const { netlifyGraphConfig, options } = opts;
@@ -678,4 +680,14 @@ ${clientSideCalls}
   },
 };
 
+export const id = "netlify-graph-codegen/serverless-default";
+export const version = "0.0.1";
 export const generators = [netlifyFunctionSnippet];
+
+export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
+  id,
+  version,
+  generators,
+  generateRuntime: generateRuntime,
+  sigil: "__included/netlify-graph-codegen/serverless-default",
+};
