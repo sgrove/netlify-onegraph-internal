@@ -140,24 +140,34 @@ export const OneGraphNetlifyCliSessionMetadataPublishEventSdl = `type OneGraphNe
       schemaId: String!
       persistedDocId: String!
       codegenModule: OneGraphNetlifyCliSessionCodegenModuleMetadata
+      platform: String
+      arch: String
+      nodeVersion: String
+      framework: String
     }
     audience: String!
 }`;
+
+export type cliSessionMetadata = {
+  cliVersion: string;
+  editor: string | null;
+  siteRoot: string | null;
+  siteRootFriendly: string | null;
+  schemaId: string;
+  persistedDocId: string;
+  codegenModule: CodegenModuleMeta | null;
+  platform: string | null;
+  arch: string | null;
+  nodeVersion: string | null;
+  framework: string | null;
+};
 
 export type OneGraphNetlifyCliSessionMetadataPublishEvent = {
   __typename: "OneGraphNetlifyCliSessionMetadataPublishEvent";
   id: string;
   sessionId: string;
   createdAt: string;
-  payload: {
-    cliVersion: string;
-    editor: string | null;
-    siteRoot: string | null;
-    siteRootFriendly: string | null;
-    schemaId: string;
-    persistedDocId: string;
-    codegenModule: CodegenModuleMeta | null;
-  };
+  payload: cliSessionMetadata;
   audience: "UI";
 };
 
@@ -184,6 +194,27 @@ export type OneGraphNetlifyCliSessionMetadataRequestEvent = {
   audience: "CLI";
 };
 
+export const OneGraphNetlifyCliSessionSetGraphCodegenModuleEventSdl = `type OneGraphNetlifyCliSessionSetGraphCodegenModuleEvent {
+    id: String!
+    sessionId: String!
+    createdAt: String!
+    payload: {
+        codegenModuleImportPath: String!
+    }
+    audience: String!
+}`;
+
+export type OneGraphNetlifyCliSessionSetGraphCodegenModuleEvent = {
+  __typename: "OneGraphNetlifyCliSessionSetGraphCodegenModuleEvent";
+  id: string;
+  sessionId: string;
+  createdAt: string;
+  payload: {
+    codegenModuleImportPath: string;
+  };
+  audience: "CLI";
+};
+
 export type CliEvent =
   | OneGraphNetlifyCliSessionTestEvent
   | OneGraphNetlifyCliSessionGenerateHandlerEvent
@@ -191,7 +222,8 @@ export type CliEvent =
   | OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent
   | OneGraphNetlifyCliSessionFileWrittenEvent
   | OneGraphNetlifyCliSessionMetadataPublishEvent
-  | OneGraphNetlifyCliSessionMetadataRequestEvent;
+  | OneGraphNetlifyCliSessionMetadataRequestEvent
+  | OneGraphNetlifyCliSessionSetGraphCodegenModuleEvent;
 
 export type DetectedLocalCLISessionMetadata = {
   gitBranch: string | null;
@@ -201,4 +233,8 @@ export type DetectedLocalCLISessionMetadata = {
   cliVersion: string;
   editor: string | null;
   codegen: CodegenModuleMeta | null;
+  platform: string | null;
+  arch: string | null;
+  nodeVersion: string | null;
+  framework: string | null;
 };
