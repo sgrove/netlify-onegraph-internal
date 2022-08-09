@@ -80,25 +80,25 @@ export type OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent = {
   };
 };
 
-export const OneGraphNetlifyCliSessionFileWrittenEventSdl = `type OneGraphNetlifyCliSessionFileWrittenEvent {
+export const OneGraphNetlifyCliSessionFilesWrittenEventSdl = `type OneGraphNetlifyCliSessionFilsWrittenEvent {
     id: String!
     sessionId: String!
     createdAt: String!
     payload: {
       editor: String
-      filePath: String!
+      filePaths: [String!]!
     }
     audience: String!
 }`;
 
-export type OneGraphNetlifyCliSessionFileWrittenEvent = {
-  __typename: "OneGraphNetlifyCliSessionFileWrittenEvent";
+export type OneGraphNetlifyCliSessionFilesWrittenEvent = {
+  __typename: "OneGraphNetlifyCliSessionFilesWrittenEvent";
   id: string;
   sessionId: string;
   createdAt: string;
   payload: {
     editor: string | null;
-    filePath: string;
+    filePaths: string[];
   };
   audience: "UI" | "CLI";
 };
@@ -220,7 +220,7 @@ export type CliEvent =
   | OneGraphNetlifyCliSessionGenerateHandlerEvent
   | OneGraphNetlifyCliSessionOpenFileEvent
   | OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent
-  | OneGraphNetlifyCliSessionFileWrittenEvent
+  | OneGraphNetlifyCliSessionFilesWrittenEvent
   | OneGraphNetlifyCliSessionMetadataPublishEvent
   | OneGraphNetlifyCliSessionMetadataRequestEvent
   | OneGraphNetlifyCliSessionSetGraphCodegenModuleEvent;
