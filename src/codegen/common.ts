@@ -1,4 +1,20 @@
-import { CodegenHelpers } from "..";
+import { FragmentDefinitionNode, GraphQLSchema, print } from "graphql";
+
+import * as GraphQLPackage from "graphql";
+
+import {
+  patchSubscriptionWebhookField,
+  patchSubscriptionWebhookSecretField,
+  typeScriptSignatureForOperation,
+  typeScriptSignatureForOperationVariables,
+} from "../graphqlHelpers";
+import {
+  NetlifyGraphConfig,
+  ParsedFragment,
+  ParsedFunction,
+} from "../netlifyGraph";
+import * as CodegenHelpers from "./codegenHelpers";
+import { GraphQL } from "..";
 
 export const generateFragmentTypeScriptDefinition = ({ fragment }) => {
   const jsDoc = replaceAll(fragment.description || ``, "*/", "")
@@ -14,6 +30,164 @@ export const generateFragmentTypeScriptDefinition = ({ fragment }) => {
     */
     export type ${returnSignatureName} = ${fragment.returnSignature};
     `;
+};
+
+const subscriptionParserReturnName = (fn: ParsedFunction) =>
+  `${fn.operationName}Event`;
+
+const subscriptionParserName = (fn: ParsedFunction) =>
+  `parseAndVerify${fn.operationName}Event`;
+
+const subscriptionFunctionName = (fn: ParsedFunction) =>
+  `subscribeTo${fn.operationName}`;
+
+export const generateSubscriptionFunctionTypeDefinition = (
+  GraphQL: typeof GraphQLPackage,
+  schema: GraphQLSchema,
+  fn: ParsedFunction,
+  fragments: ParsedFragment[]
+) => {
+  const fragmentDefinitions: Record<string, FragmentDefinitionNode> =
+    Object.entries(fragments).reduce((acc, [fragmentName, fragment]) => {
+      return { ...acc, [fragmentName]: fragment.parsedOperation };
+    }, {});
+
+  const parsingFunctionReturnSignature = typeScriptSignatureForOperation(
+    GraphQL,
+    schema,
+    fn.parsedOperation,
+    fragmentDefinitions
+  );
+
+  const variableNames = (fn.parsedOperation.variableDefinitions || []).map(
+    (varDef) => varDef.variable.name.value
+  );
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
+    variableNames,
+    schema,
+    fn.parsedOperation
+  );
+
+  const jsDoc = replaceAll(fn.description || "", "*/", "!")
+    .split("\n")
+    .join("\n* ");
+
+  return `/**
+  * ${jsDoc}
+  */
+  export function ${subscriptionFunctionName(fn)}(
+    /**
+     * This will be available in your webhook handler as a query parameter.
+     * Use this to keep track of which subscription you're receiving
+     * events for.
+     */
+    variables: ${
+      variableSignature === "{}" ? "Record<string, never>" : variableSignature
+    },
+    options?: {
+      /**
+       * The accessToken to use for the lifetime of the subscription.
+       */
+      accessToken?: string | null | undefined;
+      /**
+       * A string id that will be passed to your webhook handler as a query parameter
+       * along with each event.
+       * This can be used to keep track of which subscription you're receiving
+       */
+      netlifyGraphWebhookId?: string | null | undefined;
+      /**
+       * The absolute URL of your webhook handler to handle events from this subscription.
+       */
+      webhookUrl?: string | null | undefined;
+      /**
+       * The secret to use when signing the webhook request. Use this to verify
+       * that the webhook payload is coming from Netlify Graph. Defaults to the
+       * value of the NETLIFY_GRAPH_WEBHOOK_SECRET environment variable.
+       */
+      webhookSecret?: string | null | undefined;
+    }) : void
+  
+  export type ${subscriptionParserReturnName(
+    fn
+  )} = ${parsingFunctionReturnSignature}
+  
+  /**
+   * Verify the ${
+     fn.operationName
+   } event body is signed securely, and then parse the result.
+   */
+  export function ${subscriptionParserName(
+    fn
+  )} (/** A Netlify Handler Event */ event : WebhookEvent) : null | ${subscriptionParserReturnName(
+    fn
+  )}
+  `;
+};
+
+// TODO: Handle fragments
+export const generateSubscriptionFunction = (
+  GraphQL: typeof GraphQLPackage,
+  schema: GraphQLSchema,
+  fn: ParsedFunction,
+  fragments: never[],
+  netlifyGraphConfig: NetlifyGraphConfig
+) => {
+  const patchedWithWebhookUrl = patchSubscriptionWebhookField({
+    GraphQL,
+    schema,
+    definition: fn.parsedOperation,
+  });
+
+  const patched = patchSubscriptionWebhookSecretField({
+    GraphQL,
+    schema,
+    definition: patchedWithWebhookUrl,
+  });
+
+  // TODO: Don't allow unnamed operations as subscription
+  const filename = (patched.name && patched.name.value) || "Unknown";
+
+  const body = print(patched);
+  const safeBody = replaceAll(body, "${", "\\${");
+
+  return `const ${subscriptionFunctionName(fn)} = (
+    variables,
+    rawOptions
+    ) => {
+      const options = rawOptions || {};
+      const netlifyGraphWebhookId = options.netlifyGraphWebhookId;
+      const netlifyGraphWebhookUrl = options.webhookUrl || \`\${process.env.DEPLOY_URL}${
+        netlifyGraphConfig.webhookBasePath
+      }/${filename}?netlifyGraphWebhookId=\${netlifyGraphWebhookId}\`;
+      const secret = options.webhookSecret || process.env.NETLIFY_GRAPH_WEBHOOK_SECRET
+      const fullVariables = {...variables, netlifyGraphWebhookUrl: netlifyGraphWebhookUrl, netlifyGraphWebhookSecret: { hmacSha256Key: secret }}
+  
+      const subscriptionOperationDoc = \`${safeBody}\`;
+  
+      fetchNetlifyGraph({
+        query: subscriptionOperationDoc,
+        operationName: "${fn.operationName}",
+        variables: fullVariables,
+        options: options,
+        fetchStrategy: "${
+          fn.executionStrategy === "PERSISTED" &&
+          (fn.cacheStrategy?.timeToLiveSeconds || 0) > 0
+            ? "GET"
+            : "POST"
+        }",
+    })
+  }
+  
+  const ${subscriptionParserName(fn)} = (event, options) => {
+    if (!verifyRequestSignature({ event: event }, options)) {
+      console.warn("Unable to verify signature for ${filename}")
+      return null
+    }
+  
+    return JSON.parse(event.body || '{}')
+  }`;
 };
 
 export const generateTypeScriptDefinitions: CodegenHelpers.GenerateRuntimeFunction =
@@ -36,13 +210,12 @@ export const generateTypeScriptDefinitions: CodegenHelpers.GenerateRuntimeFuncti
         const isSubscription = fn.kind === "subscription";
 
         if (isSubscription) {
-          return "TODO";
-          // return generateSubscriptionFunctionTypeDefinition(
-          //   GraphQL,
-          //   schema,
-          //   fn,
-          //   enabledFragments
-          // );
+          return generateSubscriptionFunctionTypeDefinition(
+            GraphQL,
+            schema,
+            fn,
+            fragments
+          );
         }
 
         const jsDoc = replaceAll(fn.description || ``, "*/", "")
@@ -91,8 +264,8 @@ export const generateTypeScriptDefinitions: CodegenHelpers.GenerateRuntimeFuncti
 
         if (isSubscription) {
           if (netlifyGraphConfig.runtimeTargetEnv === "node") {
-            const subscriptionFnName = "TODO:subscriptionFunctionName(fn)";
-            const parserFnName = "TODO:subscriptionParserName(fn)";
+            const subscriptionFnName = subscriptionFunctionName(fn);
+            const parserFnName = subscriptionParserName(fn);
 
             const jsDoc = replaceAll(fn.description || "", "*/", "")
               .split("\n")
@@ -248,7 +421,7 @@ const lruCacheImplementation = `// Basic LRU cache implementation
 export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
   opts
 ) => {
-  const { netlifyGraphConfig, schemaId } = opts;
+  const { netlifyGraphConfig, schema, schemaId } = opts;
 
   const export_ = (netlifyGraphConfig, envs, name, value) => {
     if (!envs.includes(netlifyGraphConfig.runtimeTargetEnv)) {
@@ -294,8 +467,8 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
 
       if (isSubscription) {
         if (netlifyGraphConfig.runtimeTargetEnv === "node") {
-          const subscriptionFnName = "TODO_SUB";
-          const parserFnName = "TODO_SUB";
+          const subscriptionFnName = subscriptionFunctionName(fn);
+          const parserFnName = subscriptionParserName(fn);
 
           const jsDoc = replaceAll(fn.description || "", "*/", "")
             .split("\n")
@@ -336,14 +509,13 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
     .map((fn) => {
       if (fn.kind === "subscription") {
         const fragments = [];
-        return "TODO_SUBSCRIPTION";
-        // return generateSubscriptionFunction(
-        //   GraphQL,
-        //   schema,
-        //   fn,
-        //   fragments,
-        //   netlifyGraphConfig
-        // );
+        return generateSubscriptionFunction(
+          GraphQL,
+          schema,
+          fn,
+          fragments,
+          netlifyGraphConfig
+        );
       }
 
       const dynamicFunction = `${export_(

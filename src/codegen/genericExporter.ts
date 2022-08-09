@@ -680,7 +680,7 @@ ${clientSideCalls}
   },
 };
 
-export const id = "netlify-graph-codegen/serverless-default";
+export const id = "netlify-builtin:serverless";
 export const version = "0.0.1";
 export const generators = [netlifyFunctionSnippet];
 
@@ -689,5 +689,5 @@ export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
   version,
   generators,
   generateRuntime: generateRuntime,
-  sigil: "__included/netlify-graph-codegen/serverless-default",
+  sigil: "netlify-builtin:serverless",
 };

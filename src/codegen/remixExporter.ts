@@ -863,7 +863,7 @@ ${clientSideCalls}
   },
 };
 
-export const id = "netlify-graph-codegen/remix-default";
+export const id = "netlify-builtin:remix";
 export const version = "0.0.1";
 export const generators = [remixFunctionSnippet];
 
@@ -872,5 +872,5 @@ export const codegenModule: CodegenHelpers.IncludedCodegenModule = {
   version,
   generators,
   generateRuntime: generateRuntime,
-  sigil: "__included/netlify-graph-codegen/remix-default",
+  sigil: "netlify-builtin:remix",
 };
