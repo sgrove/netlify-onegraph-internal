@@ -80,13 +80,30 @@ export type OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent = {
   };
 };
 
+export const OneGraphNetlifyCliSessionFilsWrittenFileSdl = `type OneGraphNetlifyCliSessionFilsWrittenFile {
+  name: String
+  """
+  OS-dependent file path
+  """
+  filePath: String!
+}`;
+
+export type OneGraphNetlifyCliSessionFilsWrittenFile = {
+  __typename: "OneGraphNetlifyCliSessionFilsWrittenFile";
+  name: string;
+  /**
+   * OS-dependent file path
+   */
+  filePath: string;
+};
+
 export const OneGraphNetlifyCliSessionFilesWrittenEventSdl = `type OneGraphNetlifyCliSessionFilsWrittenEvent {
     id: String!
     sessionId: String!
     createdAt: String!
     payload: {
       editor: String
-      filePaths: [String!]!
+      files: [OneGraphNetlifyCliSessionFilsWrittenFile!]!
     }
     audience: String!
 }`;
@@ -98,7 +115,7 @@ export type OneGraphNetlifyCliSessionFilesWrittenEvent = {
   createdAt: string;
   payload: {
     editor: string | null;
-    filePaths: string[];
+    files: OneGraphNetlifyCliSessionFilsWrittenFile[];
   };
   audience: "UI" | "CLI";
 };
