@@ -1263,7 +1263,9 @@ const printInterface = (obj: OutInterface): string => {
   ${fields}
 }`;
   } else if (fieldSelectionCount === 0) {
-    value = `${printedInlineFragments}`;
+    value = `${Array.from(unusedNamedFragments)
+      .map((name) => name)
+      .join(" & ")} ${printedInlineFragments}`.trim();
   } else {
     const subFields =
       fieldSelectionCount > 0
@@ -1273,7 +1275,7 @@ const printInterface = (obj: OutInterface): string => {
         : "";
     value = `${Array.from(unusedNamedFragments)
       .map((name) => name)
-      .join(" & ")} ${subFields} ${printedInlineFragments}`;
+      .join(" & ")} ${subFields} ${printedInlineFragments}`.trim();
   }
 
   return value;
