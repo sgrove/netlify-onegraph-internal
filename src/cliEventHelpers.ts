@@ -80,7 +80,7 @@ export type OneGraphNetlifyCliSessionPersistedLibraryUpdatedEvent = {
   };
 };
 
-export const OneGraphNetlifyCliSessionFilsWrittenFileSdl = `type OneGraphNetlifyCliSessionFilsWrittenFile {
+export const OneGraphNetlifyCliSessionFilesWrittenFileSdl = `type OneGraphNetlifyCliSessionFilesWrittenFile {
   name: String
   """
   OS-dependent file path
@@ -88,8 +88,8 @@ export const OneGraphNetlifyCliSessionFilsWrittenFileSdl = `type OneGraphNetlify
   filePath: String!
 }`;
 
-export type OneGraphNetlifyCliSessionFilsWrittenFile = {
-  __typename: "OneGraphNetlifyCliSessionFilsWrittenFile";
+export type OneGraphNetlifyCliSessionFilesWrittenFile = {
+  __typename: "OneGraphNetlifyCliSessionFilesWrittenFile";
   name: string;
   /**
    * OS-dependent file path
@@ -97,13 +97,13 @@ export type OneGraphNetlifyCliSessionFilsWrittenFile = {
   filePath: string;
 };
 
-export const OneGraphNetlifyCliSessionFilesWrittenEventSdl = `type OneGraphNetlifyCliSessionFilsWrittenEvent {
+export const OneGraphNetlifyCliSessionFilesWrittenEventSdl = `type OneGraphNetlifyCliSessionFilesWrittenEvent {
     id: String!
     sessionId: String!
     createdAt: String!
     payload: {
       editor: String
-      files: [OneGraphNetlifyCliSessionFilsWrittenFile!]!
+      files: [OneGraphNetlifyCliSessionFilesWrittenFile!]!
     }
     audience: String!
 }`;
@@ -115,7 +115,7 @@ export type OneGraphNetlifyCliSessionFilesWrittenEvent = {
   createdAt: string;
   payload: {
     editor: string | null;
-    files: OneGraphNetlifyCliSessionFilsWrittenFile[];
+    files: OneGraphNetlifyCliSessionFilesWrittenFile[];
   };
   audience: "UI" | "CLI";
 };
