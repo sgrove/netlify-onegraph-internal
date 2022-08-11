@@ -1014,17 +1014,17 @@ export const queryToFunctionDefinition = (
 
 export const fragmentToParsedFragmentDefinition = (
   GraphQL: typeof GraphQLPackage,
-  currentFragments: {},
+  currentFragments: Record<string, FragmentDefinitionNode>,
   fullSchema: GraphQLSchema,
-  persistedQuery: ExtractedFragment
+  extractedFragment: ExtractedFragment
 ): {
   fragmentDefinitions: Record<string, FragmentDefinitionNode[]>;
   fragment?: ParsedFragment | undefined;
 } => {
   const basicFn = {
-    id: persistedQuery.id,
-    operationString: persistedQuery.operationString,
-    description: persistedQuery.description || "",
+    id: extractedFragment.id,
+    operationString: extractedFragment.operationString,
+    description: extractedFragment.description || "",
   };
 
   const body = basicFn.operationString;
@@ -1044,14 +1044,14 @@ export const fragmentToParsedFragmentDefinition = (
   );
 
   if (!operations) {
-    internalConsole.error(`Operation definition is required in ${basicFn.id}`);
+    internalConsole.error(`Fragment definition is required in ${basicFn.id}`);
     return { fragmentDefinitions: fragments };
   }
 
   const [operation] = fragmentDefinitions;
 
   if (operation.kind !== Kind.FRAGMENT_DEFINITION) {
-    internalConsole.error(`Definition is not an operation in ${basicFn.id}`);
+    internalConsole.error(`Definition is not an fragment in ${basicFn.id}`);
     return { fragmentDefinitions: fragments };
   }
 
@@ -1074,9 +1074,9 @@ export const fragmentToParsedFragmentDefinition = (
     operation
   );
 
-  const operationName = operation.name && operation.name.value;
+  const fragmentName = operation.name && operation.name.value;
 
-  if (!operationName) {
+  if (!fragmentName) {
     internalConsole.error(
       `Operation name is required in ${
         basicFn.operationString
@@ -1099,7 +1099,7 @@ export const fragmentToParsedFragmentDefinition = (
     safeBody,
     kind: "fragment",
     returnSignature,
-    fragmentName: operationName,
+    fragmentName: fragmentName,
     typeCondition,
     parsedOperation: operation,
     operationStringWithoutNetlifyDirective: print(
@@ -1860,15 +1860,20 @@ export const generateRuntime = async ({
   generate: CodegenHelpers.GenerateRuntimeFunction;
   schemaId: string;
 }) => {
-  const {
-    fragmentDefinitions,
-  }: { fragmentDefinitions: Record<string, ParsedFragment> } = Object.entries(
-    fragments
-  ).reduce(
-    ({ fragmentDefinitions, fragmentNodes }, [fragmentName, fragment]) => {
+  const allFragmentNodes = Object.fromEntries(
+    Object.entries(fragments).map(([key, value]) => [
+      value.fragmentName,
+      value.parsedOperation,
+    ])
+  );
+
+  const fragmentResults: {
+    fragmentDefinitions: Record<string, ParsedFragment>;
+  } = Object.entries(fragments).reduce(
+    ({ fragmentDefinitions }, [fragmentName, fragment]) => {
       const parsed = fragmentToParsedFragmentDefinition(
         GraphQL,
-        fragmentNodes,
+        allFragmentNodes,
         schema,
         fragment
       );
@@ -1877,11 +1882,12 @@ export const generateRuntime = async ({
           ...fragmentDefinitions,
           [fragmentName]: parsed.fragment,
         },
-        fragmentNodes: { ...fragmentNodes, ...parsed.fragmentDefinitions },
       };
     },
-    { fragmentNodes: {}, fragmentDefinitions: {} }
+    { fragmentDefinitions: {} }
   );
+
+  const { fragmentDefinitions } = fragmentResults;
 
   const parsedDoc = parse(operationsDoc, { noLocation: true });
 
