@@ -116,7 +116,7 @@ export const fetchOneGraphSchemaByIdJson = async ({
   schemaId: string;
   accessToken: string;
 }): Promise<{ data: IntrospectionQuery } | undefined> => {
-  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&schemaId=${schemaId}`;
+  const url = `https://${netlifyGraphHost}/schema?app_id=${appId}&schema_id=${schemaId}`;
   const authorizationHeader = accessToken
     ? { authorization: `Bearer ${accessToken}` }
     : {};
