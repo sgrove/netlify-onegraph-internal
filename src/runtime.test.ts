@@ -1,12 +1,15 @@
 import { writeFileSync, readFileSync } from "fs";
 import { buildASTSchema, parse } from "graphql";
 import * as GraphQL from "graphql";
+import { registerConsole } from "./internalConsole";
 
 import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
 
 const test = async () => {
+  registerConsole(console);
+
   const sourceGraphQLFilename =
     "./tests/assets/netlifyGraphOperationsLibrary.graphql";
   const schemaGraphQLFilename = "./tests/assets/netlifyGraphSchema.graphql";
@@ -49,7 +52,7 @@ const test = async () => {
     runtimeTargetEnv: "node",
   };
 
-  const result = NetlifyGraph.generateFunctionsSource(
+  const result = await NetlifyGraph.generateFunctionsSource(
     GraphQL,
     netlifyGraphConfig,
     schema,
@@ -62,15 +65,13 @@ const test = async () => {
     throw new Error("result is undefined");
   }
 
-  const { clientSource, typeDefinitionsSource } = await result;
+  const { clientSource, typeDefinitionsSource } = result;
 
-  console.log(typeDefinitionsSource);
-
-  const sourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.js`;
+  const sourcePath = `/tmp/index.js`;
 
   writeFileSync(sourcePath, clientSource[0]);
 
-  const typeDefinitionsSourcePath = `/Users/s/code/gravity/gravity/netlify/functions/netlifyGraph/index.d.ts`;
+  const typeDefinitionsSourcePath = `/tmp/index.d.ts`;
   writeFileSync(typeDefinitionsSourcePath, typeDefinitionsSource);
 };
 
