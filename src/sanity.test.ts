@@ -4,8 +4,11 @@ import * as GraphQL from "graphql";
 import path = require("path/posix");
 
 import { NetlifyGraph } from "./index";
+import { registerConsole } from "./internalConsole";
 
 const test = () => {
+  registerConsole(console);
+
   const sourceGraphQLFilename =
     "./tests/assets/netlifyGraphOperationsLibrary.graphql";
   const schemaGraphQLFilename = "./tests/assets/netlifyGraphSchema.graphql";
@@ -20,6 +23,8 @@ const test = () => {
     GraphQL,
     parsedDoc
   );
+
+  console.log("functions:", functions);
 
   const netlifyGraphConfig: NetlifyGraph.NetlifyGraphConfig = {
     netlifyGraphPath: ["..", "..", "lib", "netlifyGraph"],
@@ -51,7 +56,7 @@ const test = () => {
       useClientAuth: true,
     },
     netlifyGraphConfig,
-    operationId: "c67c5c11-cbc4-48ed-8ac8-2803a4e4dc5f",
+    operationId: "5c7bb879-a810-4a7e-8aec-55d05fd9c172",
     operationsDoc: sourceGraphQLFile,
     schema,
   });
@@ -68,7 +73,7 @@ const test = () => {
         ? path.join(...exportedFile.name)
         : "default";
 
-    const contentPath = `/Users/s/code/gravity/gravity/netlify/functions/${filename}.ts`;
+    const contentPath = `/tmp/${filename}.ts`;
 
     console.log(
       `${contentPath}:

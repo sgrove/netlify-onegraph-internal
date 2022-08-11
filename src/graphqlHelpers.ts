@@ -206,7 +206,7 @@ export function typeScriptForGraphQLType(
     if (fields.length > 0) {
       return `{${fields.join("; ")}}`;
     } else {
-      return "Record<string, unknown> /* typeScriptForGraphQLType */";
+      return "Record<string, unknown> /* No fields found */";
     }
   } else if (isWrappingType(gqlType)) {
     return typeScriptForGraphQLType(GraphQL, schema, gqlType.ofType);
@@ -457,7 +457,7 @@ const dummyOut: OutObject = {
       isNullable: false,
       type: {
         kind: "scalar",
-        type: "Record<string, unknown>",
+        type: "Record<string, unknown> /** Unable to find types for operation */",
       },
     },
     errors: {
@@ -1393,7 +1393,7 @@ export function typeScriptDefinitionObjectForFragment(
 
   const dummyOut: OutScalar = {
     kind: "scalar",
-    type: "Record<string, unknown>",
+    type: "Record<string, unknown> /** Scalar output not found */",
     description: "Fragment data unavailable when generating types",
   };
 
@@ -1918,7 +1918,12 @@ export function typeScriptDefinitionObjectForFragment(
     const result: OutUnion = sub;
 
     return result;
+  } else if (sub && sub.kind === "interface") {
+    const result: OutInterface = sub;
+
+    return result;
   } else {
+    internalConsole.warn("Unable to determine fragment output type");
     return dummyOut;
   }
 }

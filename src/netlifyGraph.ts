@@ -1110,13 +1110,19 @@ export const fragmentToParsedFragmentDefinition = (
   return { fragmentDefinitions: fragments, fragment: fn };
 };
 
-export const generateJavaScriptClient = (
-  GraphQL: typeof GraphQLPackage,
-  netlifyGraphConfig: NetlifyGraphConfig,
-  schema: GraphQLSchema,
-  operationsDoc: string,
-  enabledFunctions: ParsedFunction[]
-) => {
+export const generateJavaScriptClient = ({
+  GraphQL,
+  netlifyGraphConfig,
+  schema,
+  operationsDoc,
+  enabledFunctions,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  netlifyGraphConfig: NetlifyGraphConfig;
+  schema: GraphQLSchema;
+  operationsDoc: string;
+  enabledFunctions: ParsedFunction[];
+}) => {
   const operationsWithoutTemplateDollar = replaceAll(
     operationsDoc,
     "${",
@@ -1818,12 +1824,12 @@ export const generateFunctionsSource = async (
       return a.id.localeCompare(b.id);
     }) as ParsedFunction[];
 
-  // @ts-expect-error
   const clientSource = generateJavaScriptClient({
     GraphQL,
     netlifyGraphConfig,
     schema,
-    functionDefinitions,
+    enabledFunctions: functionDefinitions,
+    operationsDoc: operationsDoc,
   });
 
   const typeDefinitionsSource = generateTypeScriptDefinitions(
