@@ -53,7 +53,7 @@ type OutInlineFragment = {
 type OutObject = {
   kind: "object";
   description?: Maybe<string>;
-  namedFragments: string[];
+  namedFragments: { name: string; typeCondition: string }[];
   inlineFragments: OutInlineFragment[];
   selections: OutSelection;
 };
@@ -70,17 +70,40 @@ type OutScalar = {
   type: string;
 };
 
-type OutType = OutEnum | OutObject | OutArray | OutScalar;
+type OutUnion = {
+  kind: "union";
+  typenameFields: string[];
+  description?: Maybe<string>;
+  objects: (OutObject & { __typename: string })[];
+  namedFragments: { name: string; typeCondition: string }[];
+};
+
+type OutInterface = {
+  kind: "interface";
+  description?: Maybe<string>;
+  namedFragments: { name: string; typeCondition: string }[];
+  inlineFragments: OutInlineFragment[];
+  selections: OutSelection;
+};
+
+type OutType =
+  | OutEnum
+  | OutObject
+  | OutArray
+  | OutScalar
+  | OutUnion
+  | OutInterface;
 
 const scalarMap: Record<string, OutType> = {
-  String: { kind: "scalar", type: "string" },
   ID: { kind: "scalar", type: "string" },
   Int: { kind: "scalar", type: "number" },
   Float: { kind: "scalar", type: "number" },
+  String: { kind: "scalar", type: "string" },
   Boolean: { kind: "scalar", type: "boolean" },
+  JSON: { kind: "scalar", type: "unknown" },
+  JSONObject: { kind: "scalar", type: "Record<string, unknown>" },
   GitHubGitObjectID: { kind: "scalar", type: "string" },
   GitHubURI: { kind: "scalar", type: "string" },
-  JSONObject: { kind: "scalar", type: "Record<string, unknown>" },
 };
 
 export function gatherAllReferencedTypes(
@@ -464,6 +487,7 @@ export function typeScriptDefinitionObjectForOperation(
     getNamedType,
     isEnumType,
     isInterfaceType,
+    isUnionType,
     isListType,
     isNonNullType,
     isNullableType,
@@ -474,12 +498,84 @@ export function typeScriptDefinitionObjectForOperation(
     typeFromAST,
   } = GraphQL;
 
-  const objectHelper = (
-    type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
+  const unionHelper = (
+    type: GraphQLUnionType,
     selectionSet: SelectionSetNode
-  ): OutObject | undefined => {
+  ): OutUnion | undefined => {
+    let objects: (OutObject & { __typename: string })[] = [];
+    let namedFragments: { name: string; typeCondition: string }[] = [];
+    let typenameFields: string[] = [];
+
+    selectionSet.selections.forEach((selection) => {
+      if (selection.kind === Kind.FRAGMENT_SPREAD) {
+        const fragmentName = selection.name.value;
+        const definedFragment = fragmentDefinitions[fragmentName];
+
+        if (definedFragment) {
+          namedFragments.push({
+            name: fragmentName,
+            typeCondition: definedFragment.typeCondition.name.value,
+          });
+        }
+      } else if (selection.kind === Kind.INLINE_FRAGMENT) {
+        const typeCondition = selection.typeCondition;
+        if (!typeCondition) {
+          return;
+        }
+
+        const typeConditionName = typeCondition.name.value;
+
+        const fragmentGqlType = typeFromAST(schema, typeCondition);
+
+        if (!fragmentGqlType || !isObjectType(fragmentGqlType)) {
+          return;
+        }
+
+        const fragmentSelectionAsObject: OutObject | undefined = objectHelper(
+          fragmentGqlType,
+          selection.selectionSet
+        );
+
+        if (!fragmentSelectionAsObject) {
+          return;
+        }
+
+        objects.push({
+          ...fragmentSelectionAsObject,
+          __typename: typeConditionName,
+        });
+      } else if (selection.kind === Kind.FIELD) {
+        let alias = selection.alias?.value;
+        let name = selection.name.value;
+        let displayedName = alias || name;
+
+        if (name === "__typename") {
+          typenameFields.push(displayedName);
+        }
+      } else {
+        internalConsole.warn(
+          `unionHelper got a non-field selection: ${selection}`
+        );
+      }
+    });
+
+    const final: OutUnion = {
+      kind: "union",
+      description: type.description,
+      objects: objects,
+      namedFragments: namedFragments,
+      typenameFields: typenameFields,
+    };
+
+    return final;
+  };
+
+  const interfaceHelper = (
+    type: GraphQLInterfaceType,
+    selectionSet: SelectionSetNode
+  ): OutInterface | undefined => {
     let inlineFragments: OutInlineFragment[] = [];
-    let namedFragments: string[] = [];
+    let namedFragments: { name: string; typeCondition: string }[] = [];
     let selections: OutSelection = {};
 
     selectionSet.selections.forEach((selection) => {
@@ -488,7 +584,10 @@ export function typeScriptDefinitionObjectForOperation(
         const definedFragment = fragmentDefinitions[fragmentName];
 
         if (definedFragment) {
-          namedFragments.push(fragmentName);
+          namedFragments.push({
+            name: fragmentName,
+            typeCondition: definedFragment.typeCondition.name.value,
+          });
         }
       } else if (selection.kind === Kind.INLINE_FRAGMENT) {
         const typeCondition = selection.typeCondition;
@@ -529,17 +628,204 @@ export function typeScriptDefinitionObjectForOperation(
         let name = selection.name.value;
         let displayedName = alias || name;
 
+        let field =
+          (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
+          parentNamedType.getFields()[name];
+
+        if (name === "__typename") {
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: true,
+            type: {
+              kind: "scalar",
+              type: "string",
+            },
+          };
+          return;
+        }
+
         if (name.startsWith("__")) {
-          return {
-            kind: "object",
-            namedFragments: [],
-            inlineFragments: [],
-            selections: {
-              displayedName: {
-                kind: "scalar",
-                description: "Internal GraphQL field",
-                type: "unknown",
-              },
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: false,
+            type: {
+              kind: "scalar",
+              description: "Internal GraphQL field",
+              type: "unknown",
+            },
+          };
+          return;
+        }
+
+        if (!field) {
+          internalConsole.warn(
+            `Could not find field ${name} on ${parentNamedType.name} among ${
+              // @ts-ignore
+              Object.keys(parentNamedType.getFields())
+            }`
+          );
+          return;
+        }
+
+        let gqlType = field.type;
+        let namedType = getNamedType(gqlType);
+        const isNullable = isNullableType(gqlType);
+
+        const subSelectionSet = selection.selectionSet;
+
+        if (isWrappingType(gqlType)) {
+          const value = helper(
+            gqlType,
+            subSelectionSet || {
+              kind: Kind.SELECTION_SET,
+              selections: [],
+            }
+          );
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              isNullable,
+              description: field.description,
+            };
+          }
+        } else if (isScalarType(namedType)) {
+          const scalar = scalarHelper(namedType);
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            type: scalar,
+            isNullable,
+            description: field.description,
+          };
+        } else if (isEnumType(namedType)) {
+          const dummySelectionSet: SelectionSetNode = {
+            kind: Kind.SELECTION_SET,
+            selections: [],
+          };
+
+          const value = helper(gqlType, dummySelectionSet);
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              isNullable,
+              description: field.description,
+            };
+          }
+        } else if (subSelectionSet) {
+          const value = helper(gqlType, selection.selectionSet);
+
+          if (value) {
+            selections[displayedName] = {
+              kind: "selection_field",
+              name: displayedName,
+              type: value,
+              isNullable,
+              description: field.description,
+            };
+          }
+        }
+      } else {
+        internalConsole.warn(
+          `interfaceHelper got a non-field selection ${selection}`
+        );
+      }
+    });
+
+    const final: OutInterface = {
+      kind: "interface",
+      namedFragments,
+      inlineFragments,
+      selections,
+    };
+
+    return final;
+  };
+
+  const objectHelper = (
+    type: GraphQLObjectType<any, any> | GraphQLInterfaceType | GraphQLUnionType,
+    selectionSet: SelectionSetNode
+  ): OutObject | undefined => {
+    let inlineFragments: OutInlineFragment[] = [];
+    let namedFragments: { name: string; typeCondition: string }[] = [];
+    let selections: OutSelection = {};
+
+    selectionSet.selections.forEach((selection) => {
+      if (selection.kind === Kind.FRAGMENT_SPREAD) {
+        const fragmentName = selection.name.value;
+        const definedFragment = fragmentDefinitions[fragmentName];
+
+        if (definedFragment) {
+          namedFragments.push({
+            name: fragmentName,
+            typeCondition: definedFragment.typeCondition.name.value,
+          });
+        }
+      } else if (selection.kind === Kind.INLINE_FRAGMENT) {
+        const typeCondition = selection.typeCondition;
+        if (!typeCondition) {
+          return;
+        }
+
+        const typeConditionName = typeCondition.name.value;
+
+        const fragmentGqlType = typeFromAST(schema, typeCondition);
+
+        if (!fragmentGqlType || !isObjectType(fragmentGqlType)) {
+          return;
+        }
+
+        const fragmentSelectionAsObject: OutObject | undefined = objectHelper(
+          fragmentGqlType,
+          selection.selectionSet
+        );
+
+        if (!fragmentSelectionAsObject) {
+          return;
+        }
+
+        const fragmentSelections = fragmentSelectionAsObject.selections;
+
+        const inlineFragment: OutInlineFragment = {
+          kind: "inlineFragment",
+          typeCondition: typeConditionName,
+          selections: fragmentSelections,
+        };
+
+        inlineFragments.push(inlineFragment);
+      } else if (selection.kind === Kind.FIELD) {
+        let parentNamedType = getNamedType(type);
+
+        let alias = selection.alias?.value;
+        let name = selection.name.value;
+        let displayedName = alias || name;
+
+        if (name === "__typename") {
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: true,
+            type: {
+              kind: "scalar",
+              type: "string",
+            },
+          };
+        }
+
+        if (name.startsWith("__")) {
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: false,
+            type: {
+              kind: "scalar",
+              description: "Internal GraphQL field",
+              type: "unknown",
             },
           };
         }
@@ -550,11 +836,10 @@ export function typeScriptDefinitionObjectForOperation(
 
         if (!field) {
           internalConsole.warn(
-            "Could not find field",
-            name,
-            "in",
-            // @ts-ignore
-            Object.keys(parentNamedType.getFields())
+            `Could not find field ${name} in ${
+              // @ts-ignore
+              Object.keys(parentNamedType.getFields())
+            }`
           );
           return;
         }
@@ -622,8 +907,7 @@ export function typeScriptDefinitionObjectForOperation(
         }
       } else {
         internalConsole.warn(
-          "objectHelper got a non-field selection",
-          selection
+          `objectHelper got a non-field selection ${selection}`
         );
       }
     });
@@ -684,7 +968,9 @@ export function typeScriptDefinitionObjectForOperation(
     } else if (isObjectType(parentGqlType)) {
       return objectHelper(parentGqlType, selectionSet);
     } else if (isInterfaceType(parentGqlType)) {
-      return objectHelper(parentGqlType, selectionSet);
+      return interfaceHelper(parentGqlType, selectionSet);
+    } else if (isUnionType(parentGqlType)) {
+      return unionHelper(parentGqlType, selectionSet);
     } else if (isScalarType(parentGqlType)) {
       return scalarHelper(parentGqlType);
     } else if (isEnumType(parentGqlType)) {
@@ -699,7 +985,7 @@ export function typeScriptDefinitionObjectForOperation(
 
       return outEnum;
     } else {
-      internalConsole.warn("Unrecognized type in operation", parentGqlType);
+      internalConsole.warn(`Unrecognized type in operation ${parentGqlType}`);
     }
   };
 
@@ -786,6 +1072,56 @@ const printObject = (obj: OutObject): string => {
 
   let value;
 
+  const modifiedInlineFragments = obj.inlineFragments.map((inlineFragment) => {
+    const typenameSelection: OutSelectionFieldValue = {
+      kind: "selection_field",
+      name: "__typename",
+      isNullable: true,
+      type: {
+        kind: "scalar",
+        type: `"${inlineFragment.typeCondition}"`,
+      },
+      description:
+        "Used to tell what type of object was returned for the selection",
+    };
+
+    return {
+      ...inlineFragment,
+      selections: {
+        ...inlineFragment.selections,
+        __typename: typenameSelection,
+      },
+    };
+  });
+
+  const printedInlineFragmentsBody = modifiedInlineFragments
+    .map((inlineFragment) => {
+      const fields = Object.values(inlineFragment.selections)
+        .map((fieldSelection) => {
+          const fields = printOut(fieldSelection.type);
+          const value = fields;
+          const description = !!fieldSelection.description
+            ? `/**
+    * ${fieldSelection.description}
+    */
+  `
+            : "";
+
+          return `${description}${fieldSelection.name}${
+            fieldSelection.isNullable ? "?" : ""
+          }: ${value};`;
+        })
+        .join("\n  ");
+
+      return `{${fields}}`;
+    })
+    .join(" | ");
+
+  const printedInlineFragments =
+    modifiedInlineFragments.length === 0
+      ? ""
+      : ` | (${printedInlineFragmentsBody})`;
+
   if (
     fieldSelectionCount === 0 &&
     obj.namedFragments.length === 0 &&
@@ -801,7 +1137,9 @@ const printObject = (obj: OutObject): string => {
   ${fields}
 }`;
   } else if (fieldSelectionCount === 0) {
-    value = obj.namedFragments.join(" & ");
+    value = `${obj.namedFragments
+      .map(({ name }) => name)
+      .join(" & ")} ${printedInlineFragments}`;
   } else {
     const subFields =
       fieldSelectionCount > 0
@@ -809,7 +1147,135 @@ const printObject = (obj: OutObject): string => {
   ${fields}
 }`
         : "";
-    value = `${obj.namedFragments.join(" & ")} ${subFields}`;
+    value = `${obj.namedFragments
+      .map(({ name }) => name)
+      .join(" & ")} ${subFields} ${printedInlineFragments}`;
+  }
+
+  return value;
+};
+
+const printInterface = (obj: OutInterface): string => {
+  const fieldSelections = obj.selections;
+
+  const fieldSelectionCount = Object.keys(obj.selections).length;
+
+  const fields = Object.values(fieldSelections)
+    .map((fieldSelection) => {
+      const fields = printOut(fieldSelection.type);
+      const value = fields;
+      const description = !!fieldSelection.description
+        ? `/**
+  * ${fieldSelection.description}
+  */
+`
+        : "";
+
+      return `${description}${fieldSelection.name}${
+        fieldSelection.isNullable ? "?" : ""
+      }: ${value};`;
+    })
+    .join("\n  ");
+
+  let value;
+
+  const modifiedInlineFragments = obj.inlineFragments.map((inlineFragment) => {
+    const typenameSelection: OutSelectionFieldValue = {
+      kind: "selection_field",
+      name: "__typename",
+      isNullable: true,
+      type: {
+        kind: "scalar",
+        type: `"${inlineFragment.typeCondition}"`,
+      },
+      description:
+        "Used to tell what type of object was returned for the selection",
+    };
+
+    return {
+      ...inlineFragment,
+      selections: {
+        ...inlineFragment.selections,
+        __typename: typenameSelection,
+      },
+    };
+  });
+
+  let unusedNamedFragments = new Set([
+    ...obj.namedFragments.map(({ name }) => name),
+  ]);
+
+  const printedInlineFragmentsBody = modifiedInlineFragments
+    .map((inlineFragment) => {
+      const inlineFragmentTypeCondition = inlineFragment.typeCondition;
+      const fields = Object.values(inlineFragment.selections)
+        .map((fieldSelection) => {
+          const fields = printOut(fieldSelection.type);
+          const value = fields;
+          const description = !!fieldSelection.description
+            ? `/**
+    * ${fieldSelection.description}
+    */
+  `
+            : "";
+
+          return `${description}${fieldSelection.name}${
+            fieldSelection.isNullable ? "?" : ""
+          }: ${value};`;
+        })
+        .join("\n  ");
+
+      const matchingFragmentTypeConditions = obj.namedFragments
+        .filter(
+          ({ typeCondition }) => typeCondition === inlineFragmentTypeCondition
+        )
+        .map(({ name }) => name);
+
+      matchingFragmentTypeConditions.forEach((name) =>
+        unusedNamedFragments.delete(name)
+      );
+
+      const baseObject = `{${fields}}`;
+
+      return matchingFragmentTypeConditions.length === 0
+        ? baseObject
+        : `${baseObject} & ${matchingFragmentTypeConditions.join(" & ")}`;
+    })
+    .join(" | ");
+
+  const printedInlineFragments =
+    modifiedInlineFragments.length === 0
+      ? ""
+      : ` & (${printedInlineFragmentsBody})`;
+
+  if (
+    fieldSelectionCount === 0 &&
+    obj.namedFragments.length === 0 &&
+    obj.inlineFragments.length === 0
+  ) {
+    value =
+      "/** No fields, named fragments, or inline fragments found */ Record<string, unknown>";
+  } else if (
+    obj.namedFragments.length === 0 &&
+    obj.inlineFragments.length === 0
+  ) {
+    value = `{
+  ${fields}
+}`;
+  } else if (fieldSelectionCount === 0) {
+    value = `${Array.from(unusedNamedFragments)
+      .map((name) => name)
+      .join(" & ")} ${printedInlineFragments}`.trim();
+  } else {
+    const subFields =
+      fieldSelectionCount > 0
+        ? `& {
+  ${fields}
+}`
+        : "";
+    value = `${Array.from(unusedNamedFragments)
+      .map((name) => name)
+      .join(" & ")} ${subFields} ${printedInlineFragments}`.trim();
   }
 
   return value;
@@ -829,6 +1295,58 @@ const printOut = (out: OutType): string => {
     return printArray(out);
   } else if (out.kind === "enum") {
     return out.values.join(" | ");
+  } else if (out.kind === "interface") {
+    return printInterface(out);
+  } else if (out.kind === "union") {
+    const modifiedObjects = out.objects.map((object) => {
+      const typenameSelections: Record<string, OutSelectionFieldValue> =
+        out.typenameFields.reduce(
+          (acc, next): Record<string, OutSelectionFieldValue> => {
+            const typenameSelection: OutSelectionFieldValue = {
+              kind: "selection_field",
+              name: next,
+              isNullable: true,
+              type: {
+                kind: "scalar",
+                type: `"${object.__typename}"`,
+              },
+              description:
+                "Used to tell what type of object was returned for the selection",
+            };
+
+            acc[next] = typenameSelection;
+            return acc;
+          },
+          {} as Record<string, OutSelectionFieldValue>
+        );
+
+      return {
+        ...object,
+        selections: {
+          ...object.selections,
+          ...typenameSelections,
+        },
+      };
+    });
+
+    const printed = modifiedObjects.map((object) => {
+      const baseObject = printObject(object);
+      const matchingFragmentTypeConditions = out.namedFragments
+        .filter(({ typeCondition }) => {
+          return typeCondition === object.__typename;
+        })
+        .map(({ name }) => name);
+
+      const objectWithMatchingNamedFragments =
+        matchingFragmentTypeConditions.length === 0
+          ? baseObject
+          : `${baseObject} & ${matchingFragmentTypeConditions.join(" & ")}`;
+
+      return objectWithMatchingNamedFragments;
+    });
+
+    const unionJoins = printed.join(" | ");
+    return `(${unionJoins})`;
   }
 
   return "whoops";
@@ -867,6 +1385,7 @@ export function typeScriptDefinitionObjectForFragment(
     isNullableType,
     isObjectType,
     isScalarType,
+    isUnionType,
     isWrappingType,
     Kind,
     typeFromAST,
@@ -883,7 +1402,7 @@ export function typeScriptDefinitionObjectForFragment(
     selectionSet: SelectionSetNode
   ): OutObject | undefined => {
     let inlineFragments: OutInlineFragment[] = [];
-    let namedFragments: string[] = [];
+    let namedFragments: { name: string; typeCondition: string }[] = [];
     let selections: OutSelection = {};
 
     selectionSet.selections.forEach((selection) => {
@@ -892,7 +1411,10 @@ export function typeScriptDefinitionObjectForFragment(
         const definedFragment = fragmentDefinitions[fragmentName];
 
         if (definedFragment) {
-          namedFragments.push(fragmentName);
+          namedFragments.push({
+            name: fragmentName,
+            typeCondition: definedFragment.typeCondition.name.value,
+          });
         }
       } else if (selection.kind === Kind.INLINE_FRAGMENT) {
         const typeCondition = selection.typeCondition;
@@ -937,30 +1459,39 @@ export function typeScriptDefinitionObjectForFragment(
           (isObjectType(parentNamedType) || isInterfaceType(parentNamedType)) &&
           parentNamedType.getFields()[name];
 
-        if (name.startsWith("__")) {
-          return {
-            kind: "object",
-            namedFragments: [],
-            inlineFragments: [],
-            selections: {
-              [displayedName]: {
-                kind: "scalar",
-                description: "Internal GraphQL field",
-                type: "unknown",
-              },
+        if (name === "__typename") {
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: true,
+            type: {
+              kind: "scalar",
+              type: `"${parentNamedType.name}"`,
             },
           };
+          return;
+        }
+
+        if (name.startsWith("__")) {
+          selections[displayedName] = {
+            kind: "selection_field",
+            name: displayedName,
+            isNullable: false,
+            type: {
+              kind: "scalar",
+              description: "Internal GraphQL field",
+              type: "unknown",
+            },
+          };
+          return;
         }
 
         if (!field) {
           internalConsole.warn(
-            "Could not find field",
-            name,
-            "on",
-            parentNamedType.name,
-            "among",
-            // @ts-ignore
-            Object.keys(parentNamedType.getFields())
+            `Could not find field ${name} on ${parentNamedType.name} among ${
+              // @ts-ignore
+              Object.keys(parentNamedType.getFields())
+            }`
           );
           return;
         }
@@ -1028,8 +1559,7 @@ export function typeScriptDefinitionObjectForFragment(
         }
       } else {
         internalConsole.warn(
-          "objectHelper got a non-field selection",
-          selection
+          `objectHelper got a non-field selection ${selection}`
         );
       }
     });
@@ -1079,6 +1609,78 @@ export function typeScriptDefinitionObjectForFragment(
     return scalar;
   };
 
+  const unionHelper = (
+    type: GraphQLUnionType,
+    selectionSet: SelectionSetNode
+  ): OutUnion | undefined => {
+    let objects: (OutObject & { __typename: string })[] = [];
+    let namedFragments: { name: string; typeCondition: string }[] = [];
+    let typenameFields: string[] = [];
+
+    selectionSet.selections.forEach((selection) => {
+      if (selection.kind === Kind.FRAGMENT_SPREAD) {
+        const fragmentName = selection.name.value;
+        const definedFragment = fragmentDefinitions[fragmentName];
+
+        if (definedFragment) {
+          namedFragments.push({
+            name: fragmentName,
+            typeCondition: definedFragment.typeCondition.name.value,
+          });
+        }
+      } else if (selection.kind === Kind.INLINE_FRAGMENT) {
+        const typeCondition = selection.typeCondition;
+        if (!typeCondition) {
+          return;
+        }
+
+        const typeConditionName = typeCondition.name.value;
+
+        const fragmentGqlType = typeFromAST(schema, typeCondition);
+
+        if (!fragmentGqlType || !isObjectType(fragmentGqlType)) {
+          return;
+        }
+
+        const fragmentSelectionAsObject: OutObject | undefined = objectHelper(
+          fragmentGqlType,
+          selection.selectionSet
+        );
+
+        if (!fragmentSelectionAsObject) {
+          return;
+        }
+
+        objects.push({
+          ...fragmentSelectionAsObject,
+          __typename: typeConditionName,
+        });
+      } else if (selection.kind === Kind.FIELD) {
+        let alias = selection.alias?.value;
+        let name = selection.name.value;
+        let displayedName = alias || name;
+
+        if (name === "__typename") {
+          typenameFields.push(displayedName);
+        }
+      } else {
+        internalConsole.warn(
+          `unionHelper got a non-field selection: ${selection}`
+        );
+      }
+    });
+
+    const final: OutUnion = {
+      kind: "union",
+      description: type.description,
+      objects: objects,
+      namedFragments: namedFragments,
+      typenameFields: typenameFields,
+    };
+
+    return final;
+  };
+
   let helper = (
     parentGqlType: GraphQLType,
     selectionSet: SelectionSetNode
@@ -1091,6 +1693,8 @@ export function typeScriptDefinitionObjectForFragment(
       return objectHelper(parentGqlType, selectionSet);
     } else if (isInterfaceType(parentGqlType)) {
       return objectHelper(parentGqlType, selectionSet);
+    } else if (isUnionType(parentGqlType)) {
+      return unionHelper(parentGqlType, selectionSet);
     } else if (isScalarType(parentGqlType)) {
       return scalarHelper(parentGqlType);
     } else if (isEnumType(parentGqlType)) {
@@ -1105,7 +1709,7 @@ export function typeScriptDefinitionObjectForFragment(
 
       return outEnum;
     } else {
-      internalConsole.warn("Unrecognized type in fragment", parentGqlType);
+      internalConsole.warn(`Unrecognized type in fragment ${parentGqlType}`);
     }
   };
 
@@ -1123,6 +1727,10 @@ export function typeScriptDefinitionObjectForFragment(
 
   if (sub && sub.kind === "object") {
     const result: OutObject = sub;
+
+    return result;
+  } else if (sub && sub.kind === "union") {
+    const result: OutUnion = sub;
 
     return result;
   } else {
@@ -1498,7 +2106,7 @@ export const formInput = (
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    internalConsole.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn(`\tCould not hydrate type for ${def.type}`);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1629,7 +2237,7 @@ export const remixFormInput = (
 
   const hydratedType = typeFromAST(schema, def.type);
   if (!hydratedType) {
-    internalConsole.warn("\tCould not hydrate type for ", def.type);
+    internalConsole.warn(`\tCould not hydrate type for ${def.type}`);
     return null;
   }
   // const required = isNonNullType(hydratedType);
@@ -1796,7 +2404,7 @@ export const gatherHardcodedValues = (
 
     return hardCodedValues;
   } catch (e) {
-    internalConsole.warn("Error parsing query", e);
+    internalConsole.warn(`Error parsing query: ${e}`);
     return [];
   }
 };
@@ -1831,8 +2439,7 @@ export const extractPersistableOperation = (
       });
     } else {
       internalConsole.warn(
-        "Could not find fragment definition for referenced fragment: ",
-        fragmentName
+        `Could not find fragment definition for referenced fragment: ${fragmentName}`
       );
     }
 
