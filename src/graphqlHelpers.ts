@@ -72,6 +72,7 @@ type OutScalar = {
 
 type OutUnion = {
   kind: "union";
+  typename: string;
   typenameFields: string[];
   description?: Maybe<string>;
   objects: (OutObject & { __typename: string })[];
@@ -565,6 +566,7 @@ export function typeScriptDefinitionObjectForOperation(
       objects: objects,
       namedFragments: namedFragments,
       typenameFields: typenameFields,
+      typename: type.name,
     };
 
     return final;
@@ -1283,7 +1285,83 @@ const printInterface = (obj: OutInterface): string => {
 
 const printArray = (out: OutArray): string => {
   const value = printOut(out.type);
+  if (value === "()") {
+    internalConsole.warn(
+      `Empty array found during type generation: ${JSON.stringify(
+        out,
+        null,
+        2
+      )}`
+    );
+  }
   return `Array<${value}>`;
+};
+
+const printUnion = (out: OutUnion): string => {
+  const modifiedObjects = out.objects.map((object) => {
+    const typenameSelections: Record<string, OutSelectionFieldValue> =
+      out.typenameFields.reduce(
+        (acc, next): Record<string, OutSelectionFieldValue> => {
+          const typenameSelection: OutSelectionFieldValue = {
+            kind: "selection_field",
+            name: next,
+            isNullable: true,
+            type: {
+              kind: "scalar",
+              type: `"${object.__typename}"`,
+            },
+            description:
+              "Used to tell what type of object was returned for the selection",
+          };
+
+          acc[next] = typenameSelection;
+          return acc;
+        },
+        {} as Record<string, OutSelectionFieldValue>
+      );
+
+    return {
+      ...object,
+      selections: {
+        ...object.selections,
+        ...typenameSelections,
+      },
+    };
+  });
+
+  const unusedNamedFragments = new Set(out.namedFragments);
+
+  const printed = modifiedObjects.map((object) => {
+    const baseObject = printObject(object);
+    const matchingFragmentTypeConditions = out.namedFragments
+      .filter((namedFragment) => {
+        const { typeCondition } = namedFragment;
+        const matches = typeCondition === object.__typename;
+
+        if (matches) {
+          unusedNamedFragments.delete(namedFragment);
+        }
+
+        return matches;
+      })
+      .map(({ name }) => name);
+
+    const objectWithMatchingNamedFragments =
+      matchingFragmentTypeConditions.length === 0
+        ? baseObject
+        : `${baseObject} & ${matchingFragmentTypeConditions.join(" & ")}`;
+
+    return objectWithMatchingNamedFragments;
+  });
+
+  const namedFragments = Array.from(unusedNamedFragments)
+    .map((namedFragment) => {
+      return namedFragment.name;
+    })
+    .join(" & ");
+
+  const unionJoins = printed.length === 0 ? "{}" : printed.join(" | ");
+  return `${namedFragments} & (${unionJoins})`;
 };
 
 const printOut = (out: OutType): string => {
@@ -1298,55 +1376,7 @@ const printOut = (out: OutType): string => {
   } else if (out.kind === "interface") {
     return printInterface(out);
   } else if (out.kind === "union") {
-    const modifiedObjects = out.objects.map((object) => {
-      const typenameSelections: Record<string, OutSelectionFieldValue> =
-        out.typenameFields.reduce(
-          (acc, next): Record<string, OutSelectionFieldValue> => {
-            const typenameSelection: OutSelectionFieldValue = {
-              kind: "selection_field",
-              name: next,
-              isNullable: true,
-              type: {
-                kind: "scalar",
-                type: `"${object.__typename}"`,
-              },
-              description:
-                "Used to tell what type of object was returned for the selection",
-            };
-
-            acc[next] = typenameSelection;
-            return acc;
-          },
-          {} as Record<string, OutSelectionFieldValue>
-        );
-
-      return {
-        ...object,
-        selections: {
-          ...object.selections,
-          ...typenameSelections,
-        },
-      };
-    });
-
-    const printed = modifiedObjects.map((object) => {
-      const baseObject = printObject(object);
-      const matchingFragmentTypeConditions = out.namedFragments
-        .filter(({ typeCondition }) => {
-          return typeCondition === object.__typename;
-        })
-        .map(({ name }) => name);
-
-      const objectWithMatchingNamedFragments =
-        matchingFragmentTypeConditions.length === 0
-          ? baseObject
-          : `${baseObject} & ${matchingFragmentTypeConditions.join(" & ")}`;
-
-      return objectWithMatchingNamedFragments;
-    });
-
-    const unionJoins = printed.join(" | ");
-    return `(${unionJoins})`;
+    return printUnion(out);
   }
 
   return "whoops";
@@ -1861,6 +1891,7 @@ export function typeScriptDefinitionObjectForFragment(
       objects: objects,
       namedFragments: namedFragments,
       typenameFields: typenameFields,
+      typename: type.name,
     };
 
     return final;
