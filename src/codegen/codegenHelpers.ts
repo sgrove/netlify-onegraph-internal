@@ -154,7 +154,7 @@ export type GenerateRuntimeFunction = (opts: {
   GraphQL: typeof GraphQL;
   operationDataList: OperationData[];
   netlifyGraphConfig: NetlifyGraphConfig;
-  options: Record<string, boolean>;
+  options: Record<string, unknown>;
   schema: GraphQLSchema;
   schemaId: string;
   functionDefinitions: ParsedFunction[];
