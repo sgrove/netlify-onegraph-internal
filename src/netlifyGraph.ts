@@ -1607,7 +1607,7 @@ export const generateFragmentTypeScriptDefinition = (
   const baseName = fragment.fragmentName;
 
   const returnSignatureName = capitalizeFirstLetter(baseName);
-  const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
+  const inputSignatureName = capitalizeFirstLetter(baseName) + "$variables";
 
   return `/**
 * ${jsDoc}
@@ -1657,8 +1657,8 @@ export const generateTypeScriptDefinitions = (
 
       const baseName = fn.operationName;
 
-      const returnSignatureName = capitalizeFirstLetter(baseName);
-      const inputSignatureName = capitalizeFirstLetter(baseName) + "Input";
+      const returnSignatureName = capitalizeFirstLetter(baseName) + "$data";
+      const inputSignatureName = capitalizeFirstLetter(baseName) + "$variables";
       const shouldExportInputSignature = fn.variableSignature !== "{}";
       const emptyVariablesGuideDocString =
         fn.variableSignature === "{}"
@@ -2338,13 +2338,13 @@ const frameworkGeneratorMap: Record<string, GenerateHandlerFunction> = {
 const defaultGenerator = genericNetlifyFunctionSnippet.generateHandler;
 
 /**
- * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
+ * Given a schema, GraphQL operations doc, a target definitionId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
 export const generateHandlerSource = ({
   GraphQL,
   handlerOptions,
   netlifyGraphConfig,
-  operationId,
+  operationId: definitionId,
   operationsDoc,
   schema,
 }: {
@@ -2363,11 +2363,11 @@ export const generateHandlerSource = ({
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const functions = operations.functions;
-  const fn = functions[operationId];
+  const fn = functions[definitionId] || operations.fragments[definitionId];
 
   if (!fn) {
     internalConsole.warn(
-      `Operation ${operationId} not found in graphql, found: ${Object.keys(
+      `Operation ${definitionId} not found in graphql, found: ${Object.keys(
         functions
       ).join(", ")}}`
     );
@@ -2420,7 +2420,8 @@ export const generateCustomHandlerSource = ({
   | undefined => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
-  const fn = operations.functions[operationId];
+  const fn =
+    operations.functions[operationId] || operations.fragments[operationId];
 
   if (!fn) {
     internalConsole.warn(

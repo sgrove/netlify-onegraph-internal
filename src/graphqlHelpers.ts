@@ -2198,12 +2198,7 @@ const addLeftWhitespace = (string, padding) => {
     .join("\n");
 };
 
-export const formInput = (
-  GraphQL: typeof GraphQLPackage,
-  schema,
-  def,
-  path = []
-) => {
+export const formInput = (GraphQL: typeof GraphQLPackage, schema, def) => {
   const {
     getNamedType,
     isEnumType,
@@ -2493,7 +2488,7 @@ export const formElComponent = ({
 
   const els = (operationData.operationDefinition.variableDefinitions || []).map(
     (def) => {
-      const genInput = formInput(GraphQL, schema, def, []);
+      const genInput = formInput(GraphQL, schema, def);
 
       const input =
         genInput || `UNABLE_TO_GENERATE_FORM_INPUT_FOR_GRAPHQL_TYPE(${def})`;
