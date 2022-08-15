@@ -389,6 +389,16 @@ export const updateCLISessionMetadata = async (
     }
   );
 
+  if (result.errors) {
+    internalConsole.warn(
+      `Unable to updateCLISessionMetadata: ${JSON.stringify(
+        result.errors,
+        null,
+        2
+      )}`
+    );
+  }
+
   const session = result.data?.oneGraph?.updateNetlifyCliSession?.session;
 
   return session;
