@@ -1898,8 +1898,11 @@ export const generateRuntime = async ({
   const parsedDoc = parse(operationsDoc, { noLocation: true });
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: operationsDoc,
     variables: [],
+    fragmentDefinitions,
   });
 
   const functionDefinitions: ParsedFunction[] = Object.values(operations)
@@ -2376,8 +2379,13 @@ export const generateHandlerSource = async ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
   const generate =
@@ -2434,8 +2442,13 @@ export const generateCustomHandlerSource = async ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
   const { exportedFiles } = await generate({
@@ -2491,8 +2504,13 @@ export const generatePreview = ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
   const exportedFile = generate({

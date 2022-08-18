@@ -148,6 +148,7 @@ export type OperationData = {
   variables: { [key: string]: string };
   operationDefinition: OperationDefinitionNode | FragmentDefinitionNode;
   fragmentDependencies: FragmentDefinitionNode[];
+  persistableOperationString: string | null;
 };
 
 export type GenerateRuntimeFunction = (opts: {
