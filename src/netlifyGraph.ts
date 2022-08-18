@@ -2340,7 +2340,7 @@ const defaultGenerator = genericNetlifyFunctionSnippet.generateHandler;
 /**
  * Given a schema, GraphQL operations doc, a target definitionId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
-export const generateHandlerSource = ({
+export const generateHandlerSource = async ({
   GraphQL,
   handlerOptions,
   netlifyGraphConfig,
@@ -2354,12 +2354,13 @@ export const generateHandlerSource = ({
   operationId: string;
   operationsDoc: string;
   schema: GraphQLSchema;
-}):
+}): Promise<
   | {
       exportedFiles: ExportedFile[];
       operation: OperationDefinitionNode;
     }
-  | undefined => {
+  | undefined
+> => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const functions = operations.functions;
@@ -2382,7 +2383,7 @@ export const generateHandlerSource = ({
   const generate =
     frameworkGeneratorMap[netlifyGraphConfig.framework] || defaultGenerator;
 
-  const { exportedFiles } = generate({
+  const { exportedFiles } = await generate({
     GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
@@ -2396,7 +2397,7 @@ export const generateHandlerSource = ({
 /**
  * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
-export const generateCustomHandlerSource = ({
+export const generateCustomHandlerSource = async ({
   GraphQL,
   handlerOptions,
   netlifyGraphConfig,
@@ -2412,12 +2413,13 @@ export const generateCustomHandlerSource = ({
   operationsDoc: string;
   schema: GraphQLSchema;
   generate: Codegen["generateHandler"];
-}):
+}): Promise<
   | {
       exportedFiles: ExportedFile[];
       operation: OperationDefinitionNode;
     }
-  | undefined => {
+  | undefined
+> => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const fn =
@@ -2436,7 +2438,7 @@ export const generateCustomHandlerSource = ({
     variables: [],
   });
 
-  const { exportedFiles } = generate({
+  const { exportedFiles } = await generate({
     GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,

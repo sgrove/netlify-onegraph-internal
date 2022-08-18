@@ -540,7 +540,7 @@ export const netlifyFunctionSnippet: Codegen = {
   supportedDefinitionTypes: [],
   id: "netlify-graph-codegen/serverless",
   version: "0.0.1",
-  generateHandler: (opts): ExporterResult => {
+  generateHandler: async (opts): Promise<ExporterResult> => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(

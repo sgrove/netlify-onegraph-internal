@@ -751,7 +751,7 @@ export const remixFunctionSnippet: Codegen = {
   supportedDefinitionTypes: [],
   id: "netlify-graph-codegen/remix",
   version: "0.0.1",
-  generateHandler: (opts) => {
+  generateHandler: async (opts) => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(
