@@ -117,7 +117,7 @@ export type GenerateHandlerFunction = (opts: {
   netlifyGraphConfig: NetlifyGraphConfig;
   options: Record<string, boolean>;
   schema: GraphQLSchema;
-}) => ExporterResult;
+}) => Promise<ExporterResult>;
 
 export type GenerateHandlerPreviewFunction = (opts: {
   GraphQL: typeof GraphQL;
@@ -148,6 +148,7 @@ export type OperationData = {
   variables: { [key: string]: string };
   operationDefinition: OperationDefinitionNode | FragmentDefinitionNode;
   fragmentDependencies: FragmentDefinitionNode[];
+  persistableOperationString: string | null;
 };
 
 export type GenerateRuntimeFunction = (opts: {

@@ -1898,8 +1898,11 @@ export const generateRuntime = async ({
   const parsedDoc = parse(operationsDoc, { noLocation: true });
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: operationsDoc,
     variables: [],
+    fragmentDefinitions,
   });
 
   const functionDefinitions: ParsedFunction[] = Object.values(operations)
@@ -2340,7 +2343,7 @@ const defaultGenerator = genericNetlifyFunctionSnippet.generateHandler;
 /**
  * Given a schema, GraphQL operations doc, a target definitionId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
-export const generateHandlerSource = ({
+export const generateHandlerSource = async ({
   GraphQL,
   handlerOptions,
   netlifyGraphConfig,
@@ -2354,12 +2357,13 @@ export const generateHandlerSource = ({
   operationId: string;
   operationsDoc: string;
   schema: GraphQLSchema;
-}):
+}): Promise<
   | {
       exportedFiles: ExportedFile[];
       operation: OperationDefinitionNode;
     }
-  | undefined => {
+  | undefined
+> => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const functions = operations.functions;
@@ -2375,14 +2379,19 @@ export const generateHandlerSource = ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
   const generate =
     frameworkGeneratorMap[netlifyGraphConfig.framework] || defaultGenerator;
 
-  const { exportedFiles } = generate({
+  const { exportedFiles } = await generate({
     GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
@@ -2396,7 +2405,7 @@ export const generateHandlerSource = ({
 /**
  * Given a schema, GraphQL operations doc, a target operationId, and a Netlify Graph config, generates a set of handlers (and potentially components) for the correct framework.
  */
-export const generateCustomHandlerSource = ({
+export const generateCustomHandlerSource = async ({
   GraphQL,
   handlerOptions,
   netlifyGraphConfig,
@@ -2412,12 +2421,13 @@ export const generateCustomHandlerSource = ({
   operationsDoc: string;
   schema: GraphQLSchema;
   generate: Codegen["generateHandler"];
-}):
+}): Promise<
   | {
       exportedFiles: ExportedFile[];
       operation: OperationDefinitionNode;
     }
-  | undefined => {
+  | undefined
+> => {
   const parsedDoc = parse(operationsDoc, { noLocation: true });
   const operations = extractFunctionsFromOperationDoc(GraphQL, parsedDoc);
   const fn =
@@ -2432,11 +2442,16 @@ export const generateCustomHandlerSource = ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
-  const { exportedFiles } = generate({
+  const { exportedFiles } = await generate({
     GraphQL,
     netlifyGraphConfig,
     operationDataList: odl.operationDataList,
@@ -2489,8 +2504,13 @@ export const generatePreview = ({
   }
 
   const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
     query: fn.operationString,
     variables: [],
+    fragmentDefinitions: parsedDoc.definitions.filter(
+      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+    ),
   });
 
   const exportedFile = generate({

@@ -3,6 +3,7 @@ import type {
   GraphQLSchema,
   OperationDefinitionNode,
   FragmentDefinitionNode,
+  DocumentNode,
 } from "graphql";
 import { NetlifyGraphConfig } from "../netlifyGraph";
 
@@ -15,7 +16,7 @@ import {
   Codegen,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
-import { remixFormInput } from "../graphqlHelpers";
+import { extractPersistableOperation, remixFormInput } from "../graphqlHelpers";
 import { CodegenHelpers, GraphQL } from "..";
 import { generateRuntime } from "./common";
 
@@ -328,18 +329,20 @@ const toposort = (graph) => {
 
 export const computeOperationDataList = ({
   GraphQL,
+  parsedDoc,
   query,
   variables,
+  fragmentDefinitions,
 }: {
   GraphQL: typeof GraphQLPackage;
+  parsedDoc: DocumentNode;
   query: string;
   variables: Record<string, unknown>;
+  fragmentDefinitions: FragmentDefinitionNode[];
 }): OperationDataList => {
   const { Kind, print } = GraphQL;
 
   const operationDefinitions = getOperationNodes(GraphQL, query);
-
-  const fragmentDefinitions: FragmentDefinitionNode[] = [];
 
   operationDefinitions.forEach((operationDefinition) => {
     if (operationDefinition.kind === Kind.FRAGMENT_DEFINITION) {
@@ -348,22 +351,31 @@ export const computeOperationDataList = ({
   });
 
   const rawOperationDataList: OperationData[] = operationDefinitions.map(
-    (operationDefinition) => ({
-      query: print(operationDefinition),
-      name: getOperationName(operationDefinition),
-      displayName: getOperationDisplayName(operationDefinition),
-      type:
+    (operationDefinition) => {
+      const persistableOperationString =
         operationDefinition.kind === Kind.OPERATION_DEFINITION
-          ? operationDefinition.operation
-          : Kind.FRAGMENT_DEFINITION,
-      variableName: formatVariableName(getOperationName(operationDefinition)),
-      variables: getUsedVariables(variables, operationDefinition),
-      operationDefinition,
-      fragmentDependencies: findFragmentDependencies(
-        fragmentDefinitions,
-        operationDefinition
-      ),
-    })
+          ? extractPersistableOperation(GraphQL, parsedDoc, operationDefinition)
+              ?.persistableOperationString ?? null
+          : null;
+
+      return {
+        query: print(operationDefinition),
+        name: getOperationName(operationDefinition),
+        displayName: getOperationDisplayName(operationDefinition),
+        type:
+          operationDefinition.kind === Kind.OPERATION_DEFINITION
+            ? operationDefinition.operation
+            : Kind.FRAGMENT_DEFINITION,
+        variableName: formatVariableName(getOperationName(operationDefinition)),
+        variables: getUsedVariables(variables, operationDefinition),
+        operationDefinition,
+        fragmentDependencies: findFragmentDependencies(
+          fragmentDefinitions,
+          operationDefinition
+        ),
+        persistableOperationString,
+      };
+    }
   );
 
   const operationDataList = toposort(rawOperationDataList);
@@ -751,7 +763,7 @@ export const remixFunctionSnippet: Codegen = {
   supportedDefinitionTypes: [],
   id: "netlify-graph-codegen/remix",
   version: "0.0.1",
-  generateHandler: (opts) => {
+  generateHandler: async (opts) => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(

@@ -13,10 +13,12 @@ import {
   GenerateHandlerFunction,
   Codegen,
   UnnamedExportedFile,
+  OperationData,
 } from "./codegenHelpers";
 import { internalConsole } from "../internalConsole";
 import { CodegenHelpers } from "..";
 import { generateRuntime } from "./common";
+import { extractPersistableOperation } from "../graphqlHelpers";
 
 let operationNodesMemo = [null, null];
 
@@ -161,34 +163,40 @@ const toposort = (graph) => {
   return result;
 };
 
-export const computeOperationDataList = ({ query, variables }) => {
+export const computeOperationDataList = ({
+  GraphQL,
+  parsedDoc,
+  query,
+  variables,
+  fragmentDefinitions,
+}) => {
   const operationDefinitions = getOperationNodes(query);
 
-  const fragmentDefinitions: FragmentDefinitionNode[] = [];
-
-  operationDefinitions.forEach((operationDefinition) => {
-    if (operationDefinition.kind === "FragmentDefinition") {
-      fragmentDefinitions.push(operationDefinition);
-    }
-  });
-
-  const rawOperationDataList = operationDefinitions.map(
-    (operationDefinition) => ({
-      query: print(operationDefinition),
-      name: getOperationName(operationDefinition),
-      displayName: getOperationDisplayName(operationDefinition),
-      type:
+  const rawOperationDataList: OperationData[] = operationDefinitions.map(
+    (operationDefinition) => {
+      const persistableOperationString =
         operationDefinition.kind === Kind.OPERATION_DEFINITION
-          ? operationDefinition.operation
-          : "fragment",
-      variableName: formatVariableName(getOperationName(operationDefinition)),
-      variables: getUsedVariables(variables, operationDefinition),
-      operationDefinition,
-      fragmentDependencies: findFragmentDependencies(
-        fragmentDefinitions,
-        operationDefinition
-      ),
-    })
+          ? extractPersistableOperation(GraphQL, parsedDoc, operationDefinition)
+              ?.persistableOperationString ?? null
+          : null;
+      return {
+        query: print(operationDefinition),
+        name: getOperationName(operationDefinition),
+        displayName: getOperationDisplayName(operationDefinition),
+        type:
+          operationDefinition.kind === Kind.OPERATION_DEFINITION
+            ? operationDefinition.operation
+            : "fragment",
+        variableName: formatVariableName(getOperationName(operationDefinition)),
+        variables: getUsedVariables(variables, operationDefinition),
+        operationDefinition,
+        fragmentDependencies: findFragmentDependencies(
+          fragmentDefinitions,
+          operationDefinition
+        ),
+        persistableOperationString,
+      };
+    }
   );
 
   const operationDataList = toposort(rawOperationDataList);
@@ -540,7 +548,7 @@ export const netlifyFunctionSnippet: Codegen = {
   supportedDefinitionTypes: [],
   id: "netlify-graph-codegen/serverless",
   version: "0.0.1",
-  generateHandler: (opts): ExporterResult => {
+  generateHandler: async (opts): Promise<ExporterResult> => {
     const { netlifyGraphConfig, options } = opts;
 
     const operationDataList = opts.operationDataList.map(

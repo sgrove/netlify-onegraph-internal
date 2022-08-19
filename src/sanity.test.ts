@@ -6,7 +6,7 @@ import path = require("path/posix");
 import { NetlifyGraph } from "./index";
 import { registerConsole } from "./internalConsole";
 
-const test = () => {
+const test = async () => {
   registerConsole(console);
 
   const sourceGraphQLFilename =
@@ -49,7 +49,7 @@ const test = () => {
     runtimeTargetEnv: "node",
   };
 
-  const result = NetlifyGraph.generateHandlerSource({
+  const result = await NetlifyGraph.generateHandlerSource({
     GraphQL,
     handlerOptions: {
       postHttpMethod: true,
