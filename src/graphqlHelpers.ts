@@ -1,4 +1,3 @@
-import * as GraphQLPackage from "graphql";
 import type {
   GraphQLSchema,
   FragmentDefinitionNode,
@@ -23,6 +22,8 @@ import { Maybe } from "graphql/jsutils/Maybe";
 
 import { OperationData } from "./codegen/codegenHelpers";
 import { internalConsole } from "./internalConsole";
+
+type GraphQLPackage = typeof import("graphql");
 
 export default function capitalizeFirstLetter(string: string) {
   return string.charAt(0).toUpperCase() + string.slice(1);
@@ -108,7 +109,7 @@ const scalarMap: Record<string, OutType> = {
 };
 
 export function gatherAllReferencedTypes(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   query: OperationDefinitionNode
 ): Array<string> {
@@ -134,7 +135,7 @@ export function gatherAllReferencedTypes(
 }
 
 function unwrapOutputType(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   outputType: GraphQLType
 ): GraphQLType {
   const { isWrappingType } = GraphQL;
@@ -146,7 +147,7 @@ function unwrapOutputType(
 }
 
 export function gatherVariableDefinitions(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   definition: OperationDefinitionNode
 ): Array<[string, string]> {
   const { print } = GraphQL;
@@ -162,7 +163,7 @@ export function gatherVariableDefinitions(
 }
 
 export function typeScriptForGraphQLType(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   gqlType: GraphQLType
 ): string {
@@ -226,7 +227,7 @@ export function typeScriptForGraphQLType(
 }
 
 export const guessVariableDescriptions = (
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode,
   variableNames: string[]
@@ -333,7 +334,7 @@ export const guessVariableDescriptions = (
 };
 
 export function typeScriptSignatureForOperationVariables(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   variableNames: Array<string>,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode
@@ -417,7 +418,7 @@ export function typeScriptSignatureForOperationVariables(
   return types === "" ? "null" : types;
 }
 
-export function listCount(GraphQL: typeof GraphQLPackage, gqlType) {
+export function listCount(GraphQL: GraphQLPackage, gqlType) {
   const { isListType, isWrappingType } = GraphQL;
 
   let inspectedType = gqlType;
@@ -479,7 +480,7 @@ const dummyOut: OutObject = {
 };
 
 export function typeScriptDefinitionObjectForOperation(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode | FragmentDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
@@ -1383,7 +1384,7 @@ const printOut = (out: OutType): string => {
 };
 
 export function typeScriptSignatureForOperation(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   operationDefinition: OperationDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
@@ -1401,7 +1402,7 @@ export function typeScriptSignatureForOperation(
 }
 
 export function typeScriptDefinitionObjectForFragment(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   fragmentDefinition: FragmentDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
@@ -1960,7 +1961,7 @@ export function typeScriptDefinitionObjectForFragment(
 }
 
 export function typeScriptSignatureForFragment(
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema: GraphQLSchema,
   fragmentDefinition: FragmentDefinitionNode,
   fragmentDefinitions: Record<string, FragmentDefinitionNode>
@@ -1989,7 +1990,7 @@ export function patchSubscriptionWebhookField({
   schema,
   definition,
 }: {
-  GraphQL: typeof GraphQLPackage;
+  GraphQL: GraphQLPackage;
   schema: GraphQLSchema;
   definition: OperationDefinitionNode;
 }): OperationDefinitionNode {
@@ -2091,7 +2092,7 @@ export function patchSubscriptionWebhookSecretField({
   schema,
   definition,
 }: {
-  GraphQL: typeof GraphQLPackage;
+  GraphQL: GraphQLPackage;
   schema: GraphQLSchema;
   definition: OperationDefinitionNode;
 }): OperationDefinitionNode {
@@ -2198,7 +2199,7 @@ const addLeftWhitespace = (string, padding) => {
     .join("\n");
 };
 
-export const formInput = (GraphQL: typeof GraphQLPackage, schema, def) => {
+export const formInput = (GraphQL: GraphQLPackage, schema, def) => {
   const {
     getNamedType,
     isEnumType,
@@ -2333,7 +2334,7 @@ export const formInput = (GraphQL: typeof GraphQLPackage, schema, def) => {
 };
 
 export const remixFormInput = (
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   schema,
   def,
   path = []
@@ -2469,7 +2470,7 @@ export const formElComponent = ({
   schema,
   callFn,
 }: {
-  GraphQL: typeof GraphQLPackage;
+  GraphQL: GraphQLPackage;
   operationData: OperationData;
   schema: GraphQLSchema;
   callFn: string;
@@ -2506,7 +2507,7 @@ export const formElComponent = ({
 };
 
 export const normalizeOperationsDoc = (
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   operationsDoc: string
 ) => {
   const { Kind, parse, print, visit } = GraphQL;
@@ -2569,7 +2570,7 @@ export const normalizeOperationsDoc = (
 };
 
 export const gatherHardcodedValues = (
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   query: string
 ) => {
   const { Kind, parse, visit } = GraphQL;
@@ -2626,7 +2627,7 @@ export const gatherHardcodedValues = (
 };
 
 export const extractPersistableOperation = (
-  GraphQL: typeof GraphQLPackage,
+  GraphQL: GraphQLPackage,
   doc: DocumentNode,
   operationDefinition: OperationDefinitionNode
 ): {
