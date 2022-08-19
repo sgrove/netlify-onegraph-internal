@@ -1,4 +1,6 @@
 import {
+  DocumentNode,
+  ExecutableDefinitionNode,
   FragmentDefinitionNode,
   Kind,
   OperationDefinitionNode,
@@ -7,10 +9,8 @@ import {
 } from "graphql";
 
 import {
-  ExportedFile,
   ExporterResult,
   munge,
-  GenerateHandlerFunction,
   Codegen,
   UnnamedExportedFile,
   OperationData,
@@ -65,7 +65,10 @@ const formatVariableName = (name) => {
   );
 };
 
-const getUsedVariables = (variables, operationDefinition) =>
+const getUsedVariables = (
+  variables: { [key: string]: string },
+  operationDefinition: ExecutableDefinitionNode
+) =>
   (operationDefinition.variableDefinitions || []).reduce(
     (usedVariables, variable) => {
       const variableName = variable.variable.name.value;
@@ -78,9 +81,12 @@ const getUsedVariables = (variables, operationDefinition) =>
     {}
   );
 
-const findFragmentDependencies = (operationDefinitions, definition) => {
+const findFragmentDependencies = (
+  fragmentDefinitions: FragmentDefinitionNode[],
+  definition
+) => {
   const fragmentByName = (name) =>
-    operationDefinitions.find((def) => def.name.value === name);
+    fragmentDefinitions.find((def) => def.name?.value === name);
 
   const findReferencedFragments = (selectionSet) => {
     const { selections } = selectionSet;
@@ -169,6 +175,12 @@ export const computeOperationDataList = ({
   query,
   variables,
   fragmentDefinitions,
+}: {
+  GraphQL: typeof import("graphql");
+  parsedDoc: DocumentNode;
+  query: string;
+  variables: { [key: string]: string };
+  fragmentDefinitions: FragmentDefinitionNode[];
 }) => {
   const operationDefinitions = getOperationNodes(query);
 

@@ -1901,8 +1901,8 @@ export const generateRuntime = async ({
     GraphQL,
     parsedDoc,
     query: operationsDoc,
-    variables: [],
-    fragmentDefinitions,
+    variables: {},
+    fragmentDefinitions: Object.values(allFragmentNodes),
   });
 
   const functionDefinitions: ParsedFunction[] = Object.values(operations)
@@ -2382,9 +2382,9 @@ export const generateHandlerSource = async ({
     GraphQL,
     parsedDoc,
     query: fn.operationString,
-    variables: [],
+    variables: {},
     fragmentDefinitions: parsedDoc.definitions.filter(
-      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+      (d): d is FragmentDefinitionNode => d.kind === Kind.FRAGMENT_DEFINITION
     ),
   });
 
@@ -2445,9 +2445,9 @@ export const generateCustomHandlerSource = async ({
     GraphQL,
     parsedDoc,
     query: fn.operationString,
-    variables: [],
+    variables: {},
     fragmentDefinitions: parsedDoc.definitions.filter(
-      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+      (d): d is FragmentDefinitionNode => d.kind === Kind.FRAGMENT_DEFINITION
     ),
   });
 
@@ -2507,9 +2507,9 @@ export const generatePreview = ({
     GraphQL,
     parsedDoc,
     query: fn.operationString,
-    variables: [],
+    variables: {},
     fragmentDefinitions: parsedDoc.definitions.filter(
-      (d) => d.kind === Kind.FRAGMENT_DEFINITION
+      (d): d is FragmentDefinitionNode => d.kind === Kind.FRAGMENT_DEFINITION
     ),
   });
 
