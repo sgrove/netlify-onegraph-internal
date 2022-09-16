@@ -573,15 +573,13 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
   // GENERATED VIA NETLIFY AUTOMATED DEV TOOLS, EDIT WITH CAUTION!
   
   ${lruCacheImplementation}
-  
+
   const schemaId = '${schemaId}';
-  
+
   const netlifyGraphHostWithProtocol =
     process.env.NETLIFY_GRAPH_HOST_WITH_PROTOCOL || 'https://graph.netlify.com';
-  
-  const siteId = process.env.SITE_ID;
-  
-  const makeNetlifyGraphUrl = ({ operationName }) => {
+
+  const makeNetlifyGraphUrl = ({ operationName, siteId }) => {
     return (
       netlifyGraphHostWithProtocol +
       '/graphql?app_id=' +
@@ -592,7 +590,7 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
       schemaId
     );
   };
-  
+
   const httpFetch = (operationName, options) => {
     const reqBody = options.body || null;
     const userHeaders = options.headers || {};
@@ -600,18 +598,19 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
       ...userHeaders,
       'Content-Type': 'application/json',
     };
-  
+
     const timeoutMs = 30_000;
-  
+
     const reqOptions = {
       method: 'POST',
       headers: headers,
       timeout: timeoutMs,
       body: reqBody,
     };
-  
-    const netlifyGraphUrl = makeNetlifyGraphUrl({ operationName: operationName });
-  
+
+    const siteId = options.siteId || process.env.SITE_ID;
+    const netlifyGraphUrl = makeNetlifyGraphUrl({ operationName: operationName, siteId });
+
     return fetch(netlifyGraphUrl, reqOptions).then((body) => {
       return body.text().then((bodyString) => {
         const headers = {};
@@ -625,7 +624,7 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
       });
     });
   };
-  
+ 
   const fetchNetlifyGraph = function fetchNetlifyGraph(input) {
     const query = input.query;
     const docId = input.doc_id;
@@ -634,7 +633,6 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
   
     const options = input.options || {};
     const accessToken = options.accessToken;
-    const siteId = options.siteId || process.env.SITE_ID;
   
     const payload = {
       query: query,
@@ -663,6 +661,7 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
       }
   
       const response = httpFetch(operationName, {
+        ...options,
         method: 'POST',
         headers: {
           ...conditionalHeaders,
@@ -695,7 +694,7 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
   
     return cachedOrLiveValue;
   };
-  
+
   ${functionDecls.join("\n\n")}
   
   /**
