@@ -609,7 +609,7 @@ export const generateRuntime: CodegenHelpers.GenerateRuntimeFunction = (
     };
 
     const siteId = options.siteId || process.env.SITE_ID;
-    const netlifyGraphUrl = makeNetlifyGraphUrl({ operationName: operationName, siteId });
+    const netlifyGraphUrl = makeNetlifyGraphUrl({ operationName: operationName, siteId: siteId });
 
     return fetch(netlifyGraphUrl, reqOptions).then((body) => {
       return body.text().then((bodyString) => {
