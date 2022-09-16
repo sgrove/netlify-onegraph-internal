@@ -341,6 +341,304 @@ const makeFunctionName = (kind: string, operationName: string) => {
   return capitalizeFirstLetter(operationName).trim();
 };
 
+export const fragmentToParsedFragmentDefinition = (
+  GraphQL: typeof GraphQLPackage,
+  currentFragments: Record<string, FragmentDefinitionNode>,
+  fullSchema: GraphQLSchema,
+  extractedFragment: ExtractedFragment
+): {
+  fragmentDefinitions: Record<string, FragmentDefinitionNode[]>;
+  fragment?: ParsedFragment | undefined;
+} => {
+  const basicFn = {
+    id: extractedFragment.id,
+    operationString: extractedFragment.operationString,
+    description: extractedFragment.description || "",
+  };
+
+  const body = basicFn.operationString;
+  const safeBody = replaceAll(body, "${", "\\${");
+
+  const parsed = parse(body, { noLocation: true });
+  const operations = parsed.definitions.filter(
+    (def) => def.kind === Kind.OPERATION_DEFINITION
+  );
+  const fragmentDefinitions = parsed.definitions.filter(
+    (def) => def.kind === Kind.FRAGMENT_DEFINITION
+  ) as FragmentDefinitionNode[];
+
+  const fragments = fragmentDefinitions.reduce(
+    (acc, def) => ({ ...acc, [def.name.value]: def }),
+    {}
+  );
+
+  if (!operations) {
+    internalConsole.error(`Fragment definition is required in ${basicFn.id}`);
+    return { fragmentDefinitions: fragments };
+  }
+
+  const [operation] = fragmentDefinitions;
+
+  if (operation.kind !== Kind.FRAGMENT_DEFINITION) {
+    internalConsole.error(`Definition is not an fragment in ${basicFn.id}`);
+    return { fragmentDefinitions: fragments };
+  }
+
+  const returnSignature = typeScriptSignatureForFragment(
+    GraphQL,
+    fullSchema,
+    operation,
+    { ...currentFragments, ...fragments }
+  );
+
+  const variableNames = (operation.variableDefinitions || []).map(
+    (varDef) => varDef.variable.name.value
+  );
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
+    variableNames,
+    fullSchema,
+    // @ts-ignore TODO: FIX THIS!
+    operation
+  );
+
+  const fragmentName = operation.name && operation.name.value;
+
+  if (!fragmentName) {
+    internalConsole.error(
+      `Operation name is required in ${
+        basicFn.operationString
+      }\n\tfound: ${JSON.stringify(operation.name)}`
+    );
+    return { fragmentDefinitions: fragments };
+  }
+
+  const operationWithoutNetlifyDirective = {
+    ...operation,
+    directives: (operation.directives || []).filter(
+      (directive) => directive.name.value !== NETLIFY_DIRECTIVE_NAME
+    ),
+  };
+
+  const typeCondition = operation.typeCondition.name.value;
+
+  const fn: ParsedFragment = {
+    ...basicFn,
+    safeBody,
+    kind: "fragment",
+    returnSignature,
+    fragmentName: fragmentName,
+    typeCondition,
+    parsedOperation: operation,
+    operationStringWithoutNetlifyDirective: print(
+      operationWithoutNetlifyDirective
+    ),
+  };
+
+  return { fragmentDefinitions: fragments, fragment: fn };
+};
+
+export const queryToFunctionDefinition = (
+  GraphQL: typeof GraphQLPackage,
+  fullSchema: GraphQLSchema,
+  parsedDoc: DocumentNode,
+  persistedQuery: ExtractedFunction,
+  enabledFragments: Record<string, ParsedFragment>
+): ParsedFunction | undefined => {
+  const basicFn = {
+    id: persistedQuery.id,
+    operationString: persistedQuery.operationString,
+    description: persistedQuery.description || "",
+  };
+
+  const body = basicFn.operationString;
+  const safeBody = replaceAll(body, "${", "\\${");
+
+  const parsed = parse(body, { noLocation: true });
+  const operations = parsed.definitions.filter(
+    (def) => def.kind === Kind.OPERATION_DEFINITION
+  );
+  const fragmentDefinitions = parsed.definitions.filter(
+    (def) => def.kind === Kind.FRAGMENT_DEFINITION
+  ) as FragmentDefinitionNode[];
+
+  const fragments: Record<string, FragmentDefinitionNode> = Object.values(
+    enabledFragments
+  ).reduce(
+    (acc, def) => ({ ...acc, [def.fragmentName]: def.parsedOperation }),
+    {}
+  );
+
+  if (!operations) {
+    internalConsole.error(`Operation definition is required in ${basicFn.id}`);
+    return;
+  }
+
+  const [operation] = operations;
+
+  if (operation.kind !== Kind.OPERATION_DEFINITION) {
+    internalConsole.error(`Definition is not an operation in ${basicFn.id}`);
+    return;
+  }
+
+  const returnSignature = typeScriptSignatureForOperation(
+    GraphQL,
+    fullSchema,
+    operation,
+    fragments
+  );
+
+  const variableNames = (operation.variableDefinitions || []).map(
+    (varDef) => varDef.variable.name.value
+  );
+
+  const variableSignature = typeScriptSignatureForOperationVariables(
+    GraphQL,
+    variableNames,
+    fullSchema,
+    operation
+  );
+
+  const operationName = operation.name && operation.name.value;
+
+  if (!operationName) {
+    internalConsole.error(
+      `Operation name is required in ${
+        basicFn.operationString
+      }\n\tfound: ${JSON.stringify(operation.name)}`
+    );
+    return;
+  }
+
+  const operationWithoutNetlifyDirective = {
+    ...operation,
+    directives: (operation.directives || []).filter(
+      (directive) => directive.name.value !== NETLIFY_DIRECTIVE_NAME
+    ),
+  };
+
+  const persistableOperationFacts = extractPersistableOperationString(
+    GraphQL,
+    parsedDoc,
+    operation
+  ) || { persistableOperationString: print(operation) };
+
+  const persistableOperationString =
+    persistableOperationFacts.persistableOperationString;
+
+  const cacheControl = pluckNetlifyCacheControlDirective(operation);
+  const netlifyDirective = pluckNetlifyDirective(operation);
+
+  const fn: ParsedFunction = {
+    ...basicFn,
+    fnName: makeFunctionName(operation.operation, operationName),
+    safeBody,
+    kind: operation.operation,
+    variableSignature,
+    cacheStrategy: cacheControl.cacheStrategy,
+    fallbackOnError: cacheControl.fallbackOnError,
+    persistableOperationString,
+    returnSignature,
+    operationName,
+    parsedOperation: operation,
+    operationStringWithoutNetlifyDirective: print(
+      operationWithoutNetlifyDirective
+    ),
+    variableNames: variableNames,
+    executionStrategy: netlifyDirective?.executionStrategy || "DYNAMIC",
+  };
+
+  return fn;
+};
+
+export const generateRuntime = async ({
+  GraphQL,
+  fragments,
+  generate,
+  netlifyGraphConfig,
+  operationsDoc,
+  operations,
+  schema,
+  schemaId,
+}: {
+  GraphQL: typeof GraphQLPackage;
+  netlifyGraphConfig: NetlifyGraphConfig;
+  schema: GraphQLSchema;
+  operationsDoc: string;
+  operations: Record<string, ExtractedFunction>;
+  fragments: Record<string, ExtractedFragment>;
+  generate: CodegenHelpers.GenerateRuntimeFunction;
+  schemaId: string;
+}) => {
+  const allFragmentNodes = Object.fromEntries(
+    Object.entries(fragments).map(([key, value]) => [
+      value.fragmentName,
+      value.parsedOperation,
+    ])
+  );
+
+  const fragmentResults: {
+    fragmentDefinitions: Record<string, ParsedFragment>;
+  } = Object.entries(fragments).reduce(
+    ({ fragmentDefinitions }, [fragmentName, fragment]) => {
+      const parsed = fragmentToParsedFragmentDefinition(
+        GraphQL,
+        allFragmentNodes,
+        schema,
+        fragment
+      );
+      return {
+        fragmentDefinitions: {
+          ...fragmentDefinitions,
+          [fragmentName]: parsed.fragment,
+        },
+      };
+    },
+    { fragmentDefinitions: {} }
+  );
+
+  const { fragmentDefinitions } = fragmentResults;
+
+  const parsedDoc = parse(operationsDoc, { noLocation: true });
+
+  const odl = computeOperationDataList({
+    GraphQL,
+    parsedDoc,
+    query: operationsDoc,
+    variables: {},
+    fragmentDefinitions: Object.values(allFragmentNodes),
+  });
+
+  const functionDefinitions: ParsedFunction[] = Object.values(operations)
+    .map((query) =>
+      queryToFunctionDefinition(
+        GraphQL,
+        schema,
+        parsedDoc,
+        query,
+        fragmentDefinitions
+      )
+    )
+    .filter(Boolean)
+    .sort((a: ParsedFunction, b: ParsedFunction) => {
+      return a.id.localeCompare(b.id);
+    }) as ParsedFunction[];
+
+  const runtime = generate({
+    GraphQL,
+    netlifyGraphConfig,
+    schema,
+    functionDefinitions,
+    fragments: Object.values(fragmentDefinitions),
+    operationDataList: odl.operationDataList,
+    schemaId: schemaId,
+    options: {},
+  });
+
+  return runtime;
+};
+
 const pluckDirectiveArgEnumValue = (
   directive: DirectiveNode,
   argName: string
